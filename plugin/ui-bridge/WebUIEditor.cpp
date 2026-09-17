@@ -63,7 +63,14 @@ void WebUIEditor::attachSliderParameter (const juce::String& parameterID)
 
 juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
 {
-    auto options = juce::WebBrowserComponent::Options {}
+    // The type is spelled out rather than deduced with `auto`: MSVC rejects
+    // reassigning an `auto`-declared variable from a call on itself with
+    // C3536 ("cannot be used before it is initialized"), which the relay loop
+    // below does. Clang and GCC accept it, so this only breaks the Windows
+    // build. Do not "simplify" this back to `auto`.
+    using Options = juce::WebBrowserComponent::Options;
+
+    Options options = Options {}
         .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
         .withWinWebView2Options (
             juce::WebBrowserComponent::Options::WinWebView2 {}
