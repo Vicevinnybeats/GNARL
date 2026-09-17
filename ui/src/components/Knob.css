@@ -1,0 +1,40 @@
+.gn-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gn-space-1);
+  position: relative;
+}
+
+.gn-knob__dial {
+  display: block;
+  cursor: ns-resize;
+  touch-action: none;
+  border-radius: 50%;
+  outline: none;
+}
+
+.gn-knob__dial:focus-visible {
+  box-shadow: 0 0 0 var(--gn-hairline) var(--gn-accent);
+}
+
+.gn-knob__label {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gn-text-dim);
+}
+
+.gn-knob__readout {
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-value);
+  color: var(--gn-accent);
+  min-height: 1em;
+  opacity: 0;
+}
+
+.gn-knob:hover .gn-knob__readout,
+.gn-knob__readout[data-visible='true'] {
+  opacity: 1;
+}

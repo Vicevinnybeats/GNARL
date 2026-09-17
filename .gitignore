@@ -1,0 +1,32 @@
+# Build
+build/
+build-*/
+cmake-build-*/
+out/
+*.o
+*.a
+*.lib
+*.obj
+
+# Node / Vite
+node_modules/
+ui/dist/
+.vite/
+
+# GENERATED: synced from the JUCE checkout by ui/scripts/sync-juce-frontend.mjs
+ui/src/juce/
+
+# IDE / OS
+.vscode/
+.idea/
+*.xcodeproj/
+*.xcworkspace/
+.DS_Store
+Thumbs.db
+
+# Secrets — the licensing private key NEVER enters the repo
+*.pem
+*.p12
+*.key
+.env
+.env.local

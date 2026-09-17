@@ -1,0 +1,218 @@
+name: build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+  # pluginval strictness 10 is the bar the prompt pack sets; anything lower
+  # lets real host-breaking bugs through.
+  PLUGINVAL_STRICTNESS: 10
+
+jobs:
+  # The web UI is platform independent, so build it once and reuse it. This
+  # also keeps a UI-only break from failing two expensive native jobs.
+  ui:
+    name: web ui
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install
+        working-directory: ui
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: ui
+        run: npm run typecheck
+
+      - name: Lint
+        working-directory: ui
+        run: npm run lint
+
+      - name: Build
+        working-directory: ui
+        run: npm run build
+
+      - name: Verify the embedded file list matches cmake/WebUI.cmake
+        working-directory: ui
+        run: |
+          set -euo pipefail
+          for f in index.html assets/index.js assets/index.css; do
+            test -s "dist/$f" || { echo "::error::missing dist/$f"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gnarl-ui-dist
+          path: ui/dist
+          retention-days: 7
+
+  # Linux is not a release target, but it builds the engine and runs the whole
+  # test suite in about a minute — far faster feedback than waiting on the
+  # macOS and Windows runners.
+  tests-linux:
+    name: tests (linux)
+    needs: ui
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gnarl-ui-dist
+          path: ui/dist
+
+      - name: Install JUCE's Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libx11-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxcursor-dev libxcomposite-dev \
+            libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev \
+            libcurl4-openssl-dev libwebkit2gtk-4.1-dev
+
+      - name: Cache JUCE and Catch2 checkouts
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: Linux-deps-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DGNARL_BUILD_TESTS=ON
+          -DGNARL_BUILD_UI=OFF
+
+      - name: Build
+        run: cmake --build build --parallel 4
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  plugin:
+    name: ${{ matrix.name }}
+    needs: ui
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-14
+            pluginval_url: https://github.com/Tracktion/pluginval/releases/download/v1.0.3/pluginval_macOS.zip
+          - name: Windows
+            os: windows-2022
+            pluginval_url: https://github.com/Tracktion/pluginval/releases/download/v1.0.3/pluginval_Windows.zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reuse the UI built in the `ui` job so the two native builds embed a
+      # byte-identical bundle.
+      - uses: actions/download-artifact@v4
+        with:
+          name: gnarl-ui-dist
+          path: ui/dist
+
+      - name: Cache JUCE and Catch2 checkouts
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      # GNARL_BUILD_UI=OFF because the bundle was built in the `ui` job and
+      # downloaded above; the CMake UI step would only rebuild it.
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DGNARL_BUILD_TESTS=ON
+          -DGNARL_BUILD_UI=OFF
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
+
+      - name: Test
+        working-directory: build
+        run: ctest -C ${{ env.BUILD_TYPE }} --output-on-failure
+
+      - name: Fetch pluginval
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSL "${{ matrix.pluginval_url }}" -o pluginval.zip
+          unzip -q pluginval.zip -d pluginval
+
+      - name: Locate the built VST3
+        id: vst3
+        shell: bash
+        run: |
+          set -euo pipefail
+          path=$(find build -name 'GNARL.vst3' -maxdepth 8 | head -n 1)
+          test -n "$path" || { echo "::error::no VST3 produced"; exit 1; }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "Found $path"
+
+      - name: pluginval (VST3)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            bin="pluginval/pluginval.app/Contents/MacOS/pluginval"
+          else
+            bin="pluginval/pluginval.exe"
+          fi
+          "$bin" --strictness-level "${{ env.PLUGINVAL_STRICTNESS }}" \
+                 --validate-in-process \
+                 --timeout-ms 600000 \
+                 --validate "${{ steps.vst3.outputs.path }}"
+
+      - name: Locate the built AU (macOS)
+        id: au
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          path=$(find build -name 'GNARL.component' -maxdepth 8 | head -n 1)
+          test -n "$path" || { echo "::error::no AU produced"; exit 1; }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      # An AU must be installed in the component search path before the system
+      # will register it, so validating it in CI needs the copy step below.
+      - name: pluginval (AU)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R "${{ steps.au.outputs.path }}" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          pluginval/pluginval.app/Contents/MacOS/pluginval \
+            --strictness-level "${{ env.PLUGINVAL_STRICTNESS }}" \
+            --validate-in-process \
+            --timeout-ms 600000 \
+            --validate ~/Library/Audio/Plug-Ins/Components/GNARL.component
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gnarl-${{ matrix.name }}
+          path: |
+            build/**/GNARL.vst3
+            build/**/GNARL.component
+          retention-days: 7

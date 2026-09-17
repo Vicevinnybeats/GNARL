@@ -1,0 +1,83 @@
+/*
+ * GNARL design tokens.
+ *
+ * Phase 6 builds the full system on top of these. Rules that do not bend:
+ *  - near-black base, one step lighter for panels, hairline borders
+ *  - exactly ONE accent per theme, carrying active/modulated state only
+ *  - sharp geometry: 2-4px radii, no soft shadows, no glass
+ *  - two typefaces: condensed grotesque for headers, mono for numbers
+ */
+:root {
+  /* Surfaces */
+  --gn-bg: #0a0a0c;
+  --gn-panel: #141418;
+  --gn-panel-raised: #1b1b21;
+  --gn-border: #242430;
+  --gn-border-strong: #33333f;
+
+  /* Text */
+  --gn-text: #e6e6ea;
+  --gn-text-dim: #8a8a96;
+  --gn-text-faint: #5a5a66;
+
+  /* Accent — "Acid" theme. Swapped wholesale for "Ember" (#ff5c1a). */
+  --gn-accent: #b4ff2e;
+  --gn-accent-dim: #7aad1f;
+  --gn-accent-contrast: #0a0a0c;
+
+  /* Semantic */
+  --gn-warn: #ffb02e;
+  --gn-error: #ff4444;
+
+  /* Geometry */
+  --gn-radius: 3px;
+  --gn-radius-sm: 2px;
+  --gn-hairline: 1px;
+
+  /* Spacing — 4px base grid */
+  --gn-space-1: 4px;
+  --gn-space-2: 8px;
+  --gn-space-3: 12px;
+  --gn-space-4: 16px;
+  --gn-space-6: 24px;
+  --gn-space-8: 32px;
+
+  /* Type */
+  --gn-font-display: 'Archivo Narrow', 'Oswald', 'Helvetica Neue', sans-serif;
+  --gn-font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  --gn-size-label: 10px;
+  --gn-size-value: 11px;
+  --gn-size-body: 12px;
+  --gn-size-header: 14px;
+  --gn-tracking-header: 0.14em;
+}
+
+:root[data-theme='ember'] {
+  --gn-accent: #ff5c1a;
+  --gn-accent-dim: #a83a0d;
+  --gn-accent-contrast: #0a0a0c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--gn-bg);
+  color: var(--gn-text);
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-body);
+  /* A plugin window is not a web page: no text selection, no rubber banding,
+     no context menu hijacking the right-click we need for mod assignment. */
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+}

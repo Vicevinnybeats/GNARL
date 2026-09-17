@@ -1,0 +1,33 @@
+{
+  "name": "gnarl-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "predev": "node scripts/sync-juce-frontend.mjs",
+    "build": "tsc --noEmit && vite build",
+    "prebuild": "node scripts/sync-juce-frontend.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "pretypecheck": "node scripts/sync-juce-frontend.mjs",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
+    "sync-juce": "node scripts/sync-juce-frontend.mjs",
+    "postinstall": "node scripts/sync-juce-frontend.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^8.3.0"
+  }
+}
