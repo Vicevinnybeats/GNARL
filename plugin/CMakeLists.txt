@@ -32,7 +32,13 @@ gnarl_add_web_ui(GNARL_WEB_UI_TARGET)
 target_sources(GNARL PRIVATE
     source/PluginProcessor.cpp
     source/PluginProcessor.h
+    source/dsp/CombFilter.h
+    source/dsp/FilterSlot.h
+    source/dsp/FormantFilter.h
+    source/dsp/LadderFilter.h
+    source/dsp/Saturation.h
     source/dsp/SmoothedParameter.h
+    source/dsp/StateVariableFilter.h
     source/dsp/Voice.cpp
     source/dsp/Voice.h
     source/dsp/VoiceManager.cpp

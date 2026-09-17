@@ -5,6 +5,7 @@
 
 add_executable(GnarlTests
     TestMain.cpp
+    FilterTests.cpp
     ParameterLayoutTests.cpp
     ParameterMirrorTests.cpp
     PluginSmokeTests.cpp

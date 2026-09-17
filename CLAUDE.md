@@ -153,6 +153,25 @@ in a `SmoothedValue` — a parameter that jumps discontinuously clicks.
 `dsp::SmoothedParameter` does both; `dsp::ramp` holds the ramp-time policy and
 says why each value is what it is.
 
+**Every filter here is zero-delay-feedback (topology-preserving), and that is
+not a stylistic choice.** A bilinear biquad recalculated per sample is not
+stable, so a filter built from one cannot be modulated at audio rate — and
+audio-rate filter modulation is most of what makes a growl. `FilterTests` has a
+case that sweeps cutoff every single sample across the full range, for every
+filter type, to keep that property honest.
+
+**A memoryless waveshaper always aliases**, because it generates harmonics
+above Nyquist by construction. Nothing in `Saturation.h` is safe to run at the
+base sample rate at high drive; the caller oversamples it.
+
+**A drive control must not double as a volume control.** `DriveStage`
+compensates by measuring the slope of the whole stage (pre-gain included) with
+respect to its input. Measuring only the curve's own slope leaves the pre-gain
+in place and gives drive +15 dB of level — which was a real bug here, and one
+a loose test threshold hid. Note that an *even* curve (rectify) cannot have
+unity RMS gain at all: it moves most of the signal's energy to DC, which the DC
+blocker then removes.
+
 **`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
 building several differently-sized frames from one harmonic series gives each a
 different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip
@@ -366,7 +385,7 @@ Consequences of the figure above:
 |---|---|---|
 | 0 | Repo skeleton, CMake, UI scaffold, CI, this file | **done** |
 | 1 | Full parameter layout, voice architecture, smoothing | **done** |
-| 2 | Oscillators (wavetable + graintable), filters, formant filter | **in progress** — tables, warps and oscillator done; filters next |
+| 2 | Oscillators (wavetable + graintable), filters, formant filter | **in progress** — tables, warps, oscillator and filters done; oversampling and engine routing next |
 | 3 | LFO engine, envelopes, mod matrix, macros | not started |
 | 4 | FX chain (10 slots) | not started |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
