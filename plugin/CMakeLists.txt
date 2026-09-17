@@ -18,7 +18,14 @@ juce_add_plugin(GNARL
     COPY_PLUGIN_AFTER_BUILD     TRUE
     VST3_CATEGORIES             Instrument Synth
     AU_MAIN_TYPE                kAudioUnitType_MusicDevice
-    NEEDS_WEB_BROWSER           TRUE)
+    NEEDS_WEB_BROWSER           TRUE
+    # Windows only, and NOT optional. Without it JUCE compiles the whole
+    # native-integration API out of WebBrowserComponent::Options (no
+    # withResourceProvider, no relays) and silently falls back to the
+    # Internet Explorer engine, which cannot run a modern React bundle at
+    # all. Requires the Microsoft.Web.WebView2 NuGet package on the build
+    # machine - see docs/windows-setup.md.
+    NEEDS_WEBVIEW2              TRUE)
 
 gnarl_add_web_ui(GNARL_WEB_UI_TARGET)
 
@@ -30,6 +37,11 @@ target_sources(GNARL PRIVATE
     source/dsp/Voice.h
     source/dsp/VoiceManager.cpp
     source/dsp/VoiceManager.h
+    source/dsp/WarpProcessor.h
+    source/dsp/Wavetable.cpp
+    source/dsp/Wavetable.h
+    source/dsp/WavetableLibrary.cpp
+    source/dsp/WavetableLibrary.h
     source/params/ParameterChoices.h
     source/params/ParameterIDs.h
     source/params/ParameterLayout.cpp
@@ -45,6 +57,10 @@ target_include_directories(GNARL PUBLIC source ui-bridge)
 
 target_compile_definitions(GNARL PUBLIC
     JUCE_WEB_BROWSER=1              # the entire UI is a WebBrowserComponent
+    # Static linking, so the shipped VST3 has no WebView2Loader.dll sitting
+    # next to it for a user to lose. Implies JUCE_USE_WIN_WEBVIEW2=1.
+    # No effect on macOS or Linux, which use the system WebKit.
+    JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_REPORT_APP_USAGE=0

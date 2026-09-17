@@ -9,6 +9,20 @@ namespace gnarl
 
 namespace
 {
+    /** Where WebView2 keeps its cache and local storage on Windows. */
+    juce::File getWebViewDataFolder()
+    {
+        auto folder = juce::File::getSpecialLocation (
+                          juce::File::SpecialLocationType::userApplicationDataDirectory)
+                          .getChildFile ("GNARL")
+                          .getChildFile ("WebView");
+
+        // Created here, on the message thread, so the web view never has to.
+        folder.createDirectory();
+
+        return folder;
+    }
+
     constexpr int kDefaultWidth  = 1180;
     constexpr int kDefaultHeight = 720;
 
@@ -75,10 +89,12 @@ juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
         .withWinWebView2Options (
             juce::WebBrowserComponent::Options::WinWebView2 {}
                 .withBackgroundColour (juce::Colour (0xff0a0a0c))
-                // Per-user data folder: a plugin must not write into the
-                // host's install directory.
-                .withUserDataFolder (juce::File::getSpecialLocation (
-                    juce::File::SpecialLocationType::tempDirectory)))
+                // A per-user app-data folder, NOT the temp directory: WebView2
+                // keeps this folder open for the life of the view, and a temp
+                // cleaner removing it mid-session breaks the UI in a running
+                // project. A plugin must also never write into the host's own
+                // install directory.
+                .withUserDataFolder (getWebViewDataFolder()))
         .withNativeIntegrationEnabled()
         .withResourceProvider ([] (const auto& url) { return WebUIResourceProvider::get (url); },
                                juce::URL (WebUIResourceProvider::getOrigin()).getOrigin())

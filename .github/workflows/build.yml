@@ -15,6 +15,9 @@ env:
   # pluginval strictness 10 is the bar the prompt pack sets; anything lower
   # lets real host-breaking bugs through.
   PLUGINVAL_STRICTNESS: 10
+  # Pinned: the WebView2 SDK is a build dependency of the Windows UI, and an
+  # unpinned SDK is an unreproducible build.
+  WEBVIEW2_VERSION: 1.0.2903.40
 
 jobs:
   # The web UI is platform independent, so build it once and reuse it. This
@@ -135,6 +138,22 @@ jobs:
           path: build/_deps
           key: ${{ runner.os }}-deps-${{ hashFiles('cmake/Dependencies.cmake') }}
 
+      # Required, not optional: without the WebView2 SDK, JUCE compiles the
+      # native-integration API out of WebBrowserComponent and falls back to
+      # the IE engine, which cannot run the React UI. See
+      # docs/windows-setup.md.
+      - name: Install the WebView2 SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Web.WebView2 `
+            -Version ${{ env.WEBVIEW2_VERSION }} `
+            -OutputDirectory "${{ github.workspace }}/nuget"
+          if (-not (Test-Path "${{ github.workspace }}/nuget/Microsoft.Web.WebView2.${{ env.WEBVIEW2_VERSION }}/build/native/include/WebView2.h")) {
+            Write-Error "WebView2 SDK headers not found after install"
+            exit 1
+          }
+
       # GNARL_BUILD_UI=OFF because the bundle was built in the `ui` job and
       # downloaded above; the CMake UI step would only rebuild it.
       - name: Configure
@@ -143,6 +162,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DGNARL_BUILD_TESTS=ON
           -DGNARL_BUILD_UI=OFF
+          -DJUCE_WEBVIEW2_PACKAGE_LOCATION=${{ github.workspace }}/nuget
 
       - name: Build
         run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4

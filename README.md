@@ -24,7 +24,10 @@ Building an audio plugin needs a desktop toolchain — this cannot be built or
 tested from a phone or a cloud shell.
 
 - **macOS**: Xcode 15+ (for AU, universal binaries, and notarization)
-- **Windows**: Visual Studio 2022 with the C++ desktop workload
+- **Windows**: Visual Studio 2022 with the C++ desktop workload, **plus the
+  Microsoft.Web.WebView2 NuGet package** — see
+  [`docs/windows-setup.md`](docs/windows-setup.md). This is mandatory: without
+  it there is no Windows UI.
 - CMake 3.22+
 - Node 20+
 - A DAW to test in (FL Studio, Ableton, Bitwig, Reaper)

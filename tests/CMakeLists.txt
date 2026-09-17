@@ -9,6 +9,8 @@ add_executable(GnarlTests
     ParameterMirrorTests.cpp
     PluginSmokeTests.cpp
     VoiceManagerTests.cpp
+    WarpProcessorTests.cpp
+    WavetableTests.cpp
     WebUIBridgeTests.cpp)
 
 target_sources(GnarlTests PRIVATE
@@ -50,3 +52,4 @@ target_compile_definitions(GnarlTests PRIVATE
     GNARL_UI_PARAMETER_IDS_PATH="${CMAKE_SOURCE_DIR}/ui/src/bridge/parameterIds.ts")
 
 catch_discover_tests(GnarlTests)
+

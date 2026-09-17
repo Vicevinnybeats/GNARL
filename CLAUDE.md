@@ -69,7 +69,16 @@ system plugin folders and the DAW picks it up on rescan.
 
 ### Platforms
 
-macOS and Windows are the **shipping** targets. Linux builds (VST3 +
+macOS and Windows are the **shipping** targets.
+
+**Windows needs the Microsoft.Web.WebView2 NuGet package**, and this is not
+optional — without it JUCE compiles the native-integration API out of
+`WebBrowserComponent::Options` (so `plugin/ui-bridge` does not build) and falls
+back to the Internet Explorer engine, which cannot run the React bundle. See
+[`docs/windows-setup.md`](docs/windows-setup.md). `NEEDS_WEBVIEW2 TRUE` and
+`JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1` are both required and are set in
+`plugin/CMakeLists.txt`; do not remove either.
+ Linux builds (VST3 +
 Standalone, no AU) work and are useful for CI and headless test runs, but are
 not a release target. On Debian/Ubuntu the build needs:
 
@@ -257,7 +266,33 @@ plugin builds, loads, and shows a blank window with nothing in any log.
 
 ---
 
-## 7. Testing
+## 7. Performance notes
+
+Measured figures, so later work argues with data rather than intuition.
+
+| What | Release | Debug |
+|---|---|---|
+| Generating one wavetable (256 frames, 11 mip levels) | **21.5 ms** | 316 ms |
+| Generating all 20 factory tables | **0.43 s** | 6.3 s |
+
+**Always benchmark in Release.** Debug is ~15x slower here, because the cost is
+almost entirely `juce::dsp::FFT`. A Debug measurement of DSP code is not a
+slow version of the truth, it is a different shape of it, and acting on one
+leads to optimising the wrong thing.
+
+Consequences of the figure above:
+
+- Factory tables are generated **lazily**, so instantiating the plugin does not
+  pay 0.43 s (nor hold ~80 MB of tables no patch is using).
+- A table switch costs ~21 ms on the message thread. Acceptable for a click,
+  but Phase 5's preset loading should generate on a background thread and
+  publish the result through a lock-free swap, per the handover rule in §3 -
+  loading a preset that changes both oscillators' tables would otherwise stall
+  the UI for ~40 ms.
+
+---
+
+## 8. Testing
 
 - `tests/` links the plugin's **shared-code target** (`GNARL`), so tests
   exercise the same build of the processor the plugin ships, with the real
@@ -267,6 +302,11 @@ plugin builds, loads, and shows a blank window with nothing in any log.
   sweep asserting no NaN.
 - Nonlinear stages additionally get an aliasing measurement (assert below
   −60 dBFS at 4× oversampling) and a THD+N measurement.
+- The wavetable tests **measure** band-limiting with an FFT rather than
+  asserting the code was called: `WavetableTests` checks that each mip level
+  holds no more than −60 dB of energy above the harmonic count it claims, and
+  that the level chosen for every MIDI note at 44.1 and 48 kHz is both safe
+  (no harmonic above Nyquist) and not needlessly coarse.
 - Filters get a stability test at extreme resonance/feedback.
 - CI runs `pluginval --strictness-level 10` on the VST3 (macOS + Windows) and
   the AU (macOS). Strictness 10 is the bar; do not lower it to get green.
@@ -278,7 +318,7 @@ plugin builds, loads, and shows a blank window with nothing in any log.
 
 ---
 
-## 8. Legal and licensing constraints
+## 9. Legal and licensing constraints
 
 - Ship **only** wavetables we generated or hold a commercial license for. Never
   import tables from Serum, Vital, Massive, Malström or any commercial product.
@@ -293,7 +333,7 @@ plugin builds, loads, and shows a blank window with nothing in any log.
 
 ---
 
-## 9. Phase status
+## 10. Phase status
 
 | Phase | Scope | State |
 |---|---|---|
@@ -314,7 +354,7 @@ sound engine is Phase 2.
 
 ---
 
-## 10. Conventions
+## 11. Conventions
 
 - C++: JUCE style — 4-space indent, `PascalCase` types, `camelCase` members,
   a space before `(` in calls (matching JUCE's own sources so the codebase
