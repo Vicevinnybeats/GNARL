@@ -42,6 +42,8 @@ target_sources(GNARL PRIVATE
     source/dsp/Wavetable.h
     source/dsp/WavetableLibrary.cpp
     source/dsp/WavetableLibrary.h
+    source/dsp/WavetableOscillator.cpp
+    source/dsp/WavetableOscillator.h
     source/params/ParameterChoices.h
     source/params/ParameterIDs.h
     source/params/ParameterLayout.cpp

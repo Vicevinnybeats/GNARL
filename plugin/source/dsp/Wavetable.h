@@ -46,13 +46,54 @@ public:
     static constexpr int kNumFrames = 256;
 
     /** Samples in mip level 0. */
-    static constexpr int kBaseFrameSize = 2048;
+    static constexpr int kBaseFrameSize = 4096;
 
-    /** Harmonics in mip level 0. A 2048-sample frame can hold 1024. */
-    static constexpr int kBaseNumHarmonics = kBaseFrameSize / 2;
+    /** Harmonics in mip level 0.
+
+        DELIBERATELY A QUARTER OF THE FRAME SIZE, not half.
+
+        A frame can in principle hold frameSize/2 harmonics, but then its top
+        harmonic is stored at only 2 samples per cycle, and a 4-point cubic
+        interpolating that produces broadband distortion. This is measured, not
+        assumed - see the table in WavetableOscillatorTests:
+
+            frameSize / harmonics   worst-case oscillator aliasing
+            2 (the theoretical min) failed the -60 dBc bar outright
+            4, small level floor    -41 dBc  (worst at high notes)
+            4, 512-sample floor     -65.6 dBc  <- shipped
+            8, small level floor    -61.8 dBc
+            8, 512-sample floor     ~-85 dBc, for +70% memory
+
+        The shipped combination is not the brightest or the purest available;
+        it is the one that clears the bar at the smallest memory cost. Going to
+        a ratio of 8 everywhere would buy roughly 20 dB more for 19 MB a table
+        instead of 11.5 MB, which is available if it ever turns out to matter. */
+    static constexpr int kBaseNumHarmonics = kBaseFrameSize / 4;
+
+    /** Stored samples per cycle of a level's HIGHEST harmonic. The figure the
+        interpolation quality above actually depends on. */
+    static constexpr int kSamplesPerTopHarmonicCycle = kBaseFrameSize / kBaseNumHarmonics;
 
     /** Levels 0..10: 1024 harmonics down to 1. */
     static constexpr int kNumMipLevels = 11;
+
+    /** Floor on a level's sample count.
+
+        Harmonics keep halving all the way down, but the SAMPLE count stops
+        here. Letting it halve to its theoretical minimum of 2N produces
+        degenerate frames: a 2-sample frame holding one harmonic samples that
+        sine exactly at its zero crossings, so the frame comes out silent.
+        Flooring the size costs a few kilobytes and removes the whole class of
+        problem.
+
+        Set generously, at 512 rather than the 16 or 64 that would merely avoid
+        degeneracy. The coarse levels are where interpolation error bites
+        hardest - they hold the fewest samples per cycle of their loudest
+        harmonics - and they are also by far the cheapest to store. Raising
+        this floor from 64 to 512 improved worst-case aliasing by more than
+        30 dB for a 16% increase in table size, which is the best trade in the
+        whole design. */
+    static constexpr int kMinFrameSize = 512;
 
     /** Wrapped samples before sample 0, so cubic can read frame[-1]. */
     static constexpr int kGuardSamplesBefore = 1;
@@ -114,12 +155,17 @@ public:
 
     static constexpr int getFrameSizeForLevel (int mipLevel) noexcept
     {
-        return kBaseFrameSize >> mipLevel;
+        const auto halved = kBaseFrameSize >> mipLevel;
+        return halved > kMinFrameSize ? halved : kMinFrameSize;
     }
 
+    /** The level's band limit. The frame may hold one fewer than this, since
+        the bin at exactly Nyquist cannot carry a real sinusoid - which errs
+        on the safe side for aliasing. */
     static constexpr int getNumHarmonicsForLevel (int mipLevel) noexcept
     {
-        return kBaseNumHarmonics >> mipLevel;
+        const auto halved = kBaseNumHarmonics >> mipLevel;
+        return halved > 1 ? halved : 1;
     }
 
     /**

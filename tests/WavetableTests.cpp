@@ -133,6 +133,60 @@ TEST_CASE ("Guard samples continue the frame periodically on both sides",
     }
 }
 
+TEST_CASE ("Every mip level shares one amplitude scale", "[wavetable]")
+{
+    // THIS IS THE TEST THAT WAS MISSING. Checking only level 0's peak hid a
+    // real bug: juce::dsp::FFT's inverse transform divides by the transform
+    // size, so each finer level came out 2048/frameSize times quieter, and
+    // normalising the table by level 0 left level 4 sixteen times too loud.
+    // The audible symptom is a jump in volume when a glide crosses a mip
+    // boundary.
+    Wavetable table;
+
+    // One harmonic, which EVERY level can represent, so all of them must
+    // produce the same peak.
+    table.generate ([] (float, Wavetable::Spectrum& spectrum)
+    {
+        spectrum.setHarmonic (1, 1.0f);
+    });
+
+    for (int level = 0; level < Wavetable::kNumMipLevels; ++level)
+    {
+        const auto frameSize = Wavetable::getFrameSizeForLevel (level);
+        const auto* data = table.getFrame (level, 0);
+        REQUIRE (data != nullptr);
+
+        auto peak = 0.0f;
+
+        for (int i = 0; i < frameSize; ++i)
+            peak = juce::jmax (peak, std::abs (data[i]));
+
+        INFO ("level " << level << " (" << frameSize << " samples) peak " << peak);
+        CHECK (peak == Catch::Approx (1.0f).margin (0.02));
+    }
+}
+
+TEST_CASE ("No mip level is degenerate", "[wavetable]")
+{
+    // A frame with only 2 samples holding 1 harmonic samples that sine at its
+    // zero crossings, so the frame comes out silent. The sample count is
+    // floored to stop the finest levels collapsing that way.
+    for (int level = 0; level < Wavetable::kNumMipLevels; ++level)
+    {
+        const auto frameSize = Wavetable::getFrameSizeForLevel (level);
+        const auto harmonics = Wavetable::getNumHarmonicsForLevel (level);
+
+        INFO ("level " << level);
+
+        CHECK (frameSize >= Wavetable::kMinFrameSize);
+
+        // Strictly more than twice the harmonic count: exactly twice is the
+        // degenerate Nyquist case.
+        CHECK (frameSize > harmonics * 2 - 1);
+        CHECK (harmonics >= 1);
+    }
+}
+
 TEST_CASE ("Mip levels are genuinely band-limited", "[wavetable][aliasing]")
 {
     Wavetable table;

@@ -77,7 +77,11 @@ namespace warp
 
             // Handled by the oscillator, not by a phase transform.
             case Mode::fmFromOther:     return 1.0f + a * 8.0f;
-            case Mode::ringMod:         return 2.0f;
+            // Scales with amount, because ring mod is blended by amount. A
+            // flat 2.0 here made the mip choice coarser even at amount 0,
+            // which is a silent loss of brightness on a patch that is not
+            // using ring mod at all.
+            case Mode::ringMod:         return 1.0f + a;
 
             case Mode::count:
             default:                    return 1.0f;

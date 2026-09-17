@@ -15,9 +15,6 @@ namespace
              + Wavetable::kGuardSamplesAfter;
     }
 
-    /** Levels below this have so few samples that an FFT is pointless and the
-        radix-2 transform would be degenerate; they are summed directly. */
-    constexpr int kMinFftOrder = 3;   // 8 samples
 }
 
 Wavetable::Wavetable() = default;
@@ -71,16 +68,16 @@ void Wavetable::buildMipLevel (int mipLevel, const std::vector<Spectrum>& spectr
     destination.assign (static_cast<std::size_t> (kNumFrames) * static_cast<std::size_t> (stride), 0.0f);
 
     const auto order = static_cast<int> (std::log2 (static_cast<double> (frameSize)));
-    const auto useFft = order >= kMinFftOrder;
 
-    std::unique_ptr<juce::dsp::FFT> fft;
-    std::vector<float> fftBuffer;
+    juce::dsp::FFT fft { order };
+    std::vector<float> fftBuffer (static_cast<std::size_t> (frameSize) * 2, 0.0f);
 
-    if (useFft)
-    {
-        fft = std::make_unique<juce::dsp::FFT> (order);
-        fftBuffer.resize (static_cast<std::size_t> (frameSize) * 2, 0.0f);
-    }
+    // juce::dsp::FFT's inverse transform divides by the transform size, so
+    // the SAME harmonic amplitudes come out 2048/frameSize times quieter at
+    // each finer level. Undoing it here is what keeps every mip level on one
+    // amplitude scale - without it, switching level mid-glide is a jump in
+    // volume, and the table's normalisation only makes level 0 correct.
+    const auto inverseFftScale = static_cast<float> (frameSize);
 
     for (int frameIndex = 0; frameIndex < kNumFrames; ++frameIndex)
     {
@@ -89,7 +86,6 @@ void Wavetable::buildMipLevel (int mipLevel, const std::vector<Spectrum>& spectr
                     + static_cast<std::size_t> (frameIndex) * static_cast<std::size_t> (stride)
                     + static_cast<std::size_t> (kGuardSamplesBefore);
 
-        if (useFft)
         {
             std::fill (fftBuffer.begin(), fftBuffer.end(), 0.0f);
 
@@ -119,30 +115,10 @@ void Wavetable::buildMipLevel (int mipLevel, const std::vector<Spectrum>& spectr
                 fftBuffer[mirror * 2 + 1] = -magnitude * std::sin (phase);
             }
 
-            fft->performRealOnlyInverseTransform (fftBuffer.data());
+            fft.performRealOnlyInverseTransform (fftBuffer.data());
 
             for (int i = 0; i < frameSize; ++i)
-                frame[i] = fftBuffer[static_cast<std::size_t> (i)];
-        }
-        else
-        {
-            // Two or four samples: summing the handful of harmonics directly
-            // is both simpler and exact.
-            for (int i = 0; i < frameSize; ++i)
-            {
-                const auto t = static_cast<float> (i) / static_cast<float> (frameSize);
-                auto sum = 0.0f;
-
-                for (int h = 1; h <= numHarmonics; ++h)
-                {
-                    const auto index = static_cast<std::size_t> (h - 1);
-                    sum += spectrum.magnitude[index]
-                         * std::sin (juce::MathConstants<float>::twoPi * static_cast<float> (h) * t
-                                     + spectrum.phase[index]);
-                }
-
-                frame[i] = sum;
-            }
+                frame[i] = fftBuffer[static_cast<std::size_t> (i)] * inverseFftScale;
         }
 
         // Guard samples wrap around the SAME frame: a single cycle is

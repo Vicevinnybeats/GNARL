@@ -153,6 +153,12 @@ in a `SmoothedValue` — a parameter that jumps discontinuously clicks.
 `dsp::SmoothedParameter` does both; `dsp::ramp` holds the ramp-time policy and
 says why each value is what it is.
 
+**`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
+building several differently-sized frames from one harmonic series gives each a
+different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip
+levels end up on different scales and a glide crossing a level boundary jumps
+in volume.
+
 **`juce::SmoothedValue::reset()` snaps the current value to the target.** So
 the obvious `reset (sr, newRamp); setTargetValue (x);` teleports the value
 before ramping — exactly the discontinuity the smoother exists to prevent. To
@@ -275,6 +281,19 @@ Measured figures, so later work argues with data rather than intuition.
 | Generating one wavetable (256 frames, 11 mip levels) | **21.5 ms** | 316 ms |
 | Generating all 20 factory tables | **0.43 s** | 6.3 s |
 
+(Measured at the earlier 2048-sample geometry. The shipped table is 11264
+samples per frame, so expect roughly 2.5x those figures; re-measure before
+quoting them.)
+
+| Memory | |
+|---|---|
+| One wavetable, all mip levels | ~11.5 MB |
+| Resident at once (two oscillators) | ~23 MB |
+
+| Aliasing (full-bandwidth saw, worst case over MIDI 12-120) | |
+|---|---|
+| Oscillator output | **-65.6 dBc** |
+
 **Always benchmark in Release.** Debug is ~15x slower here, because the cost is
 almost entirely `juce::dsp::FFT`. A Debug measurement of DSP code is not a
 slow version of the truth, it is a different shape of it, and acting on one
@@ -302,6 +321,14 @@ Consequences of the figure above:
   sweep asserting no NaN.
 - Nonlinear stages additionally get an aliasing measurement (assert below
   −60 dBFS at 4× oversampling) and a THD+N measurement.
+- **Use a Blackman-Harris window for any spectral assertion.** A Hann
+  window's first sidelobe is only -31 dB down, so with a few hundred harmonics
+  present its leakage fills the gaps between them at about -48 dBc. That is
+  indistinguishable from aliasing, and it does not improve when the DSP
+  improves — an earlier version of the oscillator test produced a confident,
+  constant, entirely fictional -48 dB "aliasing" figure this way, and nearly
+  bought a doubling of the table memory to fix a measurement artefact.
+  Exclude at least two mainlobe widths around each real harmonic.
 - The wavetable tests **measure** band-limiting with an FFT rather than
   asserting the code was called: `WavetableTests` checks that each mip level
   holds no more than −60 dB of energy above the harmonic count it claims, and
@@ -339,7 +366,7 @@ Consequences of the figure above:
 |---|---|---|
 | 0 | Repo skeleton, CMake, UI scaffold, CI, this file | **done** |
 | 1 | Full parameter layout, voice architecture, smoothing | **done** |
-| 2 | Oscillators (wavetable + graintable), filters, formant filter | not started |
+| 2 | Oscillators (wavetable + graintable), filters, formant filter | **in progress** — tables, warps and oscillator done; filters next |
 | 3 | LFO engine, envelopes, mod matrix, macros | not started |
 | 4 | FX chain (10 slots) | not started |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |

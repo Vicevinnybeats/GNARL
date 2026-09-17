@@ -59,3 +59,4 @@ path. The version is pinned in `.github/workflows/build.yml`
 | `error C2039: 'withResourceProvider': is not a member of 'juce::WebBrowserComponent::Options'` | `JUCE_USE_WIN_WEBVIEW2` is off — the SDK was not found at configure time |
 | `WebView2 wasn't found in the local NuGet folder` at configure time | package not installed, or `JUCE_WEBVIEW2_PACKAGE_LOCATION` points at the wrong level |
 | Plugin loads but the window is blank or shows a script error | the SDK was found, but the WebView2 **runtime** is missing on that machine |
+| `error C1083: Cannot open include file: 'WebView2.h'` while building **GnarlTests** | the plugin found the SDK but the test target did not. `juce_add_plugin` links `juce::juce_webview2` privately, so anything that merely links the `GNARL` target inherits the defines without the include paths — `tests/CMakeLists.txt` links it explicitly for this reason |

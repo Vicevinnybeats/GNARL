@@ -10,6 +10,7 @@ add_executable(GnarlTests
     PluginSmokeTests.cpp
     VoiceManagerTests.cpp
     WarpProcessorTests.cpp
+    WavetableOscillatorTests.cpp
     WavetableTests.cpp
     WebUIBridgeTests.cpp)
 
@@ -20,16 +21,35 @@ target_link_libraries(GnarlTests PRIVATE
     GNARL
     Catch2::Catch2WithMain)
 
-# On Linux, juce_gui_extra's web-browser code needs the webkit/GTK include
-# paths. juce_add_plugin attaches them to the GNARL target PRIVATE-ly via
-# NEEDS_WEB_BROWSER, so a target that merely links GNARL does not inherit them.
-# Linux is only a development/CI platform for GNARL; the shipping targets are
-# macOS and Windows.
+# --- Web-browser dependencies for the test target ---------------------------
+#
+# juce_gui_extra's sources are compiled into EVERY target that links them, and
+# the web-browser part needs platform SDK headers. juce_add_plugin attaches
+# those to the GNARL target PRIVATE-ly (see _juce_link_optional_libraries in
+# JUCE's CMake), so a target that merely links GNARL inherits the
+# JUCE_USE_WIN_WEBVIEW2 / JUCE_WEB_BROWSER defines but not the include paths -
+# and then fails to compile on a missing header.
+#
+# This bit them on both platforms in turn: gtk/gtk.h on Linux, WebView2.h on
+# Windows. Same cause, same shape of fix.
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
     target_link_libraries(GnarlTests PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
     # juce_gui_extra also wants the embedded subprocess helper blob that JUCE
     # generates only for plugin/app targets.
     juce_link_with_embedded_linux_subprocess(GnarlTests)
+endif()
+
+if (WIN32)
+    # Created by find_package(WebView2) inside juce_add_plugin, which the
+    # plugin/ subdirectory has already run by the time this is processed.
+    if (TARGET juce::juce_webview2)
+        target_link_libraries(GnarlTests PRIVATE juce::juce_webview2)
+    else()
+        message(FATAL_ERROR
+            "GNARL: the WebView2 SDK was not found, so the test target cannot "
+            "compile juce_gui_extra. See docs/windows-setup.md.")
+    endif()
 endif()
 
 # Tests compare exact float values on purpose (silence is exactly 0.0, a state
@@ -52,4 +72,3 @@ target_compile_definitions(GnarlTests PRIVATE
     GNARL_UI_PARAMETER_IDS_PATH="${CMAKE_SOURCE_DIR}/ui/src/bridge/parameterIds.ts")
 
 catch_discover_tests(GnarlTests)
-
