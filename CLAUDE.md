@@ -141,6 +141,21 @@ it produces an audible click. There is no "usually fine" here.
 **Parameter reads.** Cache the raw `std::atomic<float>*` from
 `APVTS::getRawParameterValue` in the constructor. Wrap every user-facing value
 in a `SmoothedValue` — a parameter that jumps discontinuously clicks.
+`dsp::SmoothedParameter` does both; `dsp::ramp` holds the ramp-time policy and
+says why each value is what it is.
+
+**`juce::SmoothedValue::reset()` snaps the current value to the target.** So
+the obvious `reset (sr, newRamp); setTargetValue (x);` teleports the value
+before ramping — exactly the discontinuity the smoother exists to prevent. To
+change a ramp length mid-flight, save `getCurrentValue()`, reset, restore it
+with `setCurrentAndTargetValue`, then set the new target. See
+`setRampPreservingValue` in `dsp/Voice.cpp`.
+
+**Voices render into their own float buffer**, whatever precision the host
+asked for, and the processor sums that into the output. The signal path is
+voices → mix → filters → FX → output. `renderVoices` chunks internally, so a
+host handing over more samples than it declared in `prepareToPlay` cannot
+overrun the mix buffer or force an allocation on the audio thread.
 
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
@@ -153,9 +168,27 @@ The audio thread never frees anything.
 
 - **IDs live only in `plugin/source/params/ParameterIDs.h`.** No string
   literal parameter ID appears anywhere else in the C++ codebase.
-- The TypeScript mirror is `ui/src/bridge/parameterIds.ts`. Add a parameter to
-  **both** files in the same commit — a mismatch fails silently, because the
-  relay simply never connects.
+- Both `ParameterIDs.h` and its TypeScript mirror `ui/src/bridge/parameterIds.ts`
+  are **generated** — regenerate them rather than hand-editing, and commit both
+  in the same commit as the C++ change. A mismatch fails silently, because the
+  relay simply never connects; `tests/ParameterMirrorTests.cpp` fails the build
+  if they disagree.
+- A mod slot's **destination is not a parameter**. A host parameter is a
+  number, so a destination would have to be an index into an ordered list of
+  targets — and that index shifts the moment the list changes, silently
+  repointing every saved preset's modulation at the wrong parameter.
+  Destinations are parameter-ID **strings** in the plugin's ValueTree. A mod
+  slot's depth, curve and enable *are* parameters, because those are worth
+  automating.
+- `pid::kParameterVersionHint` is **not** `kStateVersion` and must never
+  change: JUCE folds the hint into the AU parameter ID, so bumping it
+  invalidates every AU automation lane a customer has drawn. They are separate
+  constants so that a preset migration cannot take AU automation down with it.
+- Choice-list **order is frozen** too (`ParameterChoices.h`). A preset stores
+  the chosen index, not the name, so inserting an entry in the middle changes
+  the meaning of every existing preset that used a later entry. Append only.
+- Parameter **creation order** in `ParameterLayout.cpp` is frozen: it sets the
+  index a host shows in its automation list.
 - ID format: `snake_case`, scoped by section.
   `osc1_table_pos`, `filter2_cutoff`, `lfo3_rate`, `mod_slot7_depth`,
   `fx_slot2_wet`, `env1_attack`, `macro1`.
@@ -265,7 +298,7 @@ plugin builds, loads, and shows a blank window with nothing in any log.
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Repo skeleton, CMake, UI scaffold, CI, this file | **done** |
-| 1 | Full parameter layout, voice architecture, smoothing | not started |
+| 1 | Full parameter layout, voice architecture, smoothing | **done** |
 | 2 | Oscillators (wavetable + graintable), filters, formant filter | not started |
 | 3 | LFO engine, envelopes, mod matrix, macros | not started |
 | 4 | FX chain (10 slots) | not started |
@@ -275,8 +308,9 @@ plugin builds, loads, and shows a blank window with nothing in any log.
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
 
-Phase 0 ships a plugin that loads in a host and outputs **silence**. That is
-intentional: the voice architecture is Phase 1 and the sound engine is Phase 2.
+Phases 0-1 ship a plugin that loads in a host, responds to MIDI, allocates and
+steals voices correctly, and outputs **silence**. That is intentional: the
+sound engine is Phase 2.
 
 ---
 

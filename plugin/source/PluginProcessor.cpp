@@ -1,42 +1,34 @@
 #include "PluginProcessor.h"
 
+#include "params/ParameterChoices.h"
 #include "params/ParameterIDs.h"
+#include "params/ParameterLayout.h"
+#include "params/ParameterRanges.h"
 #include "WebUIEditor.h"
 
 namespace gnarl
 {
 
-namespace
-{
-    constexpr float kMasterGainMinDb = -60.0f;
-    constexpr float kMasterGainMaxDb =  12.0f;
-
-    /** Master gain ramps over 20 ms: long enough to never click, short enough
-        that a producer riding the fader does not feel lag. */
-    constexpr double kMasterGainRampSeconds = 0.02;
-}
-
-juce::AudioProcessorValueTreeState::ParameterLayout GnarlProcessor::createParameterLayout()
-{
-    juce::AudioProcessorValueTreeState::ParameterLayout layout;
-
-    layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { pid::masterGain, pid::kStateVersion },
-        "Master",
-        juce::NormalisableRange<float> { kMasterGainMinDb, kMasterGainMaxDb, 0.01f },
-        0.0f,
-        juce::AudioParameterFloatAttributes().withLabel ("dB")));
-
-    return layout;
-}
-
 GnarlProcessor::GnarlProcessor()
     : juce::AudioProcessor (BusesProperties()
           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "GNARL", createParameterLayout())
+      apvts (*this, nullptr, "GNARL", params::createParameterLayout())
 {
-    masterGainParam = apvts.getRawParameterValue (pid::masterGain);
-    jassert (masterGainParam != nullptr);
+    // A choice list that has drifted from its enum would map a parameter index
+    // to a mode the engine does not have.
+    jassert (choices::choiceListsAreConsistent());
+
+    masterGain.bind (apvts, pid::masterGain, dsp::ramp::gainSeconds);
+
+    bypassParam      = apvts.getRawParameterValue (pid::bypass);
+    maxVoicesParam   = apvts.getRawParameterValue (pid::maxVoices);
+    polyModeParam    = apvts.getRawParameterValue (pid::polyMode);
+    glideTimeParam   = apvts.getRawParameterValue (pid::glideTime);
+    glideAlwaysParam = apvts.getRawParameterValue (pid::glideAlways);
+
+    jassert (bypassParam != nullptr && maxVoicesParam != nullptr
+          && polyModeParam != nullptr && glideTimeParam != nullptr
+          && glideAlwaysParam != nullptr);
 }
 
 GnarlProcessor::~GnarlProcessor() = default;
@@ -44,12 +36,19 @@ GnarlProcessor::~GnarlProcessor() = default;
 void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
 {
     currentSampleRate = sampleRate;
-    currentBlockSize  = maximumExpectedSamplesPerBlock;
+    currentBlockSize = maximumExpectedSamplesPerBlock;
 
     // Every allocation and reset belongs here, never in processBlock.
-    masterGainSmoothed.reset (sampleRate, kMasterGainRampSeconds);
-    masterGainSmoothed.setCurrentAndTargetValue (
-        juce::Decibels::decibelsToGain (masterGainParam->load(), kMasterGainMinDb));
+    masterGain.prepare (sampleRate);
+    masterGain.snapToTarget();
+
+    // Stereo, because voices are panned and unison is spread; the output bus
+    // may be mono, and renderVoices folds down when it is.
+    voiceMixBuffer.setSize (2, juce::jmax (1, maximumExpectedSamplesPerBlock), false, true, true);
+    voiceMixBuffer.clear();
+
+    voiceManager.prepare (sampleRate, maximumExpectedSamplesPerBlock);
+    updateVoiceManagerSettings();
 }
 
 void GnarlProcessor::releaseResources()
@@ -67,36 +66,157 @@ bool GnarlProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
         || out == juce::AudioChannelSet::mono();
 }
 
+void GnarlProcessor::updateVoiceManagerSettings() noexcept
+{
+    voiceManager.setVoiceLimit (static_cast<int> (maxVoicesParam->load()));
+
+    const auto modeIndex = juce::jlimit (0,
+        static_cast<int> (choices::PolyMode::count) - 1,
+        static_cast<int> (polyModeParam->load()));
+
+    voiceManager.setPolyMode (static_cast<choices::PolyMode> (modeIndex));
+    voiceManager.setGlideTime (glideTimeParam->load());
+    voiceManager.setGlideAlways (glideAlwaysParam->load() > 0.5f);
+}
+
+void GnarlProcessor::handleMidiMessage (const juce::MidiMessage& message)
+{
+    if (message.isNoteOn())
+    {
+        voiceManager.noteOn (message.getNoteNumber(),
+                             message.getFloatVelocity(),
+                             message.getChannel());
+    }
+    else if (message.isNoteOff())
+    {
+        voiceManager.noteOff (message.getNoteNumber(), message.getChannel(), true);
+    }
+    else if (message.isAllNotesOff())
+    {
+        voiceManager.allNotesOff (true);
+    }
+    else if (message.isAllSoundOff())
+    {
+        // "All sound off" means now, not "when the tails finish".
+        voiceManager.allNotesOff (false);
+    }
+}
+
+template <typename SampleType>
+void GnarlProcessor::renderVoices (juce::AudioBuffer<SampleType>& output,
+                                   int startSample,
+                                   int numSamples)
+{
+    const auto capacity = voiceMixBuffer.getNumSamples();
+
+    if (capacity <= 0 || numSamples <= 0)
+        return;
+
+    const auto outputChannels = output.getNumChannels();
+
+    if (outputChannels <= 0)
+        return;
+
+    for (int offset = 0; offset < numSamples;)
+    {
+        const auto chunk = juce::jmin (capacity, numSamples - offset);
+
+        voiceMixBuffer.clear (0, chunk);
+        voiceManager.render (voiceMixBuffer, 0, chunk);
+
+        if (outputChannels == 1)
+        {
+            // Mono bus: fold the voices' stereo image down rather than
+            // dropping the right channel, which would silence anything panned
+            // hard right.
+            const auto* left = voiceMixBuffer.getReadPointer (0);
+            const auto* right = voiceMixBuffer.getReadPointer (1);
+            auto* destination = output.getWritePointer (0, startSample + offset);
+
+            for (int i = 0; i < chunk; ++i)
+                destination[i] += static_cast<SampleType> (0.5f * (left[i] + right[i]));
+        }
+        else
+        {
+            const auto channels = juce::jmin (outputChannels, voiceMixBuffer.getNumChannels());
+
+            for (int ch = 0; ch < channels; ++ch)
+            {
+                const auto* source = voiceMixBuffer.getReadPointer (ch);
+                auto* destination = output.getWritePointer (ch, startSample + offset);
+
+                for (int i = 0; i < chunk; ++i)
+                    destination[i] += static_cast<SampleType> (source[i]);
+            }
+        }
+
+        offset += chunk;
+    }
+}
+
 template <typename SampleType>
 void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
                                       juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Phase 0: no voices yet, so start from silence rather than whatever the
-    // host handed us. Phase 1 replaces this with the voice render.
+    // A synth owns its output buffer: never pass on whatever the host left in
+    // it.
     buffer.clear();
 
-    juce::ignoreUnused (midiMessages);
-
-    masterGainSmoothed.setTargetValue (
-        juce::Decibels::decibelsToGain (masterGainParam->load(), kMasterGainMinDb));
+    updateVoiceManagerSettings();
 
     const auto numSamples = buffer.getNumSamples();
 
-    if (masterGainSmoothed.isSmoothing())
+    // Voices render into a float buffer regardless of the host's sample type.
+    // Phase 1 renders silence, so the only thing that matters here is that
+    // note events are dispatched at their correct sample offsets: getting the
+    // timing right now means the engine in Phase 2 is already sample-accurate.
+    int lastEventSample = 0;
+
+    for (const auto metadata : midiMessages)
+    {
+        const auto eventSample = juce::jlimit (0, numSamples, metadata.samplePosition);
+
+        if (const auto span = eventSample - lastEventSample; span > 0)
+        {
+            renderVoices (buffer, lastEventSample, span);
+            lastEventSample = eventSample;
+        }
+
+        handleMidiMessage (metadata.getMessage());
+    }
+
+    if (const auto span = numSamples - lastEventSample; span > 0)
+        renderVoices (buffer, lastEventSample, span);
+
+    if (bypassParam->load() > 0.5f)
+    {
+        buffer.clear();
+        masterGain.snapToTarget();
+        return;
+    }
+
+    masterGain.updateTarget();
+
+    if (masterGain.isSmoothing())
     {
         for (int i = 0; i < numSamples; ++i)
         {
-            const auto g = static_cast<SampleType> (masterGainSmoothed.getNextValue());
+            const auto db = masterGain.getNextValue();
+            const auto gain = static_cast<SampleType> (
+                juce::Decibels::decibelsToGain (db, ranges::kMasterGainMinDb));
 
             for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-                buffer.getWritePointer (ch)[i] *= g;
+                buffer.getWritePointer (ch)[i] *= gain;
         }
     }
     else
     {
-        buffer.applyGain (static_cast<SampleType> (masterGainSmoothed.getCurrentValue()));
+        const auto gain = juce::Decibels::decibelsToGain (
+            masterGain.getCurrentValue(), ranges::kMasterGainMinDb);
+
+        buffer.applyGain (static_cast<SampleType> (gain));
     }
 }
 
@@ -133,12 +253,17 @@ void GnarlProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     auto tree = juce::ValueTree::fromXml (*xml);
 
-    // Unknown/newer state is loaded on a best-effort basis: APVTS ignores IDs
-    // it does not know, and parameters absent from the tree keep their default.
+    // Unknown or newer state loads on a best-effort basis: APVTS ignores IDs
+    // it does not know, and parameters absent from the tree keep their
+    // default.
     const auto version = static_cast<int> (tree.getProperty ("stateVersion", 1));
     juce::ignoreUnused (version); // migrations land here as the format evolves
 
     apvts.replaceState (tree);
+
+    // Skip the ramps: a preset load should be a change, not a glide from the
+    // old patch's values to the new ones.
+    masterGain.snapToTarget();
 }
 
 } // namespace gnarl

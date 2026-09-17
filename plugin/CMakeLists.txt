@@ -25,7 +25,16 @@ gnarl_add_web_ui(GNARL_WEB_UI_TARGET)
 target_sources(GNARL PRIVATE
     source/PluginProcessor.cpp
     source/PluginProcessor.h
+    source/dsp/SmoothedParameter.h
+    source/dsp/Voice.cpp
+    source/dsp/Voice.h
+    source/dsp/VoiceManager.cpp
+    source/dsp/VoiceManager.h
+    source/params/ParameterChoices.h
     source/params/ParameterIDs.h
+    source/params/ParameterLayout.cpp
+    source/params/ParameterLayout.h
+    source/params/ParameterRanges.h
     ui-bridge/WebUIEditor.cpp
     ui-bridge/WebUIEditor.h
     ui-bridge/WebUIResourceProvider.cpp

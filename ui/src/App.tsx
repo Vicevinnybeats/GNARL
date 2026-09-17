@@ -1,6 +1,6 @@
 import { Knob } from './components/Knob';
 import { SectionLabel } from './components/SectionLabel';
-import { PID } from './bridge/parameterIds';
+import { GLOBAL } from './bridge/parameterIds';
 import { getPluginInfo } from './bridge/pluginInfo';
 import { useParameter } from './bridge/useParameter';
 import './App.css';
@@ -16,7 +16,7 @@ const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
  */
 export function App() {
   const info = getPluginInfo();
-  const master = useParameter(PID.masterGain);
+  const master = useParameter(GLOBAL.masterGain);
 
   return (
     <div className="gn-app">

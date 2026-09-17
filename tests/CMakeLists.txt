@@ -5,7 +5,10 @@
 
 add_executable(GnarlTests
     TestMain.cpp
+    ParameterLayoutTests.cpp
+    ParameterMirrorTests.cpp
     PluginSmokeTests.cpp
+    VoiceManagerTests.cpp
     WebUIBridgeTests.cpp)
 
 target_sources(GnarlTests PRIVATE
@@ -39,5 +42,11 @@ endif()
 set_target_properties(GnarlTests PROPERTIES
     INTERPROCEDURAL_OPTIMIZATION FALSE
     FOLDER "GNARL")
+
+# The mirror test reads the TypeScript ID list from source, so it needs the
+# path. Passed as a define rather than resolved at runtime, because the test
+# binary's own location says nothing about where the repo is.
+target_compile_definitions(GnarlTests PRIVATE
+    GNARL_UI_PARAMETER_IDS_PATH="${CMAKE_SOURCE_DIR}/ui/src/bridge/parameterIds.ts")
 
 catch_discover_tests(GnarlTests)
