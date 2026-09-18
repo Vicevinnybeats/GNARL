@@ -117,6 +117,15 @@ public:
         return processSample (input).bandPass * k;
     }
 
+    /** The factor that normalises the RAW band-pass output to unity peak gain.
+
+        `processBandPassNormalised` applies it internally, but a caller that
+        needs all four outputs from ONE call - because a filter instance may be
+        advanced once per sample and no more (CLAUDE.md section 3) - has to
+        apply it itself. Without it a band-pass's peak gain IS its Q, so
+        turning resonance up makes the filter louder rather than narrower. */
+    float getBandPassNormalisation() const noexcept { return k; }
+
     /** True when the state has gone non-finite, which can only happen if a
         NaN was fed in. Recovering is cheaper than letting it poison the mix. */
     bool hasBlownUp() const noexcept
