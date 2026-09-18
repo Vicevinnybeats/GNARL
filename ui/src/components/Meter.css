@@ -1,0 +1,41 @@
+.gn-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 56px;
+}
+
+.gn-meter__label {
+  font-family: var(--gn-font-display);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gn-text-faint);
+}
+
+.gn-meter__track {
+  position: relative;
+  height: 5px;
+  background: var(--gn-bg);
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+/* A centre tick, so a gain-reduction meter reads as up or down at a glance. */
+.gn-meter__track[data-bipolar='true']::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--gn-border-strong);
+}
+
+.gn-meter__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--gn-accent);
+}

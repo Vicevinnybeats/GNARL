@@ -71,6 +71,17 @@ public:
         setResonance (0.5f);
     }
 
+    /** AUDIO THREAD SAFE. */
+    void setSampleRate (double sampleRate) noexcept
+    {
+        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
+
+        for (auto& filter : bandPasses)
+            filter.setSampleRate (sampleRate);
+
+        coefficientsDirty = true;
+    }
+
     void reset() noexcept
     {
         for (auto& filter : bandPasses)

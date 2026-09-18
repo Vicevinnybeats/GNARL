@@ -41,8 +41,12 @@ target_sources(GNARL PRIVATE
     source/dsp/StateVariableFilter.h
     source/dsp/Voice.cpp
     source/dsp/Voice.h
+    source/dsp/NoiseGenerator.h
+    source/dsp/OttCompressor.h
     source/dsp/VoiceManager.cpp
     source/dsp/VoiceManager.h
+    source/dsp/VoiceOversampler.h
+    source/dsp/VoiceSettings.h
     source/dsp/WarpProcessor.h
     source/dsp/Wavetable.cpp
     source/dsp/Wavetable.h
@@ -55,6 +59,8 @@ target_sources(GNARL PRIVATE
     source/params/ParameterLayout.cpp
     source/params/ParameterLayout.h
     source/params/ParameterRanges.h
+    source/params/SettingsReader.cpp
+    source/params/SettingsReader.h
     ui-bridge/WebUIEditor.cpp
     ui-bridge/WebUIEditor.h
     ui-bridge/WebUIResourceProvider.cpp

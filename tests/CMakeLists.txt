@@ -5,6 +5,7 @@
 
 add_executable(GnarlTests
     TestMain.cpp
+    EngineTests.cpp
     FilterTests.cpp
     ParameterLayoutTests.cpp
     ParameterMirrorTests.cpp
@@ -73,3 +74,44 @@ target_compile_definitions(GnarlTests PRIVATE
     GNARL_UI_PARAMETER_IDS_PATH="${CMAKE_SOURCE_DIR}/ui/src/bridge/parameterIds.ts")
 
 catch_discover_tests(GnarlTests)
+
+# --- Headless demo renderer -------------------------------------------------
+# Off by default: it is a listening tool, not part of the build or the tests.
+# Exists because the one thing a unit test cannot tell you about a synth is
+# whether it sounds any good.
+if (GNARL_BUILD_DEMO_RENDERER)
+    add_executable(GnarlRenderDemo ${CMAKE_SOURCE_DIR}/tools/render_demo.cpp)
+
+    target_link_libraries(GnarlRenderDemo PRIVATE GNARL juce::juce_audio_formats)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
+        target_link_libraries(GnarlRenderDemo PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+        juce_link_with_embedded_linux_subprocess(GnarlRenderDemo)
+    endif()
+
+    if (WIN32 AND TARGET juce::juce_webview2)
+        target_link_libraries(GnarlRenderDemo PRIVATE juce::juce_webview2)
+    endif()
+
+    set_target_properties(GnarlRenderDemo PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION FALSE
+        FOLDER "GNARL")
+
+    # Dumps parameter ranges and defaults to JSON, so the UI's browser preview
+    # can be seeded from the same source of truth as the plugin.
+    add_executable(GnarlDumpDefaults ${CMAKE_SOURCE_DIR}/tools/dump_parameter_defaults.cpp)
+    target_link_libraries(GnarlDumpDefaults PRIVATE GNARL)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
+        target_link_libraries(GnarlDumpDefaults PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+        juce_link_with_embedded_linux_subprocess(GnarlDumpDefaults)
+    endif()
+
+    if (WIN32 AND TARGET juce::juce_webview2)
+        target_link_libraries(GnarlDumpDefaults PRIVATE juce::juce_webview2)
+    endif()
+
+    set_target_properties(GnarlDumpDefaults PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION FALSE
+        FOLDER "GNARL")
+endif()

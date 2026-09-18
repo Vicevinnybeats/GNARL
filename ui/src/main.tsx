@@ -2,7 +2,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
+import { seedMockBackend } from './bridge/mockBackend';
 import './styles/tokens.css';
+
+// Before the first render, so no control flashes at zero. A no-op when a real
+// plugin is behind the page.
+seedMockBackend();
 
 const container = document.getElementById('root');
 

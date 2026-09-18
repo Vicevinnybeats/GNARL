@@ -26,15 +26,24 @@
   color: var(--gn-text-dim);
 }
 
+/* Always visible, dim at rest and bright while interacting.
+   Hiding values until hover keeps the panel tidy but makes a dense synth
+   unreadable at a glance - you cannot compare two knobs you have to hover
+   one at a time. */
 .gn-knob__readout {
   font-family: var(--gn-font-mono);
-  font-size: var(--gn-size-value);
-  color: var(--gn-accent);
+  font-size: 9px;
+  color: var(--gn-text-faint);
   min-height: 1em;
-  opacity: 0;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .gn-knob:hover .gn-knob__readout,
 .gn-knob__readout[data-visible='true'] {
-  opacity: 1;
+  color: var(--gn-accent);
+}
+
+.gn-knob__label {
+  line-height: 1;
 }

@@ -35,7 +35,15 @@ public:
 
     // --- Setup (message thread) --------------------------------------------
 
-    void prepare (double sampleRate, int maximumBlockSize);
+    /** MESSAGE THREAD. Pass the highest rate the voices will run at. */
+    void prepare (double maximumSampleRate, int maximumBlockSize);
+
+    /** AUDIO THREAD SAFE. */
+    void setSampleRate (double sampleRate) noexcept;
+
+    /** AUDIO THREAD SAFE. */
+    void setOversamplingRatio (float ratio) noexcept;
+
     void reset();
 
     // --- Configuration (audio thread, block-rate) -------------------------
@@ -68,7 +76,19 @@ public:
 
     // --- Rendering (audio thread) -----------------------------------------
 
-    void render (juce::AudioBuffer<float>& buffer, int startSample, int numSamples);
+    /** Renders every sounding voice, summing into `buffer`.
+
+        Chunks internally to the scratch capacity, so a host exceeding the
+        block size it declared in prepareToPlay cannot overrun the scratch
+        buffers or force an allocation here. */
+    void render (juce::AudioBuffer<float>& buffer,
+                 int startSample,
+                 int numSamples,
+                 const VoiceSettings& settings);
+
+    /** Advances voice state without producing audio. For the case where there
+        is nothing to render with, and for tests. */
+    void advanceSilently (int numSamples);
 
     // --- Queries ----------------------------------------------------------
 
@@ -100,6 +120,10 @@ private:
     std::optional<int> resolveGlideSource (const Voice& voice) const;
 
     std::array<Voice, static_cast<std::size_t> (pid::kMaxVoices)> voices {};
+
+    /** Shared by every voice, because voices render one at a time. Sixteen
+        private copies would multiply this memory for no benefit. */
+    VoiceScratch scratch;
 
     int voiceLimit = pid::kMaxVoices;
     choices::PolyMode polyMode = choices::PolyMode::poly;

@@ -67,6 +67,30 @@ public:
     // --- Setup -------------------------------------------------------------
 
     void prepare (double sampleRate);
+
+    /** AUDIO THREAD SAFE. Phase increments are derived per render call, so
+        changing the rate needs no recomputation and no allocation. */
+    void setSampleRate (double sampleRate) noexcept
+    {
+        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
+    }
+
+    /**
+        Band-limits to the BASE rate's Nyquist while running at an oversampled
+        rate. Pass the oversampling ratio (1, 2 or 4).
+
+        Without this, oversampling makes the oscillator brighter as well as
+        giving the nonlinear stages headroom - at 4x it would emit content up
+        to 96 kHz. None of that is audible after downsampling, but all of it
+        intermodulates in the drive stage and folds back into the audible band.
+        Measured: 4x oversampling came out WORSE than 2x on a hard-clipped
+        sine until the oscillator's band limit was pinned to the base rate.
+    */
+    void setOversamplingRatio (float ratio) noexcept
+    {
+        bandLimitRatio = juce::jlimit (1.0f, 16.0f, ratio);
+    }
+
     void reset() noexcept;
 
     /** The table to read. May be nullptr, in which case render() outputs
@@ -156,6 +180,10 @@ private:
     const Wavetable* table = nullptr;
 
     double sampleRateHz = 44100.0;
+
+    /** Scales the increment used for MIP LEVEL SELECTION ONLY, never the
+        increment used to advance phase. */
+    float bandLimitRatio = 1.0f;
 
     /** Phase accumulators, one per unison voice. DOUBLE, not float: a float
         accumulator drifts audibly out of tune over a long held note, because

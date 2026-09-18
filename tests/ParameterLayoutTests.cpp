@@ -45,6 +45,15 @@ namespace
                                 pid::noise.sendFilter2, pid::noise.sendDirect })
             add (id);
 
+        for (const auto* id : { pid::ott.enabled, pid::ott.depth, pid::ott.time,
+                                pid::ott.mix, pid::ott.inputGain, pid::ott.outputGain,
+                                pid::ott.crossoverLow, pid::ott.crossoverHigh,
+                                pid::ott.lowGain, pid::ott.midGain, pid::ott.highGain,
+                                pid::ott.lowUpward, pid::ott.midUpward,
+                                pid::ott.highUpward, pid::ott.lowDownward,
+                                pid::ott.midDownward, pid::ott.highDownward })
+            add (id);
+
         for (std::size_t i = 0; i < pid::kNumFilters; ++i)
         {
             const auto& p = pid::filter[i];

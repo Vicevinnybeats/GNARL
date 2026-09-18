@@ -20,16 +20,16 @@ namespace
         return manager;
     }
 
-    /** Advances the engine by `blocks` blocks, so envelopes and fades move. */
+    /** Advances the engine by `blocks` blocks, so envelopes and fades move.
+
+        Uses advanceSilently rather than render: these tests are about voice
+        allocation and lifecycle, and giving them a full patch to render would
+        make them depend on the whole oscillator and filter path. The audio
+        path has its own tests. */
     void runBlocks (VoiceManager& manager, int blocks, int blockSize = kBlockSize)
     {
-        juce::AudioBuffer<float> buffer (2, blockSize);
-
         for (int i = 0; i < blocks; ++i)
-        {
-            buffer.clear();
-            manager.render (buffer, 0, blockSize);
-        }
+            manager.advanceSilently (blockSize);
     }
 
     std::vector<int> soundingNotes (const VoiceManager& manager)
@@ -445,10 +445,11 @@ TEST_CASE ("Rendering zero or one sample is safe", "[voices][audio]")
     manager->noteOn (60, 1.0f, 1);
 
     juce::AudioBuffer<float> buffer (2, 1);
+    VoiceSettings settings;
 
     buffer.clear();
-    manager->render (buffer, 0, 0);
-    manager->render (buffer, 0, 1);
+    manager->render (buffer, 0, 0, settings);
+    manager->render (buffer, 0, 1, settings);
 
     SUCCEED ("no crash on degenerate block sizes");
 }

@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include <array>
+
 #include "params/ParameterChoices.h"
 #include "params/ParameterIDs.h"
 #include "params/ParameterLayout.h"
@@ -18,15 +20,42 @@ GnarlProcessor::GnarlProcessor()
     // to a mode the engine does not have.
     jassert (choices::choiceListsAreConsistent());
 
+    settingsReader = std::make_unique<params::SettingsReader> (apvts, wavetableLibrary);
+
     masterGain.bind (apvts, pid::masterGain, dsp::ramp::gainSeconds);
 
-    bypassParam      = apvts.getRawParameterValue (pid::bypass);
+    {
+        const auto bind = [this] (const char* id) { return apvts.getRawParameterValue (id); };
+        const auto& ids = pid::ott;
+
+        ottParams.enabled       = bind (ids.enabled);
+        ottParams.depth         = bind (ids.depth);
+        ottParams.time          = bind (ids.time);
+        ottParams.mix           = bind (ids.mix);
+        ottParams.inputGain     = bind (ids.inputGain);
+        ottParams.outputGain    = bind (ids.outputGain);
+        ottParams.crossoverLow  = bind (ids.crossoverLow);
+        ottParams.crossoverHigh = bind (ids.crossoverHigh);
+        ottParams.lowGain       = bind (ids.lowGain);
+        ottParams.midGain       = bind (ids.midGain);
+        ottParams.highGain      = bind (ids.highGain);
+        ottParams.lowUpward     = bind (ids.lowUpward);
+        ottParams.midUpward     = bind (ids.midUpward);
+        ottParams.highUpward    = bind (ids.highUpward);
+        ottParams.lowDownward   = bind (ids.lowDownward);
+        ottParams.midDownward   = bind (ids.midDownward);
+        ottParams.highDownward  = bind (ids.highDownward);
+    }
+
+    bypassParam       = apvts.getRawParameterValue (pid::bypass);
+    oversamplingParam = apvts.getRawParameterValue (pid::oversampling);
     maxVoicesParam   = apvts.getRawParameterValue (pid::maxVoices);
     polyModeParam    = apvts.getRawParameterValue (pid::polyMode);
     glideTimeParam   = apvts.getRawParameterValue (pid::glideTime);
     glideAlwaysParam = apvts.getRawParameterValue (pid::glideAlways);
 
-    jassert (bypassParam != nullptr && maxVoicesParam != nullptr
+    jassert (bypassParam != nullptr && oversamplingParam != nullptr
+          && maxVoicesParam != nullptr
           && polyModeParam != nullptr && glideTimeParam != nullptr
           && glideAlwaysParam != nullptr);
 }
@@ -47,8 +76,31 @@ void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSample
     voiceMixBuffer.setSize (2, juce::jmax (1, maximumExpectedSamplesPerBlock), false, true, true);
     voiceMixBuffer.clear();
 
-    voiceManager.prepare (sampleRate, maximumExpectedSamplesPerBlock);
+    oversampler.prepare (2, maximumExpectedSamplesPerBlock);
+
+    // At the base rate: OTT runs after downsampling, on the voice mix. There
+    // is nothing nonlinear enough in it to need oversampling, and running it
+    // at 4x would triple the cost of the busiest filter set in the plugin.
+    ott.prepare (sampleRate, 2);
+
+    // Prepared at the HIGHEST rate the voices can run at, so switching the
+    // oversampling factor later never allocates. The working rate is set
+    // separately, per block.
+    ott.reset();
+
+    voiceManager.prepare (sampleRate * dsp::VoiceOversampler::kMaxRatio,
+                          maximumExpectedSamplesPerBlock
+                              * dsp::VoiceOversampler::kMaxRatio);
+
+    // Force the latency to be recomputed and reported.
+    activeOversamplingFactor = dsp::VoiceOversampler::Factor::count;
+    updateOversampling();
     updateVoiceManagerSettings();
+
+    // Generating a wavetable takes tens of milliseconds, so it happens HERE,
+    // on the message thread, and never in processBlock.
+    settingsReader->ensureTablesLoaded();
+    settingsReader->read (voiceSettings);
 }
 
 void GnarlProcessor::releaseResources()
@@ -77,6 +129,67 @@ void GnarlProcessor::updateVoiceManagerSettings() noexcept
     voiceManager.setPolyMode (static_cast<choices::PolyMode> (modeIndex));
     voiceManager.setGlideTime (glideTimeParam->load());
     voiceManager.setGlideAlways (glideAlwaysParam->load() > 0.5f);
+}
+
+void GnarlProcessor::updateOversampling()
+{
+    const auto index = juce::jlimit (0,
+        static_cast<int> (choices::Oversampling::count) - 1,
+        static_cast<int> (oversamplingParam->load()));
+
+    const auto factor = static_cast<dsp::VoiceOversampler::Factor> (index);
+
+    if (factor == activeOversamplingFactor)
+        return;
+
+    activeOversamplingFactor = factor;
+    oversampler.setFactor (factor);
+    oversampler.reset();
+
+    const auto ratio = 1 << juce::jmax (0, dsp::VoiceOversampler::getStagesForFactor (factor));
+    voiceManager.setSampleRate (currentSampleRate * ratio);
+
+    // Oversampling must give the NONLINEAR stages headroom without also
+    // making the oscillators brighter: the extra bandwidth is inaudible after
+    // downsampling but intermodulates in the drive stage and folds back.
+    voiceManager.setOversamplingRatio (static_cast<float> (ratio));
+
+    // Reported so the host can compensate. Only when it changes:
+    // setLatencySamples notifies the host, which is not free.
+    setLatencySamples (juce::roundToInt (oversampler.getLatencySamples()));
+}
+
+void GnarlProcessor::updateOtt() noexcept
+{
+    const auto read = [] (const std::atomic<float>* parameter)
+    {
+        return parameter != nullptr ? parameter->load() : 0.0f;
+    };
+
+    dsp::OttCompressor::Settings settings;
+
+    settings.enabled = read (ottParams.enabled) > 0.5f;
+    settings.depth = read (ottParams.depth);
+    settings.time = read (ottParams.time);
+    settings.mix = read (ottParams.mix);
+    settings.inputGainDb = read (ottParams.inputGain);
+    settings.outputGainDb = read (ottParams.outputGain);
+    settings.crossoverLowHz = read (ottParams.crossoverLow);
+    settings.crossoverHighHz = read (ottParams.crossoverHigh);
+
+    settings.bandGainDb = { read (ottParams.lowGain),
+                            read (ottParams.midGain),
+                            read (ottParams.highGain) };
+
+    settings.upwardAmount = { read (ottParams.lowUpward),
+                              read (ottParams.midUpward),
+                              read (ottParams.highUpward) };
+
+    settings.downwardAmount = { read (ottParams.lowDownward),
+                                read (ottParams.midDownward),
+                                read (ottParams.highDownward) };
+
+    ott.setSettings (settings);
 }
 
 void GnarlProcessor::handleMidiMessage (const juce::MidiMessage& message)
@@ -122,7 +235,34 @@ void GnarlProcessor::renderVoices (juce::AudioBuffer<SampleType>& output,
         const auto chunk = juce::jmin (capacity, numSamples - offset);
 
         voiceMixBuffer.clear (0, chunk);
-        voiceManager.render (voiceMixBuffer, 0, chunk);
+
+        // The voices render INSIDE the oversampler, at the higher rate. A
+        // nonlinear stage aliases the moment it runs, and no filter applied
+        // afterwards can remove those partials - they are already inside the
+        // audible band.
+        oversampler.process (voiceMixBuffer, chunk, currentSampleRate,
+            [this] (juce::dsp::AudioBlock<float> block, double)
+            {
+                const auto blockChannels = static_cast<int> (block.getNumChannels());
+                const auto blockSamples = static_cast<int> (block.getNumSamples());
+
+                if (blockChannels <= 0 || blockSamples <= 0)
+                    return;
+
+                // A non-owning AudioBuffer view over the block, so the voices
+                // keep their existing buffer-based interface. On the stack:
+                // this runs on the audio thread.
+                std::array<float*, 2> channels {};
+
+                for (int channel = 0; channel < 2; ++channel)
+                    channels[static_cast<std::size_t> (channel)] =
+                        block.getChannelPointer (
+                            static_cast<std::size_t> (juce::jmin (channel, blockChannels - 1)));
+
+                juce::AudioBuffer<float> view (channels.data(), 2, blockSamples);
+
+                voiceManager.render (view, 0, blockSamples, voiceSettings);
+            });
 
         if (outputChannels == 1)
         {
@@ -165,13 +305,18 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
     buffer.clear();
 
     updateVoiceManagerSettings();
+    updateOversampling();
+    updateOtt();
+
+    // Read once per block, then shared by every voice. Reading per voice would
+    // repeat the work sixteen times and could see a parameter change mid-loop,
+    // so two notes of one chord would be filtered differently.
+    settingsReader->read (voiceSettings);
 
     const auto numSamples = buffer.getNumSamples();
 
-    // Voices render into a float buffer regardless of the host's sample type.
-    // Phase 1 renders silence, so the only thing that matters here is that
-    // note events are dispatched at their correct sample offsets: getting the
-    // timing right now means the engine in Phase 2 is already sample-accurate.
+    // Note events are dispatched at their exact sample offsets, so the engine
+    // is sample-accurate rather than quantised to block boundaries.
     int lastEventSample = 0;
 
     for (const auto metadata : midiMessages)
@@ -195,6 +340,17 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
         buffer.clear();
         masterGain.snapToTarget();
         return;
+    }
+
+    // OTT sits between the voice mix and the master gain, so riding the master
+    // fader does not change how hard it compresses.
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    {
+        auto* data = buffer.getWritePointer (channel);
+
+        for (int i = 0; i < numSamples; ++i)
+            data[i] = static_cast<SampleType> (
+                ott.processSample (channel, static_cast<float> (data[i])));
     }
 
     masterGain.updateTarget();
@@ -264,6 +420,15 @@ void GnarlProcessor::setStateInformation (const void* data, int sizeInBytes)
     // Skip the ramps: a preset load should be a change, not a glide from the
     // old patch's values to the new ones.
     masterGain.snapToTarget();
+
+    // The new state may select tables that have never been generated. This is
+    // the message thread, so building them here is correct - and it is the
+    // reason a preset load can take a few tens of milliseconds.
+    if (settingsReader != nullptr)
+    {
+        settingsReader->ensureTablesLoaded();
+        settingsReader->read (voiceSettings);
+    }
 }
 
 } // namespace gnarl

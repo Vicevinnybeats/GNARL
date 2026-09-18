@@ -1,0 +1,20 @@
+.gn-placeholder-tab {
+  height: 100%;
+  display: flex;
+}
+
+.gn-placeholder-tab__summary {
+  margin: 0;
+  color: var(--gn-text-dim);
+  max-width: 72ch;
+  line-height: 1.5;
+}
+
+.gn-placeholder-tab__list {
+  margin: 0;
+  padding-left: var(--gn-space-4);
+  color: var(--gn-text-faint);
+  line-height: 1.7;
+  columns: 2;
+  column-gap: var(--gn-space-8);
+}

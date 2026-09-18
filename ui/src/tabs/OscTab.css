@@ -1,0 +1,74 @@
+.gn-osc-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-2);
+  height: 100%;
+  min-height: 0;
+
+  /* Scrolls rather than overlapping when the window is short. An overflowing
+     flex child renders ON TOP of its siblings, which is how the Sends row
+     ended up drawn across the Sub and Noise panels. */
+  overflow-y: auto;
+}
+
+.gn-osc-tab__oscillators {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gn-space-2);
+  min-height: 0;
+}
+
+.gn-osc-tab__strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gn-space-2);
+}
+
+.gn-osc-tab__filters {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--gn-space-2);
+  min-height: 0;
+}
+
+/* Placeholder for the WebGL wavetable view. Explicitly labelled, so it reads
+   as "not built yet" rather than as a rendering failure. */
+.gn-osc__display {
+  height: 40px;
+  border: var(--gn-hairline) dashed var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  background: var(--gn-bg);
+  display: grid;
+  place-items: center;
+}
+
+.gn-osc__display-note {
+  font-family: var(--gn-font-mono);
+  font-size: 10px;
+  color: var(--gn-text-faint);
+}
+
+.gn-osc__sends-label {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gn-text-faint);
+  align-self: center;
+  min-width: 34px;
+}
+
+/* A hairline separating logical groups within one row, so a long row of
+   knobs still reads as groups rather than as a strip. */
+.gn-osc__divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--gn-border);
+  margin: 0 var(--gn-space-1);
+}
+
+.gn-filter__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-1);
+}

@@ -164,6 +164,17 @@ filter type, to keep that property honest.
 above Nyquist by construction. Nothing in `Saturation.h` is safe to run at the
 base sample rate at high drive; the caller oversamples it.
 
+**An oversampled oscillator must still band-limit to the BASE rate's
+Nyquist.** Otherwise oversampling makes the oscillator brighter as well as
+giving the nonlinear stages headroom — at 4x it would emit content up to
+96 kHz, none of it audible after downsampling but all of it intermodulating in
+the drive stage. See `WavetableOscillator::setOversamplingRatio`.
+
+**A filter instance can be advanced once per sample and no more.** Calling one
+twice in a sample with different inputs corrupts its state. The OTT crossover
+did exactly that and its three bands cancelled rather than summed — measured
+24 dB down. Each cascade path needs its own filters.
+
 **A drive control must not double as a volume control.** `DriveStage`
 compensates by measuring the slope of the whole stage (pre-gain included) with
 respect to its input. Measuring only the curve's own slope leaves the pre-gain
@@ -276,6 +287,33 @@ whenever you add one.
   `#ff5c1a`) used only for active/modulated state. Radii 2–4 px. No soft
   shadows, no glass, no pastel. It should read as hardware, not a dashboard.
 - Density is a feature. The four tabs are the only nesting allowed.
+- **Knob values are always visible**, dim at rest and bright while
+  interacting. Hiding them until hover keeps a panel tidy and makes a dense
+  synth unreadable: you cannot compare two knobs you have to hover one at a
+  time.
+- **A panel must clip its own content.** An overflowing flex child renders ON
+  TOP of its siblings, which is how the oscillator's send row ended up drawn
+  across the Sub and Noise panels. `.gn-panel__body` has `overflow: hidden`
+  and the tab scrolls.
+- The browser preview is seeded with the plugin's **real** parameter ranges and
+  defaults, dumped by `tools/dump_parameter_defaults.cpp` from the actual
+  parameter tree. Without it every knob sits at zero and every readout says
+  "0%", which is useless for judging layout and misleading in a screenshot.
+- `ui/src/bridge/useParameter.ts` formats values in TypeScript, which
+  **duplicates the C++ formatters** and has already disagreed with them once.
+  Phase 6 should relay the C++ string over the bridge so there is one
+  formatter.
+
+### Screenshotting the UI
+
+```bash
+cd ui && npm run build
+(cd dist && python3 -m http.server 4173 --bind 127.0.0.1 &)
+node ../tools/screenshot_ui.mjs <output-directory>
+```
+
+Worth doing after any layout change: the overflow bug above was invisible in
+code review and obvious in a screenshot at the design size.
 
 **Content Security Policy.** `ui/index.html` sets `script-src 'self'` with no
 `unsafe-eval`. JUCE's `check_native_interop.js` contains a direct `eval`, which
@@ -312,6 +350,18 @@ quoting them.)
 | Aliasing (full-bandwidth saw, worst case over MIDI 12-120) | |
 |---|---|
 | Oscillator output | **-65.6 dBc** |
+
+| Hard-clipped sine into the drive stage, worst inharmonic partial | |
+|---|---|
+| Oversampling off | -28.6 dBc |
+| 2x | **-43.1 dBc** |
+| 4x | -42.0 dBc |
+
+Note that 4x is not better than 2x here. Past 2x the folded partials are
+already below the oscillator's own interpolation floor, so the difference is
+not the clipper's any more. The tests assert that 2x beats off and that 4x is
+not WORSE, rather than asserting an ordering that the measurement does not
+support.
 
 **Always benchmark in Release.** Debug is ~15x slower here, because the cost is
 almost entirely `juce::dsp::FFT`. A Debug measurement of DSP code is not a
@@ -385,7 +435,9 @@ Consequences of the figure above:
 |---|---|---|
 | 0 | Repo skeleton, CMake, UI scaffold, CI, this file | **done** |
 | 1 | Full parameter layout, voice architecture, smoothing | **done** |
-| 2 | Oscillators (wavetable + graintable), filters, formant filter | **in progress** — tables, warps, oscillator and filters done; oversampling and engine routing next |
+| 2 | Oscillators (wavetable + graintable), filters, formant filter | **done** |
+| 2b | OTT compressor (pulled forward from Phase 4 by request) | **done** |
+| 6a | UI: primitives, OSC tab, FX tab, theme switching | **partial** — visualisers and preset browser still to do |
 | 3 | LFO engine, envelopes, mod matrix, macros | not started |
 | 4 | FX chain (10 slots) | not started |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
@@ -394,9 +446,27 @@ Consequences of the figure above:
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
 
-Phases 0-1 ship a plugin that loads in a host, responds to MIDI, allocates and
-steals voices correctly, and outputs **silence**. That is intentional: the
-sound engine is Phase 2.
+**The synth now makes sound.** Oscillators, sub, noise, send routing and both
+filter slots are wired end to end, and `tests/EngineTests.cpp` drives the whole
+plugin through `processBlock` with real MIDI to prove the pieces are actually
+connected — which is a different failure from any one piece being wrong, and
+the one that produces a synth that passes every unit test and is silent.
+
+Oversampling is in: the whole voice section runs at 2x or 4x, because a
+nonlinear stage aliases the moment it runs and no filter applied afterwards
+can remove those partials.
+
+To hear it without a DAW:
+
+```bash
+cmake -B build -DGNARL_BUILD_DEMO_RENDERER=ON
+cmake --build build --target GnarlRenderDemo
+./build/tests/GnarlRenderDemo <output-directory>
+```
+
+The modulation in those clips is applied per block from `tools/render_demo.cpp`,
+because the LFO engine is Phase 3. It is a fair preview of the tone; the real
+thing will be smoother.
 
 ---
 

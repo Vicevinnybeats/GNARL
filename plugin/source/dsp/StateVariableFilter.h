@@ -39,6 +39,13 @@ public:
         setResonance (0.0f);
     }
 
+    /** AUDIO THREAD SAFE. Coefficients are recomputed by the next setCutoff,
+        which the filter slot calls every block. */
+    void setSampleRate (double sampleRate) noexcept
+    {
+        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
+    }
+
     void reset() noexcept
     {
         state1 = 0.0f;
@@ -68,12 +75,21 @@ public:
     void setResonance (float resonance) noexcept
     {
         const auto clamped = juce::jlimit (0.0f, 1.0f, resonance);
+        setQ (juce::jmap (clamped, 0.5f, 20.0f));
+    }
 
-        // k = 1/Q. Q from 0.5 up to 20.
-        k = 1.0f / juce::jmap (clamped, 0.5f, 20.0f);
-
+    /** Sets Q directly. Used to give one section of a cascaded 24 dB filter a
+        flat Butterworth response while the other carries the resonance - see
+        FilterSlot, and the note there about why both sections must not share
+        the user's Q. */
+    void setQ (float q) noexcept
+    {
+        k = 1.0f / juce::jmax (0.05f, q);
         updateCoefficients();
     }
+
+    /** Butterworth Q: maximally flat, no resonant peak. */
+    static constexpr float getFlatQ() noexcept { return 0.70710678f; }
 
     /** SAMPLE-RATE. */
     Outputs processSample (float input) noexcept

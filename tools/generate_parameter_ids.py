@@ -114,6 +114,30 @@ MOD = [
     ("bipolar",     "bipolar"),
 ]
 
+# OTT: a dedicated effect with named parameters rather than a generic FX slot.
+# Riddim producers put OTT on everything, so it ships inside the synth. Its
+# controls are named because they mean specific things - a generic "FX 1 Param
+# 3" would be useless in a host automation lane.
+OTT = [
+    ("enabled",         "enabled"),
+    ("depth",           "depth"),
+    ("time",            "time"),
+    ("mix",             "mix"),
+    ("inputGain",       "in_gain"),
+    ("outputGain",      "out_gain"),
+    ("crossoverLow",    "xover_low"),
+    ("crossoverHigh",   "xover_high"),
+    ("lowGain",         "low_gain"),
+    ("midGain",         "mid_gain"),
+    ("highGain",        "high_gain"),
+    ("lowUpward",       "low_up"),
+    ("midUpward",       "mid_up"),
+    ("highUpward",      "high_up"),
+    ("lowDownward",     "low_down"),
+    ("midDownward",     "mid_down"),
+    ("highDownward",    "high_down"),
+]
+
 FAMILIES = [
     ("OscillatorIDs", "osc",     OSC,    2,  "osc{i}_"),
     ("FilterIDs",     "filter",  FILTER, 2,  "filter{i}_"),
@@ -125,6 +149,7 @@ FAMILIES = [
 SINGLETONS = [
     ("SubOscillatorIDs", "sub",   SUB,   "sub_"),
     ("NoiseIDs",         "noise", NOISE, "noise_"),
+    ("OttIDs",           "ott",   OTT,   "ott_"),
 ]
 
 GLOBALS = [
@@ -275,10 +300,11 @@ while "\n\n\n\n" in text:
     text = text.replace("\n\n\n\n", "\n\n\n")
 open(REPO / "plugin/source/params/ParameterIDs.h", "w").write(text)
 
-total = (len(OSC)*2 + len(SUB) + len(NOISE) + len(FILTER)*2 + len(ENV)*4
+total = (len(OSC)*2 + len(SUB) + len(NOISE) + len(OTT) + len(FILTER)*2 + len(ENV)*4
          + len(LFO)*4 + len(MOD)*16 + MACRO_COUNT + len(GLOBALS))
 print("declared parameter ids:", total)
 for label, n in [("osc", len(OSC)*2), ("sub", len(SUB)), ("noise", len(NOISE)),
+                 ("ott", len(OTT)),
                  ("filters", len(FILTER)*2), ("envelopes", len(ENV)*4),
                  ("lfos", len(LFO)*4), ("mod matrix", len(MOD)*16),
                  ("macros", MACRO_COUNT), ("global", len(GLOBALS))]:

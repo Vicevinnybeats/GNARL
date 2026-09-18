@@ -25,18 +25,35 @@ VoiceManager::VoiceManager()
         voices[i].setRandomSeed (kRandomSeedBase + static_cast<juce::int64> (i) * 7919);
 }
 
-void VoiceManager::prepare (double sampleRate, int maximumBlockSize)
+void VoiceManager::prepare (double maximumSampleRate, int maximumBlockSize)
 {
     for (auto& voice : voices)
-        voice.prepare (sampleRate, maximumBlockSize);
+        voice.prepare (maximumSampleRate, maximumBlockSize);
+
+    // All allocation happens here, never in render().
+    scratch.prepare (maximumBlockSize);
 
     reset();
+}
+
+void VoiceManager::setSampleRate (double sampleRate) noexcept
+{
+    for (auto& voice : voices)
+        voice.setSampleRate (sampleRate);
+}
+
+void VoiceManager::setOversamplingRatio (float ratio) noexcept
+{
+    for (auto& voice : voices)
+        voice.setOversamplingRatio (ratio);
 }
 
 void VoiceManager::reset()
 {
     for (auto& voice : voices)
         voice.reset();
+
+    scratch.clear();
 
     numHeldNotes = 0;
     lastMonoNote = -1;
@@ -343,10 +360,31 @@ void VoiceManager::allNotesOff (bool allowTailOff)
 
 // --- Rendering -------------------------------------------------------------
 
-void VoiceManager::render (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
+void VoiceManager::render (juce::AudioBuffer<float>& buffer,
+                           int startSample,
+                           int numSamples,
+                           const VoiceSettings& settings)
+{
+    const auto capacity = scratch.getCapacity();
+
+    if (capacity <= 0 || numSamples <= 0)
+        return;
+
+    for (int offset = 0; offset < numSamples;)
+    {
+        const auto chunk = juce::jmin (capacity, numSamples - offset);
+
+        for (auto& voice : voices)
+            voice.render (buffer, startSample + offset, chunk, settings, scratch);
+
+        offset += chunk;
+    }
+}
+
+void VoiceManager::advanceSilently (int numSamples)
 {
     for (auto& voice : voices)
-        voice.render (buffer, startSample, numSamples);
+        voice.advanceSilently (numSamples);
 }
 
 // --- Queries ---------------------------------------------------------------

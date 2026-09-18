@@ -43,6 +43,7 @@ families = {
 }
 sub = grab_singleton('sub')
 noise = grab_singleton('noise')
+ott = grab_singleton('ott')
 macros = grab_macros()
 globals_ = grab_globals()
 
@@ -108,6 +109,7 @@ def emit_object(name, rows, doc):
 
 emit_object('SUB', sub, 'Sub oscillator.')
 emit_object('NOISE', noise, 'Noise generator.')
+emit_object('OTT', ott, 'Built-in OTT-style three-band up/downward compressor.')
 
 out.append("/** Macro knobs. MACRO[0] is GROWL. */")
 out.append("export const MACRO = [")
@@ -127,6 +129,7 @@ export type ParameterId =
   | ValuesOf<(typeof OSC)[number]>
   | ValuesOf<typeof SUB>
   | ValuesOf<typeof NOISE>
+  | ValuesOf<typeof OTT>
   | ValuesOf<(typeof FILTER)[number]>
   | ValuesOf<(typeof ENV)[number]>
   | ValuesOf<(typeof LFO)[number]>
@@ -139,6 +142,7 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
   ...OSC.flatMap((o) => Object.values(o)),
   ...Object.values(SUB),
   ...Object.values(NOISE),
+  ...Object.values(OTT),
   ...FILTER.flatMap((f) => Object.values(f)),
   ...ENV.flatMap((e) => Object.values(e)),
   ...LFO.flatMap((l) => Object.values(l)),
@@ -150,7 +154,7 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
 
 open(OUT, 'w').write("\n".join(out))
 
-total = (sum(len(r) for r in families['osc']) + len(sub) + len(noise)
+total = (sum(len(r) for r in families['osc']) + len(sub) + len(noise) + len(ott)
          + sum(len(r) for r in families['filter'])
          + sum(len(r) for r in families['envelope'])
          + sum(len(r) for r in families['lfo'])

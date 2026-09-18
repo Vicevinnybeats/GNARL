@@ -27,6 +27,7 @@ endif()
 
 option(GNARL_BUILD_TESTS "Build the Catch2 DSP test suite" ON)
 option(GNARL_BUILD_UI "Run the Vite build for the web UI as part of the CMake build" ON)
+option(GNARL_BUILD_DEMO_RENDERER "Build tools/render_demo, which renders demo clips to .wav" OFF)
 
 include(cmake/Dependencies.cmake)
 

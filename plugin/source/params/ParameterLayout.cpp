@@ -182,6 +182,61 @@ namespace
                    ranges::formatPercent);
     }
 
+    void addOtt (Layout& layout)
+    {
+        const auto& p = pid::ott;
+
+        // Off by default: a compressor that is on before the user asks makes
+        // every preset sound like the plugin, not like the patch.
+        addBool (layout, p.enabled, "OTT On", false);
+
+        // The control everyone actually uses. Defaults to a useful-but-not-
+        // extreme setting so switching OTT on is immediately recognisable.
+        addFloat (layout, p.depth, "OTT Depth", ranges::unipolar(), 0.35f,
+                  ranges::formatPercent);
+        addFloat (layout, p.time, "OTT Time", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.mix, "OTT Mix", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+
+        addFloat (layout, p.inputGain, "OTT In", ranges::linear (-24.0f, 24.0f, 0.1f),
+                  0.0f, ranges::formatDecibels);
+        addFloat (layout, p.outputGain, "OTT Out", ranges::linear (-24.0f, 24.0f, 0.1f),
+                  0.0f, ranges::formatDecibels);
+
+        // Crossover defaults matching the classic settings: the low split
+        // below the fundamental of most bass notes, the high split where
+        // presence begins.
+        addFloat (layout, p.crossoverLow, "OTT X-Low",
+                  ranges::skewed (30.0f, 500.0f, 120.0f), 88.0f, ranges::formatHertz);
+        addFloat (layout, p.crossoverHigh, "OTT X-High",
+                  ranges::skewed (500.0f, 12000.0f, 2500.0f), 2500.0f,
+                  ranges::formatHertz);
+
+        addFloat (layout, p.lowGain, "OTT Low", ranges::linear (-24.0f, 24.0f, 0.1f),
+                  0.0f, ranges::formatDecibels);
+        addFloat (layout, p.midGain, "OTT Mid", ranges::linear (-24.0f, 24.0f, 0.1f),
+                  0.0f, ranges::formatDecibels);
+        addFloat (layout, p.highGain, "OTT High", ranges::linear (-24.0f, 24.0f, 0.1f),
+                  0.0f, ranges::formatDecibels);
+
+        // Per-band up and down amounts, so a band can be levelled without
+        // being limited or vice versa.
+        addFloat (layout, p.lowUpward, "OTT Low Up", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.midUpward, "OTT Mid Up", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.highUpward, "OTT High Up", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+
+        addFloat (layout, p.lowDownward, "OTT Low Down", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.midDownward, "OTT Mid Down", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.highDownward, "OTT High Down", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+    }
+
     void addFilter (Layout& layout, std::size_t index)
     {
         const auto& p = pid::filter[index];
@@ -368,6 +423,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 
     addSubOscillator (layout);
     addNoise (layout);
+    addOtt (layout);
 
     for (std::size_t i = 0; i < pid::kNumFilters; ++i)
         addFilter (layout, i);
@@ -391,7 +447,7 @@ int getDeclaredParameterCount()
 {
     // Kept in step by ParameterLayoutTests, which counts what the layout
     // actually produced. Update this when a parameter is added on purpose.
-    return 299;
+    return 316;
 }
 
 } // namespace gnarl::params

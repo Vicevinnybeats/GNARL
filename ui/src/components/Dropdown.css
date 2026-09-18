@@ -1,0 +1,43 @@
+.gn-dropdown {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gn-dropdown[data-wide='true'] {
+  flex: 1;
+}
+
+.gn-dropdown__label {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gn-text-dim);
+}
+
+.gn-dropdown__select {
+  appearance: none;
+  background: var(--gn-panel-raised);
+  color: var(--gn-text);
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-value);
+  padding: 3px 18px 3px var(--gn-space-1);
+  cursor: pointer;
+
+  /* A chevron drawn in CSS rather than an image, so there is no asset to
+     load and it recolours with the theme. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--gn-text-dim) 50%),
+    linear-gradient(135deg, var(--gn-text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 10px) 50%, calc(100% - 6px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.gn-dropdown__select:focus-visible {
+  outline: var(--gn-hairline) solid var(--gn-accent);
+  border-color: var(--gn-accent-dim);
+}

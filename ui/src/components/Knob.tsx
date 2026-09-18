@@ -36,7 +36,7 @@ export function Knob({
   label,
   value,
   readout,
-  size = 44,
+  size = 36,
   onChange,
   onGestureStart,
   onGestureEnd,

@@ -1,0 +1,73 @@
+.gn-panel {
+  background: var(--gn-panel);
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: var(--gn-radius);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gn-panel[data-grow='true'] {
+  flex: 1;
+}
+
+/* Switched-off sections stay visible but recede, so the layout does not jump
+   and the control that switched them off is still obvious. */
+.gn-panel[data-dimmed='true'] {
+  opacity: 0.45;
+}
+
+.gn-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gn-space-2);
+  padding: var(--gn-space-1) var(--gn-space-2);
+  border-bottom: var(--gn-hairline) solid var(--gn-border);
+  background: var(--gn-panel-raised);
+  border-radius: var(--gn-radius) var(--gn-radius) 0 0;
+  min-height: 20px;
+}
+
+.gn-panel__title {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: var(--gn-tracking-header);
+  text-transform: uppercase;
+  color: var(--gn-text-dim);
+  white-space: nowrap;
+}
+
+.gn-panel__right {
+  display: flex;
+  align-items: center;
+  gap: var(--gn-space-2);
+}
+
+.gn-panel__body {
+  padding: var(--gn-space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-2);
+  flex: 1;
+  min-height: 0;
+
+  /* Clipped, so a panel whose content is taller than its grid cell cannot
+     draw over the panel below it. */
+  overflow: hidden;
+}
+
+.gn-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gn-space-3);
+  flex-wrap: wrap;
+}
+
+.gn-row[data-gap='tight'] {
+  gap: var(--gn-space-1);
+}
+
+.gn-row[data-gap='wide'] {
+  gap: var(--gn-space-6);
+}

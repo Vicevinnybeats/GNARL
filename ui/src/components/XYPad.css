@@ -1,0 +1,54 @@
+.gn-xypad-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gn-xypad__label {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gn-text-dim);
+}
+
+.gn-xypad {
+  position: relative;
+  background: var(--gn-bg);
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+
+  /* A faint grid, so the puck's position is readable at a glance. */
+  background-image: linear-gradient(to right, var(--gn-border) 1px, transparent 1px),
+    linear-gradient(to top, var(--gn-border) 1px, transparent 1px);
+  background-size: 25% 25%;
+}
+
+.gn-xypad:focus-visible {
+  border-color: var(--gn-accent);
+}
+
+.gn-xypad__anchor {
+  position: absolute;
+  transform: translate(-50%, 50%);
+  font-family: var(--gn-font-display);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--gn-text-faint);
+  pointer-events: none;
+  padding: 1px 2px;
+}
+
+.gn-xypad__puck {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, 50%);
+  background: var(--gn-accent);
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px var(--gn-bg);
+}

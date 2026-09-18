@@ -314,10 +314,12 @@ void WavetableOscillator::renderWavetable (float* left,
         getUnisonGains (voice, count, settings, leftGain, rightGain);
 
         // Chosen from the faster end of the block, so a rising glide cannot
-        // outrun the level picked for it.
+        // outrun the level picked for it. Scaled by bandLimitRatio so an
+        // oversampled oscillator stays band-limited to the BASE rate's
+        // Nyquist - see setOversamplingRatio.
         const auto mipLevel = Wavetable::getMipLevelForIncrement (
             juce::jmax (std::abs (voiceStartIncrement), std::abs (voiceEndIncrement))
-            * expansion);
+            * expansion * bandLimitRatio);
 
         auto phase = phases[static_cast<std::size_t> (voice)];
 
@@ -440,7 +442,8 @@ void WavetableOscillator::renderGraintable (float* left,
                     continue;
 
                 const auto grainIncrement = increment * grain.pitchRatio;
-                const auto mipLevel = Wavetable::getMipLevelForIncrement (grainIncrement);
+                const auto mipLevel = Wavetable::getMipLevelForIncrement (
+                    grainIncrement * bandLimitRatio);
 
                 const auto framePosition = grain.framePosition
                                          * static_cast<float> (Wavetable::kNumFrames - 1);

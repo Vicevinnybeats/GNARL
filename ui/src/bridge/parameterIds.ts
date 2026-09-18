@@ -396,6 +396,27 @@ export const NOISE = {
   sendDirect:  'noise_send_direct',
 } as const;
 
+/** Built-in OTT-style three-band up/downward compressor. */
+export const OTT = {
+  enabled:       'ott_enabled',
+  depth:         'ott_depth',
+  time:          'ott_time',
+  mix:           'ott_mix',
+  inputGain:     'ott_in_gain',
+  outputGain:    'ott_out_gain',
+  crossoverLow:  'ott_xover_low',
+  crossoverHigh: 'ott_xover_high',
+  lowGain:       'ott_low_gain',
+  midGain:       'ott_mid_gain',
+  highGain:      'ott_high_gain',
+  lowUpward:     'ott_low_up',
+  midUpward:     'ott_mid_up',
+  highUpward:    'ott_high_up',
+  lowDownward:   'ott_low_down',
+  midDownward:   'ott_mid_down',
+  highDownward:  'ott_high_down',
+} as const;
+
 /** Macro knobs. MACRO[0] is GROWL. */
 export const MACRO = [
   'macro1',
@@ -429,6 +450,7 @@ export type ParameterId =
   | ValuesOf<(typeof OSC)[number]>
   | ValuesOf<typeof SUB>
   | ValuesOf<typeof NOISE>
+  | ValuesOf<typeof OTT>
   | ValuesOf<(typeof FILTER)[number]>
   | ValuesOf<(typeof ENV)[number]>
   | ValuesOf<(typeof LFO)[number]>
@@ -441,6 +463,7 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
   ...OSC.flatMap((o) => Object.values(o)),
   ...Object.values(SUB),
   ...Object.values(NOISE),
+  ...Object.values(OTT),
   ...FILTER.flatMap((f) => Object.values(f)),
   ...ENV.flatMap((e) => Object.values(e)),
   ...LFO.flatMap((l) => Object.values(l)),

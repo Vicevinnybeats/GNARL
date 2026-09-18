@@ -39,6 +39,13 @@ public:
         setResonance (0.0f);
     }
 
+    /** AUDIO THREAD SAFE. Coefficients are recomputed by the next setCutoff,
+        which the filter slot calls every block. */
+    void setSampleRate (double sampleRate) noexcept
+    {
+        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
+    }
+
     void reset() noexcept
     {
         stages.fill (0.0f);

@@ -47,24 +47,38 @@ public:
         float combDamping = 0.3f;
     };
 
-    void prepare (double sampleRate)
+    /** MESSAGE THREAD. Pass the HIGHEST rate this slot will run at, including
+        any oversampled rate: the comb's delay line is sized here and must not
+        be reallocated when the oversampling factor changes. */
+    void prepare (double maximumSampleRate)
+    {
+        // Every filter prepared up front, so changing type is free.
+        svf1.prepare (maximumSampleRate);
+        svf2.prepare (maximumSampleRate);
+        ladder.prepare (maximumSampleRate);
+        comb.prepare (maximumSampleRate);
+        formant.prepare (maximumSampleRate);
+
+        setSampleRate (maximumSampleRate);
+        reset();
+    }
+
+    /** AUDIO THREAD SAFE. */
+    void setSampleRate (double sampleRate) noexcept
     {
         sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
 
-        // Every filter prepared up front, so changing type is free.
-        svf1.prepare (sampleRate);
-        svf2.prepare (sampleRate);
-        ladder.prepare (sampleRate);
-        comb.prepare (sampleRate);
-        formant.prepare (sampleRate);
+        svf1.setSampleRate (sampleRateHz);
+        svf2.setSampleRate (sampleRateHz);
+        ladder.setSampleRate (sampleRateHz);
+        comb.setSampleRate (sampleRateHz);
+        formant.setSampleRate (sampleRateHz);
 
-        // DC blocker for the asymmetric drive curves. 20 Hz, high enough to
-        // remove offset and low enough to leave a sub alone.
+        // DC blocker for the asymmetric drive curves. 20 Hz: high enough to
+        // remove offset, low enough to leave a sub alone.
         dcBlockerCoefficient = 1.0f
             - std::exp (-juce::MathConstants<float>::twoPi * 20.0f
                         / static_cast<float> (sampleRateHz));
-
-        reset();
     }
 
     void reset() noexcept
@@ -88,16 +102,30 @@ public:
         switch (settings.type)
         {
             case Type::lowPass12:
-            case Type::lowPass24:
             case Type::highPass12:
-            case Type::highPass24:
             case Type::bandPass12:
-            case Type::bandPass24:
             case Type::notch12:
-            case Type::notch24:
                 svf1.setCutoff (settings.cutoffHz);
                 svf1.setResonance (settings.resonance);
+                break;
+
+            case Type::lowPass24:
+            case Type::highPass24:
+            case Type::bandPass24:
+            case Type::notch24:
+                svf1.setCutoff (settings.cutoffHz);
                 svf2.setCutoff (settings.cutoffHz);
+
+                // ONLY ONE SECTION CARRIES THE RESONANCE.
+                //
+                // Giving both sections the user's Q multiplies their peaks, so
+                // the resonant peak becomes Q^2 - the 24 dB modes measured
+                // SIX TIMES LOUDER than the 12 dB ones at the same resonance
+                // setting, and closing the filter made a patch louder instead
+                // of darker. The first section stays maximally flat so the
+                // slope is 24 dB/octave with a single peak of the height the
+                // user asked for.
+                svf1.setQ (StateVariableFilter::getFlatQ());
                 svf2.setResonance (settings.resonance);
                 break;
 

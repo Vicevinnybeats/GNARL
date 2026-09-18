@@ -1,5 +1,10 @@
 #pragma once
 
+#include "NoiseGenerator.h"
+#include "VoiceSettings.h"
+#include "WavetableOscillator.h"
+#include "../params/ParameterIDs.h"
+
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include <array>
@@ -20,15 +25,57 @@ struct NoteRequest
 };
 
 /**
-    One polyphonic voice.
+    Shared scratch buffers for voice rendering.
 
-    Phase 1 scope: lifecycle, pitch with portamento, a per-voice random seed,
-    and a placeholder amplitude envelope. It renders SILENCE - the oscillators
-    and filters arrive in Phase 2.
+    Owned by the VoiceManager and lent to each voice in turn, because voices
+    render sequentially. Giving every voice its own set would multiply this
+    memory by sixteen for no benefit.
+*/
+struct VoiceScratch
+{
+    void prepare (int maximumBlockSize)
+    {
+        const auto size = juce::jmax (1, maximumBlockSize);
 
-    The amplitude envelope here is not the real Env 1. It exists because voice
-    stealing has to be able to ask "which voice is quietest", and because a
-    stolen voice must fade out rather than cut. Phase 3 replaces it with the
+        source.setSize (2, size, false, true, true);
+        filter1.setSize (2, size, false, true, true);
+        filter2.setSize (2, size, false, true, true);
+        direct.setSize (2, size, false, true, true);
+        modulator.setSize (1, size, false, true, true);
+
+        clear();
+    }
+
+    void clear() noexcept
+    {
+        source.clear();
+        filter1.clear();
+        filter2.clear();
+        direct.clear();
+        modulator.clear();
+    }
+
+    int getCapacity() const noexcept { return source.getNumSamples(); }
+
+    /** One source's output, before it is split across the sends. */
+    juce::AudioBuffer<float> source;
+
+    /** The two filter input busses and the unfiltered path. */
+    juce::AudioBuffer<float> filter1;
+    juce::AudioBuffer<float> filter2;
+    juce::AudioBuffer<float> direct;
+
+    /** Oscillator 2's mono output, for FM and ring mod into oscillator 1. */
+    juce::AudioBuffer<float> modulator;
+};
+
+/**
+    One polyphonic voice: two wavetable oscillators, a sub, noise, and two
+    filters with send routing.
+
+    The amplitude envelope is still the Phase 1 placeholder. It exists because
+    voice stealing has to be able to ask "which voice is quietest", and because
+    a stolen voice must fade out rather than cut. Phase 3 replaces it with the
     real per-segment envelope and keeps this interface.
 
     Real-time contract: every method except prepare() and reset() is callable
@@ -49,7 +96,18 @@ public:
 
     // --- Setup (message thread) --------------------------------------------
 
-    void prepare (double sampleRate, int maximumBlockSize);
+    /** MESSAGE THREAD. Pass the HIGHEST rate this voice will run at,
+        including any oversampled rate - the comb filter's delay line is sized
+        here and must never be reallocated on the audio thread. */
+    void prepare (double maximumSampleRate, int maximumBlockSize);
+
+    /** AUDIO THREAD SAFE. Switches the working rate without allocating, which
+        is what lets the oversampling factor be a live parameter. */
+    void setSampleRate (double sampleRate) noexcept;
+
+    /** AUDIO THREAD SAFE. Keeps the oscillators band-limited to the base
+        rate's Nyquist while running oversampled. */
+    void setOversamplingRatio (float ratio) noexcept;
 
     /** Seeds this voice's deterministic random stream. Deterministic so a
         patch sounds the same on every load: "analog drift" that changes
@@ -74,9 +132,18 @@ public:
     // --- Rendering (audio thread) -----------------------------------------
 
     /** Advances the voice by `numSamples` and adds its output into `buffer`.
-        Phase 1 adds silence; the envelope and pitch still advance, so voice
-        stealing and glide are already testable. */
-    void render (juce::AudioBuffer<float>& buffer, int startSample, int numSamples);
+
+        `settings` is read once per block by the processor and shared by every
+        voice. `scratch` is borrowed, not owned - voices render one at a time. */
+    void render (juce::AudioBuffer<float>& buffer,
+                 int startSample,
+                 int numSamples,
+                 const VoiceSettings& settings,
+                 VoiceScratch& scratch);
+
+    /** Advances state without producing audio. Used by the tests and by any
+        caller with no settings to render with. */
+    void advanceSilently (int numSamples);
 
     // --- Queries (audio thread) -------------------------------------------
 
@@ -113,9 +180,38 @@ public:
     /** Per-voice drift value in -1..1, stable for the note. */
     float getDriftAmount() const noexcept { return driftAmount; }
 
+    /** Oscillators are exposed so the manager can hand them their tables when
+        a patch changes, without the voice knowing about the library. */
+    WavetableOscillator& getOscillator (std::size_t index) noexcept
+    {
+        return oscillators[juce::jmin (index, oscillators.size() - 1)];
+    }
+
+    WavetableOscillator& getSubOscillator() noexcept { return subOscillator; }
+
 private:
     void beginAmplitudeAttack();
     void updatePitchTarget (const NoteRequest& request, float glideTimeSeconds);
+
+    /** Frequency in Hz for a pitch in MIDI note units plus an offset. */
+    float getFrequencyHz (float pitchInNotes, float offsetSemitones) const noexcept;
+
+    /** Renders one source into scratch.source and distributes it across the
+        filter and direct busses by its send levels. */
+    void addSourceToBusses (const VoiceSettings::Sends& sends,
+                            VoiceScratch& scratch,
+                            int numSamples) noexcept;
+
+    void renderNoise (VoiceScratch& scratch,
+                      int numSamples,
+                      const VoiceSettings::NoiseState& noiseState) noexcept;
+
+    /** Runs the filter busses and sums everything into `destination`. */
+    void renderFilters (juce::AudioBuffer<float>& destination,
+                        int startSample,
+                        int numSamples,
+                        const VoiceSettings& settings,
+                        VoiceScratch& scratch) noexcept;
 
     State state = State::idle;
 
@@ -148,6 +244,12 @@ private:
 
     std::array<float, 16> unisonRandom {};
     float driftAmount = 0.0f;
+
+    std::array<WavetableOscillator, pid::kNumOscillators> oscillators {};
+    WavetableOscillator subOscillator;
+    NoiseGenerator noise;
+
+    std::array<FilterSlot, pid::kNumFilters> filters {};
 
     JUCE_LEAK_DETECTOR (Voice)
 };

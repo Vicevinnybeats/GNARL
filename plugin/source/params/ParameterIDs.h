@@ -550,6 +550,48 @@ namespace gnarl::pid
     };
 
     // ----------------------------------------------------------------------
+    struct OttIDs
+    {
+        const char* enabled;
+        const char* depth;
+        const char* time;
+        const char* mix;
+        const char* inputGain;
+        const char* outputGain;
+        const char* crossoverLow;
+        const char* crossoverHigh;
+        const char* lowGain;
+        const char* midGain;
+        const char* highGain;
+        const char* lowUpward;
+        const char* midUpward;
+        const char* highUpward;
+        const char* lowDownward;
+        const char* midDownward;
+        const char* highDownward;
+    };
+
+    inline constexpr OttIDs ott {
+        .enabled       = "ott_enabled",
+        .depth         = "ott_depth",
+        .time          = "ott_time",
+        .mix           = "ott_mix",
+        .inputGain     = "ott_in_gain",
+        .outputGain    = "ott_out_gain",
+        .crossoverLow  = "ott_xover_low",
+        .crossoverHigh = "ott_xover_high",
+        .lowGain       = "ott_low_gain",
+        .midGain       = "ott_mid_gain",
+        .highGain      = "ott_high_gain",
+        .lowUpward     = "ott_low_up",
+        .midUpward     = "ott_mid_up",
+        .highUpward    = "ott_high_up",
+        .lowDownward   = "ott_low_down",
+        .midDownward   = "ott_mid_down",
+        .highDownward  = "ott_high_down",
+    };
+
+    // ----------------------------------------------------------------------
     /** Macro knobs. Destinations are assigned through the mod matrix. */
     inline constexpr std::array<const char*, kNumMacros> macro {
         "macro1",

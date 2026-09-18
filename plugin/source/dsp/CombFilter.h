@@ -25,22 +25,32 @@ namespace gnarl::dsp
 class CombFilter
 {
 public:
-    void prepare (double sampleRate)
+    /** MESSAGE THREAD. `maximumSampleRate` sizes the delay line, so pass the
+        highest rate this filter will ever run at - including any oversampled
+        rate. Changing the working rate afterwards must not allocate, because
+        the oversampling factor is a live parameter. */
+    void prepare (double maximumSampleRate)
     {
-        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
+        const auto maxRate = maximumSampleRate > 0.0 ? maximumSampleRate : 44100.0;
 
-        // Sized for the lowest delay frequency we allow. Allocated here, in
-        // prepare, and never resized afterwards.
         const auto maxDelaySamples =
-            static_cast<int> (std::ceil (sampleRateHz / kMinFrequencyHz)) + 4;
+            static_cast<int> (std::ceil (maxRate / kMinFrequencyHz)) + 4;
 
         buffer.assign (static_cast<std::size_t> (maxDelaySamples), 0.0f);
         writeIndex = 0;
 
+        setSampleRate (maxRate);
         reset();
         setFrequency (440.0f);
         setFeedback (0.5f);
         setDamping (0.3f);
+    }
+
+    /** AUDIO THREAD SAFE. Never allocates: the buffer was sized in prepare
+        for the highest rate this filter can run at. */
+    void setSampleRate (double sampleRate) noexcept
+    {
+        sampleRateHz = sampleRate > 0.0 ? sampleRate : 44100.0;
     }
 
     void reset() noexcept
