@@ -29,6 +29,13 @@
 
 .gn-toggle[data-on='true'] .gn-toggle__led {
   background: var(--gn-accent);
+  /* The lit LED is the clearest signal of an enabled section, so this is one
+     of the few places glow earns its cost. */
+  box-shadow: var(--gn-glow-accent);
+}
+
+.gn-toggle[data-on='true'] {
+  background: color-mix(in srgb, var(--gn-accent) 8%, transparent);
 }
 
 .gn-toggle:focus-visible {

@@ -1,19 +1,40 @@
 /*
+/*
  * GNARL design tokens.
  *
- * Phase 6 builds the full system on top of these. Rules that do not bend:
- *  - near-black base, one step lighter for panels, hairline borders
- *  - exactly ONE accent per theme, carrying active/modulated state only
- *  - sharp geometry: 2-4px radii, no soft shadows, no glass
- *  - two typefaces: condensed grotesque for headers, mono for numbers
+ * The direction is a lit instrument: near-black surfaces with a gradient lift,
+ * one neon accent, and glow used to mark what is ACTIVE rather than sprayed
+ * everywhere. This is a deliberate move away from the flat, matte hardware
+ * look the project started with, towards the commercial-plugin look of the
+ * references.
+ *
+ * Glow is not free. Every box-shadow and every canvas shadowBlur is
+ * compositing work, and this UI runs in a webview inside a DAW that is already
+ * busy with audio. So:
+ *  - glow marks state (enabled, active, modulated), never decoration
+ *  - the wavetable display glows one line, not every line in its stack
+ *  - no glow on anything that animates per frame except that one line
+ *
+ * Still fixed: one accent per theme, two typefaces, and density as a feature.
  */
 :root {
   /* Surfaces */
-  --gn-bg: #0a0a0c;
-  --gn-panel: #141418;
-  --gn-panel-raised: #1b1b21;
-  --gn-border: #242430;
-  --gn-border-strong: #33333f;
+  --gn-bg: #07070a;
+  --gn-panel: #12121a;
+  --gn-panel-raised: #1a1a24;
+  --gn-border: #23232f;
+  --gn-border-strong: #34344a;
+
+  /* Gradients. A panel with a subtle top-down lift reads as a surface with a
+     light above it; a flat fill reads as a hole. */
+  --gn-panel-gradient: linear-gradient(180deg, #1a1a24 0%, #12121a 100%);
+  --gn-head-gradient: linear-gradient(180deg, #23232f 0%, #191922 100%);
+  --gn-app-gradient: radial-gradient(140% 100% at 50% 0%, #12121c 0%, #07070a 62%);
+
+  /* Glow. Alpha-based so it tints with whatever accent the theme sets. */
+  --gn-glow-accent: 0 0 10px color-mix(in srgb, var(--gn-accent) 55%, transparent);
+  --gn-glow-accent-soft: 0 0 18px color-mix(in srgb, var(--gn-accent) 28%, transparent);
+  --gn-glow-edge: rgba(255, 255, 255, 0.045);
 
   /* Text */
   --gn-text: #e6e6ea;
@@ -29,9 +50,10 @@
   --gn-warn: #ffb02e;
   --gn-error: #ff4444;
 
-  /* Geometry */
-  --gn-radius: 3px;
-  --gn-radius-sm: 2px;
+  /* Geometry. Slightly softer than the original 2-4px, matching the
+     references, but still far from rounded-everything. */
+  --gn-radius: 5px;
+  --gn-radius-sm: 3px;
   --gn-hairline: 1px;
 
   /* Spacing — 4px base grid */
@@ -70,7 +92,8 @@ body,
 }
 
 body {
-  background: var(--gn-bg);
+  background: var(--gn-app-gradient);
+  background-color: var(--gn-bg);
   color: var(--gn-text);
   font-family: var(--gn-font-mono);
   font-size: var(--gn-size-body);

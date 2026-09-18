@@ -1,9 +1,10 @@
 import { Knob } from '../components/Knob';
+import { WavetableDisplay } from '../components/WavetableDisplay';
 import { Dropdown } from '../components/Dropdown';
 import { Panel, Row } from '../components/Panel';
 import { Toggle } from '../components/Toggle';
 import { XYPad } from '../components/XYPad';
-import { FILTER_ROUTING, FILTER_TYPE, NOISE_TYPE, OSC_MODE, SUB_WAVEFORM, VOWEL_ANCHORS, WARP_MODE, WAVETABLE_NAMES } from '../bridge/choices';
+import { DRIVE_CURVE, FILTER_ROUTING, FILTER_TYPE, NOISE_TYPE, OSC_MODE, SUB_WAVEFORM, VOWEL_ANCHORS, WARP_MODE, WAVETABLE_NAMES } from '../bridge/choices';
 import { FILTER, GLOBAL, NOISE, OSC, SUB } from '../bridge/parameterIds';
 import { useParameter } from '../bridge/useParameter';
 import { useChoiceParameter, useToggleParameter } from '../bridge/useDiscreteParameter';
@@ -44,11 +45,17 @@ function OscillatorPanel({ index }: { index: 0 | 1 }) {
         <Dropdown label="Mode" value={mode.index} options={OSC_MODE} onChange={mode.setIndex} />
       </Row>
 
-      {/* The wavetable display lives here in Phase 6. Until the WebGL view
-          exists, the position knob is shown large so the panel is usable
-          rather than looking half-finished. */}
+      {/* The visual centrepiece. Moving the position control travels through
+          the table rather than swapping one shape for another, which is what
+          makes a wavetable synth feel alive. */}
       <div className="gn-osc__display">
-        <span className="gn-osc__display-note">Wavetable view — Phase 6</span>
+        <WavetableDisplay
+          tableIndex={table.index}
+          position={tablePos.normalised}
+          warpMode={warp.index}
+          warpAmount={warpAmount.scaled}
+          flat={isGrain}
+        />
       </div>
 
       {/* Two knob rows, not three: at the design size there is not room for a
@@ -140,7 +147,7 @@ function FilterPanel({ index }: { index: 0 | 1 }) {
   const ids = FILTER[index];
   const enabled = useToggleParameter(ids.enabled);
   const type = useChoiceParameter(ids.type, FILTER_TYPE.length);
-  const curve = useChoiceParameter(ids.driveCurve, 5);
+  const curve = useChoiceParameter(ids.driveCurve, DRIVE_CURVE.length);
 
   const cutoff = useParameter(ids.cutoff);
   const resonance = useParameter(ids.resonance);
@@ -161,6 +168,7 @@ function FilterPanel({ index }: { index: 0 | 1 }) {
     >
       <Row gap="tight">
         <Dropdown label="Type" value={type.index} options={FILTER_TYPE} onChange={type.setIndex} wide />
+        <Dropdown label="Drive Curve" value={curve.index} options={DRIVE_CURVE} onChange={curve.setIndex} />
       </Row>
 
       <Row gap="tight">
@@ -177,7 +185,7 @@ function FilterPanel({ index }: { index: 0 | 1 }) {
                 formantX.setNormalised(x);
                 formantY.setNormalised(y);
               }}
-              size={104}
+              size={92}
             />
             <div className="gn-filter__column">
               <Knob label="Throat" value={throat.normalised} readout={throat.text} onChange={throat.setNormalised} onGestureStart={throat.beginGesture} onGestureEnd={throat.endGesture} defaultValue={0.5} />
@@ -197,9 +205,6 @@ function FilterPanel({ index }: { index: 0 | 1 }) {
         </div>
       </Row>
 
-      <Row gap="tight">
-        <Dropdown label="Drive Curve" value={curve.index} options={['Tanh', 'Tube', 'Hard Clip', 'Fold', 'Rectify']} onChange={curve.setIndex} wide />
-      </Row>
     </Panel>
   );
 }

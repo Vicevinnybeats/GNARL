@@ -114,4 +114,21 @@ if (GNARL_BUILD_DEMO_RENDERER)
     set_target_properties(GnarlDumpDefaults PROPERTIES
         INTERPROCEDURAL_OPTIMIZATION FALSE
         FOLDER "GNARL")
+
+    # Dumps the factory wavetables as display spectra for the UI.
+    add_executable(GnarlDumpSpectra ${CMAKE_SOURCE_DIR}/tools/dump_wavetable_spectra.cpp)
+    target_link_libraries(GnarlDumpSpectra PRIVATE GNARL)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
+        target_link_libraries(GnarlDumpSpectra PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+        juce_link_with_embedded_linux_subprocess(GnarlDumpSpectra)
+    endif()
+
+    if (WIN32 AND TARGET juce::juce_webview2)
+        target_link_libraries(GnarlDumpSpectra PRIVATE juce::juce_webview2)
+    endif()
+
+    set_target_properties(GnarlDumpSpectra PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION FALSE
+        FOLDER "GNARL")
 endif()

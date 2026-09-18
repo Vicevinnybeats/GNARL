@@ -1,0 +1,11 @@
+.gn-wavetable {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--gn-radius-sm);
+
+  /* A faint radial lift behind the waveform, so the stack has somewhere to
+     recede into rather than floating on flat black. */
+  background:
+    radial-gradient(120% 90% at 50% 78%, var(--gn-panel-raised) 0%, var(--gn-bg) 72%);
+}

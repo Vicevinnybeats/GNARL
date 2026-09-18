@@ -282,10 +282,22 @@ whenever you add one.
   them by name at compile time and cannot follow a content hash. The list is
   duplicated in `cmake/WebUI.cmake` (`GNARL_UI_FILES`) and
   `ui/vite.config.ts` — keep them in sync.
-- Visual direction: near-black base `#0a0a0c`, panels `#141418`, hairline
-  borders `#242430`, exactly **one** accent per theme (Acid `#b4ff2e`, Ember
-  `#ff5c1a`) used only for active/modulated state. Radii 2–4 px. No soft
-  shadows, no glass, no pastel. It should read as hardware, not a dashboard.
+- Visual direction: **a lit instrument.** Near-black surfaces with a gradient
+  lift, exactly **one** neon accent per theme (Acid `#b4ff2e`, Ember
+  `#ff5c1a`), and glow marking what is ACTIVE. Radii 3–5 px. This is a
+  deliberate move from the flat matte look the project started with, on the
+  client's direction and against concrete references.
+- **Glow is not free.** Every `box-shadow` and every canvas `shadowBlur` is
+  compositing work, in a webview inside a DAW that is already busy with audio.
+  So: glow marks state, never decoration; the wavetable display glows one line
+  rather than every line in its stack; and nothing that animates per frame
+  glows except that one line.
+- **Row heights in a tab are explicit, not flex proportions.** The vertical
+  budget at the design size is exact — 720 minus the 58 px header, 22 px
+  status bar and 16 px padding leaves 624 px. Content-sized rows overflow
+  that, and an overflowing child renders *on top of* its siblings. This bit
+  twice: the oscillator's send row ended up drawn across the Sub and Noise
+  panel headers both times.
 - Density is a feature. The four tabs are the only nesting allowed.
 - **Knob values are always visible**, dim at rest and bright while
   interacting. Hiding them until hover keeps a panel tidy and makes a dense
@@ -304,6 +316,28 @@ whenever you add one.
   Phase 6 should relay the C++ string over the bridge so there is one
   formatter.
 
+### The wavetable display
+
+Draws the frames receding in Z with the active frame bright and forward, so
+moving the position control reads as travelling *through* the table rather than
+as one shape being swapped for another.
+
+Fed **harmonics, not samples** (`tools/dump_wavetable_spectra.cpp` →
+`ui/src/bridge/wavetableSpectra.ts`), so the display can synthesise the
+waveform at exactly the width its canvas happens to be and re-synthesise it
+when the warp changes. The spectra are analysed back *out of* the generated
+tables, so what is drawn is what the oscillator plays, band-limiting included.
+
+The drawn position is smoothed towards the parameter rather than tracking it
+exactly, so a jumped value animates instead of teleporting — the movement is
+most of the point.
+
+`ui/src/bridge/warp.ts` is a **port** of `WarpProcessor.h`, because the display
+has to show what the warp does and the engine's copy is in C++ on the audio
+thread. Duplicated logic is a liability; it is checked against reference values
+dumped from the C++ implementation so a one-sided change fails rather than
+quietly drawing the wrong shape.
+
 ### Screenshotting the UI
 
 ```bash
@@ -314,6 +348,10 @@ node ../tools/screenshot_ui.mjs <output-directory>
 
 Worth doing after any layout change: the overflow bug above was invisible in
 code review and obvious in a screenshot at the design size.
+
+For motion, `tools/record_ui_motion.mjs` records a video by dragging the real
+controls — so the waveform moves because the parameter moves, not because
+something is animating for the camera.
 
 **Content Security Policy.** `ui/index.html` sets `script-src 'self'` with no
 `unsafe-eval`. JUCE's `check_native_interop.js` contains a direct `eval`, which
@@ -437,7 +475,8 @@ Consequences of the figure above:
 | 1 | Full parameter layout, voice architecture, smoothing | **done** |
 | 2 | Oscillators (wavetable + graintable), filters, formant filter | **done** |
 | 2b | OTT compressor (pulled forward from Phase 4 by request) | **done** |
-| 6a | UI: primitives, OSC tab, FX tab, theme switching | **partial** — visualisers and preset browser still to do |
+| 6a | UI: primitives, OSC tab, FX tab, theme switching | **partial** |
+| 6b | Animated wavetable display | **done** |
 | 3 | LFO engine, envelopes, mod matrix, macros | not started |
 | 4 | FX chain (10 slots) | not started |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |

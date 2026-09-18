@@ -1,14 +1,20 @@
+/*
+ * EXPLICIT ROW HEIGHTS, not flex proportions.
+ *
+ * The vertical budget at the design size is exact: 720 minus the 58px header,
+ * the 22px status bar and 16px of body padding leaves 624px. Letting the rows
+ * size themselves to their content overflows that, and an overflowing child
+ * renders ON TOP of its siblings - which is twice now that the oscillator's
+ * send row ended up drawn across the Sub and Noise panel headers.
+ *
+ * 300 + 92 + 216 + two 8px gaps = 624. The panels are built to fit these.
+ */
 .gn-osc-tab {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 300px 92px minmax(0, 1fr);
   gap: var(--gn-space-2);
   height: 100%;
   min-height: 0;
-
-  /* Scrolls rather than overlapping when the window is short. An overflowing
-     flex child renders ON TOP of its siblings, which is how the Sends row
-     ended up drawn across the Sub and Noise panels. */
-  overflow-y: auto;
 }
 
 .gn-osc-tab__oscillators {
@@ -18,10 +24,20 @@
   min-height: 0;
 }
 
+/* Tighter gaps inside the oscillator and filter panels, to buy the rows
+   above their fixed heights. */
+.gn-osc-tab__oscillators .gn-panel__body,
+.gn-osc-tab__filters .gn-panel__body,
+.gn-osc-tab__strip .gn-panel__body {
+  gap: var(--gn-space-1);
+  padding: var(--gn-space-1) var(--gn-space-2) var(--gn-space-2);
+}
+
 .gn-osc-tab__strip {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gn-space-2);
+  min-height: 0;
 }
 
 .gn-osc-tab__filters {
@@ -31,21 +47,18 @@
   min-height: 0;
 }
 
-/* Placeholder for the WebGL wavetable view. Explicitly labelled, so it reads
-   as "not built yet" rather than as a rendering failure. */
+/* The wavetable display. Given real height: it is the control users look at
+   most, and a cramped one cannot show the stack receding. */
 .gn-osc__display {
-  height: 40px;
-  border: var(--gn-hairline) dashed var(--gn-border-strong);
-  border-radius: var(--gn-radius-sm);
-  background: var(--gn-bg);
-  display: grid;
-  place-items: center;
-}
+  height: 88px;
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius);
+  overflow: hidden;
+  position: relative;
 
-.gn-osc__display-note {
-  font-family: var(--gn-font-mono);
-  font-size: 10px;
-  color: var(--gn-text-faint);
+  /* An inner glow along the top edge, so the panel reads as a lit screen
+     rather than a hole. */
+  box-shadow: inset 0 1px 0 var(--gn-glow-edge);
 }
 
 .gn-osc__sends-label {
