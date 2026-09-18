@@ -214,6 +214,25 @@ A nonlinear curve has no single gain, so this is a level match at one
 amplitude by construction; the residual at other levels is the compression the
 user asked for.
 
+**A shared LFO makes "process each channel in turn" wrong — a third time.**
+The FX rack ran the whole left channel and then the whole right, which is
+correct for per-channel *state* (each channel has its own filter, its own EQ
+bands) and wrong for the one thing the modulated effects *share*: the chorus,
+flanger and phaser advance a single LFO phase on channel 0 only, so that its
+rate does not depend on the channel count. The left pass therefore advanced
+the phase `numSamples` times and handed channel 1 the leftover value — the
+right channel's modulation froze at whatever the block size determined.
+
+Every component test passed. The chorus's own tests measure channel 0, or
+measure that the two channels *differ*, which they emphatically did. It took
+`FxDimension` in the same chain to make it visible at all, because only a
+mid/side effect folds the broken right channel back into the left; the rack
+then failed block-size invariance by 0.002 with **neither effect failing
+alone**. `FxRack::runPerChannel` interleaves the channels now, and
+`FxRackTests` asserts the invariance **bit-exactly** — a tolerance there would
+have let this through, exactly as a loose threshold hid the drive stage's
++15 dB.
+
 **A single tone is the wrong signal for measuring the level of a multi-tap
 effect.** The hyper's voices are taps spread over 3 ms; at 220 Hz one cycle is
 4.5 ms, so the taps land two thirds of a cycle apart and partly CANCEL.
@@ -629,7 +648,7 @@ Consequences of the figure above:
 | 6b | Animated wavetable display | **done** |
 | 6c | UI: MOD tab — LFO editor, envelopes, matrix, macros | **done** |
 | 3 | LFO engine, envelopes, mod matrix, macros | **done** |
-| 4 | FX chain (10 slots) | not started |
+| 4 | FX chain (14 instances, reorderable) | **done** (UI pending) |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
 | 6 | Full UI | not started |
 | 7 | Backend, licensing, subscription | not started |

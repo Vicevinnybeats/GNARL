@@ -1,11 +1,13 @@
 #pragma once
 
+#include "dsp/FxRack.h"
+#include "dsp/OttCompressor.h"
 #include "dsp/SmoothedParameter.h"
 #include "dsp/VoiceManager.h"
-#include "dsp/OttCompressor.h"
 #include "dsp/VoiceOversampler.h"
 #include "dsp/VoiceSettings.h"
 #include "dsp/WavetableLibrary.h"
+#include "params/FxOrderBridge.h"
 #include "params/ModStateBridge.h"
 #include "params/SettingsReader.h"
 
@@ -71,6 +73,10 @@ public:
         than host parameters. The editor reads and writes through this. */
     params::ModStateBridge& getModState() noexcept { return *modStateBridge; }
 
+    /** The FX chain order, which is ValueTree state rather than a parameter -
+        see docs/fx-architecture.md. The UI reorders the rack through this. */
+    params::FxOrderBridge& getFxOrder() noexcept { return *fxOrderBridge; }
+
     /** Voice count for the UI's readout. Read from the message thread. */
     int getSoundingVoiceCount() const noexcept { return voiceManager.getSoundingVoiceCount(); }
 
@@ -113,6 +119,23 @@ private:
         working rate and reporting the new latency if it changed. */
     void updateOversampling();
 
+    /** Sums the voice oversampler's latency and the FX rack's and reports it,
+        but only when the total changed. Both contributors are conditional -
+        the rack's limiter and its own oversampling switch on and off with the
+        patch - so this is checked every block rather than only in
+        prepareToPlay. */
+    void updateReportedLatency();
+
+    /** Runs the FX rack over the output buffer.
+
+        Templated because the host may hand over doubles and the rack is
+        float-only - as the voices are. A double buffer is copied into a float
+        scratch, processed and copied back; the conversion is exact in one
+        direction and the rounding in the other is far below the noise floor of
+        anything the rack does. */
+    template <typename SampleType>
+    void runFxRack (juce::AudioBuffer<SampleType>& buffer, int numSamples);
+
     /** BLOCK-RATE. */
     void updateOtt() noexcept;
 
@@ -144,6 +167,7 @@ private:
     /** Constructed after apvts, because it listens to its tree. Declared
         before the reader, which borrows a reference to it. */
     std::unique_ptr<params::ModStateBridge> modStateBridge;
+    std::unique_ptr<params::FxOrderBridge> fxOrderBridge;
 
     /** Constructed after apvts, because it caches raw parameter pointers. */
     std::unique_ptr<params::SettingsReader> settingsReader;
@@ -162,6 +186,21 @@ private:
         summed but not the master fader - riding the master must not change
         how hard the compressor works. */
     dsp::OttCompressor ott;
+
+    /** The fourteen effects, run in the user's order. Sits AFTER the OTT and
+        before the master gain: the OTT is part of the instrument's voice
+        rather than an effect the user placed, and the master fader must be
+        last so that riding it does not change how anything upstream behaves.
+
+        Its latency varies - the limiter's look-ahead and the oversampler's
+        filters are both conditional - so it is re-reported when it changes.
+        See updateFxLatency. */
+    dsp::FxRack fxRack;
+
+    /** Tracked so setLatencySamples is only called when the total actually
+        changes: notifying the host is not free, and the FX rack's latency can
+        change on any block. */
+    int reportedLatencySamples = -1;
 
     std::atomic<float>* oversamplingParam = nullptr;
 
@@ -195,6 +234,11 @@ private:
 
     /** Voice output, always float. Sized in prepareToPlay. */
     juce::AudioBuffer<float> voiceMixBuffer;
+
+    /** Only used when the host is running in double precision: the rack is
+        float-only, so the block is copied through here. Sized in
+        prepareToPlay, never on the audio thread. */
+    juce::AudioBuffer<float> fxScratchBuffer;
 
     // Cached raw pointers: looking a parameter up by string on the audio
     // thread is a hash lookup per block for no reason.

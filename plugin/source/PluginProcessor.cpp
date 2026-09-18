@@ -23,6 +23,11 @@ GnarlProcessor::GnarlProcessor()
     // Before the reader: the reader borrows a reference to it, and reads its
     // published snapshot every block.
     modStateBridge = std::make_unique<params::ModStateBridge> (apvts);
+    fxOrderBridge = std::make_unique<params::FxOrderBridge> (apvts);
+
+    // Cached here so the audio thread never looks an FX parameter up by
+    // string: 114 of them, once per block, would be 114 hash lookups.
+    fxRack.bind (apvts);
 
     settingsReader = std::make_unique<params::SettingsReader> (apvts, wavetableLibrary,
                                                                *modStateBridge);
@@ -81,6 +86,9 @@ void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSample
     voiceMixBuffer.setSize (2, juce::jmax (1, maximumExpectedSamplesPerBlock), false, true, true);
     voiceMixBuffer.clear();
 
+    fxScratchBuffer.setSize (2, juce::jmax (1, maximumExpectedSamplesPerBlock), false, true, true);
+    fxScratchBuffer.clear();
+
     oversampler.prepare (2, maximumExpectedSamplesPerBlock);
 
     // At the base rate: OTT runs after downsampling, on the voice mix. There
@@ -92,6 +100,10 @@ void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSample
     // oversampling factor later never allocates. The working rate is set
     // separately, per block.
     ott.reset();
+
+    // The rack sizes its own buffers for its OVERSAMPLED rate internally, so
+    // enabling a distortion mid-session never allocates.
+    fxRack.prepare (sampleRate, maximumExpectedSamplesPerBlock);
 
     voiceManager.prepare (sampleRate * dsp::VoiceOversampler::kMaxRatio,
                           maximumExpectedSamplesPerBlock
@@ -159,9 +171,23 @@ void GnarlProcessor::updateOversampling()
     // downsampling but intermodulates in the drive stage and folds back.
     voiceManager.setOversamplingRatio (static_cast<float> (ratio));
 
-    // Reported so the host can compensate. Only when it changes:
-    // setLatencySamples notifies the host, which is not free.
-    setLatencySamples (juce::roundToInt (oversampler.getLatencySamples()));
+    updateReportedLatency();
+}
+
+void GnarlProcessor::updateReportedLatency()
+{
+    // BOTH contributors, because the FX rack's is conditional: its limiter's
+    // look-ahead and its own 2x oversampling both come and go with the patch.
+    // Reporting only the voice oversampler's would put the instrument early
+    // against the session by however much the rack was adding.
+    const auto total = juce::roundToInt (oversampler.getLatencySamples())
+                     + fxRack.getLatencySamples();
+
+    if (total == reportedLatencySamples)
+        return;
+
+    reportedLatencySamples = total;
+    setLatencySamples (total);
 }
 
 void GnarlProcessor::updateOtt() noexcept
@@ -416,6 +442,62 @@ void GnarlProcessor::renderVoices (juce::AudioBuffer<SampleType>& output,
 }
 
 template <typename SampleType>
+void GnarlProcessor::runFxRack (juce::AudioBuffer<SampleType>& buffer, int numSamples)
+{
+    const auto numChannels = juce::jmin (buffer.getNumChannels(),
+                                         fxScratchBuffer.getNumChannels());
+
+    if (numChannels <= 0 || numSamples <= 0)
+        return;
+
+    if constexpr (std::is_same_v<SampleType, float>)
+    {
+        // The common case: the rack works in place on the host's own buffer.
+        juce::dsp::AudioBlock<float> block (buffer.getArrayOfWritePointers(),
+                                            static_cast<std::size_t> (numChannels),
+                                            0,
+                                            static_cast<std::size_t> (numSamples));
+        fxRack.process (block);
+    }
+    else
+    {
+        // A host handing over MORE samples than it declared in prepareToPlay
+        // would overrun the scratch buffer, and growing it here would allocate
+        // on the audio thread. renderVoices chunks for the same reason.
+        const auto chunk = juce::jmin (numSamples, fxScratchBuffer.getNumSamples());
+
+        for (auto offset = 0; offset < numSamples; offset += chunk)
+        {
+            const auto span = juce::jmin (chunk, numSamples - offset);
+
+            for (int channel = 0; channel < numChannels; ++channel)
+            {
+                const auto* source = buffer.getReadPointer (channel) + offset;
+                auto* destination = fxScratchBuffer.getWritePointer (channel);
+
+                for (int i = 0; i < span; ++i)
+                    destination[i] = static_cast<float> (source[i]);
+            }
+
+            juce::dsp::AudioBlock<float> block (fxScratchBuffer.getArrayOfWritePointers(),
+                                                static_cast<std::size_t> (numChannels),
+                                                0,
+                                                static_cast<std::size_t> (span));
+            fxRack.process (block);
+
+            for (int channel = 0; channel < numChannels; ++channel)
+            {
+                const auto* source = fxScratchBuffer.getReadPointer (channel);
+                auto* destination = buffer.getWritePointer (channel) + offset;
+
+                for (int i = 0; i < span; ++i)
+                    destination[i] = static_cast<SampleType> (source[i]);
+            }
+        }
+    }
+}
+
+template <typename SampleType>
 void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
                                       juce::MidiBuffer& midiMessages)
 {
@@ -481,6 +563,19 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
             data[i] = static_cast<SampleType> (
                 ott.processSample (channel, static_cast<float> (data[i])));
     }
+
+    /*  Then the FX rack: after the OTT, before the master gain. The OTT is
+        part of the instrument's voice rather than an effect the user placed in
+        the chain, and the master fader has to be last so that riding it does
+        not change how anything upstream behaves.
+
+        The order comes from the bridge rather than being held by the rack,
+        because it is ValueTree state that the UI writes - see
+        docs/fx-architecture.md. */
+    fxRack.setOrder (fxOrderBridge->getOrder());
+    fxRack.updateFromParameters (voiceSettings.transport.bpm);
+    runFxRack (buffer, numSamples);
+    updateReportedLatency();
 
     masterGain.updateTarget();
 
@@ -559,6 +654,11 @@ void GnarlProcessor::setStateInformation (const void* data, int sizeInBytes)
     // the ordering explicit rather than incidental.
     if (modStateBridge != nullptr)
         modStateBridge->refresh();
+
+    // The FXORDER branch came in with the tree too, so the chain order has to
+    // be re-read and republished before the next block.
+    if (fxOrderBridge != nullptr)
+        fxOrderBridge->refresh();
 
     if (settingsReader != nullptr)
     {

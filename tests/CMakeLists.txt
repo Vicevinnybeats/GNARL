@@ -11,6 +11,7 @@ add_executable(GnarlTests
     FxDistortionTests.cpp
     FxEqTests.cpp
     FxModulationTests.cpp
+    FxRackTests.cpp
     FxReverbLimiterTests.cpp
     FxDelayTests.cpp
     FxFilterTests.cpp

@@ -120,10 +120,15 @@ public:
             juce::jlimit (0, static_cast<int> (channels.size()) - 1, channelIndex));
         auto& channel = channels[index];
 
-        // The two channels read the same LFO at different phases, so the phase
-        // itself is advanced once per SAMPLE rather than once per channel -
-        // advancing it per channel would make its rate depend on the channel
-        // count.
+        /*  ONE SHARED LFO, advanced on channel 0 only: advancing it per
+            channel would make its rate depend on the channel count.
+
+            THIS REQUIRES THE CALLER TO INTERLEAVE THE CHANNELS. If it runs the
+            whole left channel and then the whole right, the phase is already
+            at the end of the block by the time channel 1 is processed, and the
+            right channel's modulation freezes at a value set by the block
+            size. FxRack::runPerChannel interleaves for exactly this reason,
+            and the comment there records what it cost to find. */
         if (index == 0)
         {
             phase += increment;
