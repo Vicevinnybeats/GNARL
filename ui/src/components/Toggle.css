@@ -13,6 +13,18 @@
   font-size: var(--gn-size-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-toggle:hover {
+  border-color: var(--gn-accent);
+  color: var(--gn-text);
+  box-shadow: var(--gn-glow-hover-soft);
 }
 
 .gn-toggle__led {
@@ -20,6 +32,9 @@
   height: 6px;
   border-radius: 1px;
   background: var(--gn-border-strong);
+  transition:
+    background var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
 }
 
 .gn-toggle[data-on='true'] {

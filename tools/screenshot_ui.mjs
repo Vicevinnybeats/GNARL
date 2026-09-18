@@ -107,6 +107,43 @@ await shoot('fx-ott-on');
     controls CHANGE with a setting, so both are worth a picture. A panel that
     overflows draws on top of its siblings, and that is invisible in code
     review (CLAUDE.md section 6). */
+/*  The settings popover, open, and then the same view with animations and
+    hover glow turned off. The second one is the check that matters: the off
+    switch has to leave a UI that is still READABLE, not one that has lost the
+    glow marking which effects are on - state glow is information, and only
+    the hover glow is the decoration being switched off. */
+await page.click('.gn-settings__button');
+await page.waitForTimeout(250);
+await shoot('settings-open');
+
+/*  HOVER SOMETHING FIRST. The first version of this shot toggled the effects
+    off and photographed the window with the pointer parked in a corner - and
+    the two pictures came out all but identical, because a hover effect that
+    nobody is hovering draws nothing either way. The only visible difference
+    was two small LEDs, which is not what the shot is for. */
+await page.click('.gn-settings__button');
+await page.hover('.gn-fx-chain__row:has-text("Reverb")');
+await page.waitForTimeout(250);
+await shoot('hover-glow-on');
+
+await page.click('.gn-settings__button');
+await page.click('.gn-settings__row:has-text("Animations") .gn-toggle');
+await page.click('.gn-settings__row:has-text("Hover glow") .gn-toggle');
+await page.click('.gn-settings__button');
+await page.hover('.gn-fx-chain__row:has-text("Reverb")');
+await page.waitForTimeout(250);
+await shoot('hover-glow-off');
+
+await page.click('.gn-settings__button');
+await shoot('settings-effects-off');
+
+// Back on, so the remaining shots are of the shipped defaults.
+await page.click('.gn-settings__row:has-text("Animations") .gn-toggle');
+await page.click('.gn-settings__row:has-text("Hover glow") .gn-toggle');
+await page.click('.gn-settings__button');
+await page.mouse.move(600, 700);
+await page.waitForTimeout(200);
+
 for (const slot of ['EQ 1', 'Delay', 'Reverb']) {
   await page.click(`.gn-fx-chain__name:text-is("${slot}")`);
   await page.waitForTimeout(150);

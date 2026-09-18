@@ -418,6 +418,44 @@ whenever you add one.
   So: glow marks state, never decoration; the wavetable display glows one line
   rather than every line in its stack; and nothing that animates per frame
   glows except that one line.
+- **Hover glow and state glow are different things, and only one is
+  optional.** `--gn-glow-accent*` marks what is ON — which of fourteen effects
+  are enabled, which chain row is selected — and that is information.
+  `--gn-glow-hover*` says "the pointer is here", which the cursor has already
+  said. The settings panel switches the second off and never the first: a UI
+  that stops telling you what is enabled is broken, not calmer.
+- **View settings live in `ui/src/settings.ts`, not in the ValueTree.** Theme,
+  animations, hover glow, help text and knob travel belong to the person at the
+  machine, not to the patch. In the ValueTree they would travel with a preset,
+  so loading someone else's patch would turn your animations back on and
+  sharing yours would push your accessibility preference onto them. They are in
+  the webview's `localStorage`, wrapped in try/catch because it throws rather
+  than returning null when an embedded webview blocks it, and `motion`/`glow`
+  default from `prefers-reduced-motion`.
+- **Both gates work by redefining TOKENS, never by overriding rules.**
+  `:root[data-glow='off']` sets the hover-glow tokens to `none` in one place,
+  and every rule that draws one keeps reading the same token and stops drawing
+  it. An override beside each glow rule would have to be maintained in step
+  with every new one, and would silently miss the next one added. Motion goes
+  to `0ms` rather than `transition: none`, so a transition that is in flight
+  when the setting changes lands on its target instead of snapping back.
+- **A stacking context nobody declared put the settings popover behind the
+  tab.** Dream gives `.gn-header` a `backdrop-filter`, and `backdrop-filter`
+  **creates a stacking context** — so the popover's `z-index: 40` was trapped
+  inside a header that then lost as a whole to `.gn-body`'s `z-index: 1`. The
+  panel showed only its top edge and some ghost text through the panels, in the
+  default theme only, and looked simply broken. `.gn-header` is now
+  `position: relative; z-index: 2`.
+- **How much a hover effect actually draws is MEASURED, like the artwork
+  contrast.** The first hover glow — 38% and 22% alpha at −2px spread —
+  produced a maximum channel delta of **7 out of 255** against the same frame
+  with glow off. It was applying correctly, confined to exactly the hovered
+  row, and invisible; two screenshots side by side did not show it either.
+  Diffing them did. The shipped pair measures about **28**, which reads as a
+  soft halo. `tools/screenshot_ui.mjs` shoots `hover-glow-on`/`-off` with a row
+  actually hovered — the first version photographed the window with the pointer
+  parked in a corner, where a hover effect draws nothing either way and the two
+  pictures came out all but identical.
 - **Row heights in a tab are explicit, not flex proportions.** The vertical
   budget at the design size is exact — 720 minus the 58 px header, 22 px
   status bar and 16 px padding leaves 624 px. Content-sized rows overflow

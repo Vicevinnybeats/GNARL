@@ -1,0 +1,222 @@
+/*  The popover. Anchored under the gear in the header's right-hand group, so
+    it opens where it was asked for rather than in the middle of the window. */
+.gn-settings {
+  position: relative;
+}
+
+.gn-settings__panel {
+  position: absolute;
+  top: calc(100% + var(--gn-space-2));
+  right: 0;
+  z-index: 40;
+  width: 320px;
+
+  background: var(--gn-panel-gradient);
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius);
+  padding: var(--gn-space-2);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-2);
+
+  /*  A real shadow rather than a glow. This is the one surface that has to
+      read as floating ABOVE the instrument, and an accent glow here would
+      say "active" - which a settings panel is not. */
+  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.75);
+
+  /*  The open animation. Transform and opacity only: both composite, so this
+      cannot cost a layout pass in a webview that is sharing a machine with
+      the audio thread. */
+  animation: gn-settings-in var(--gn-motion) var(--gn-ease);
+}
+
+@keyframes gn-settings-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/*  With animations off the keyframe still runs, at zero duration, which is a
+    no-op - but naming it here makes that explicit rather than incidental. */
+:root[data-motion='off'] .gn-settings__panel {
+  animation: none;
+}
+
+.gn-settings__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--gn-space-1);
+  border-bottom: var(--gn-hairline) solid var(--gn-border);
+}
+
+.gn-settings__title {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: var(--gn-tracking-header);
+  text-transform: uppercase;
+  color: var(--gn-accent);
+}
+
+.gn-settings__reset {
+  appearance: none;
+  background: transparent;
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  color: var(--gn-text-dim);
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px var(--gn-space-1);
+  cursor: pointer;
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-settings__reset:hover {
+  color: var(--gn-text);
+  border-color: var(--gn-accent);
+  box-shadow: var(--gn-glow-hover-soft);
+}
+
+.gn-settings__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--gn-space-2);
+}
+
+.gn-settings__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gn-settings__label {
+  font-size: var(--gn-size-value);
+  color: var(--gn-text);
+}
+
+/*  The explanation under each setting. These are the reason the panel is
+    usable without a manual, so they are not gated by the help-text setting -
+    that one governs the hints inside the instrument, where density is the
+    trade. Here there is room. */
+.gn-settings__hint {
+  font-size: var(--gn-size-label);
+  line-height: 1.35;
+  color: var(--gn-text-faint);
+}
+
+.gn-settings__control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* --- Segmented theme picker ---------------------------------------------- */
+
+.gn-settings__segmented {
+  display: inline-flex;
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  overflow: hidden;
+}
+
+.gn-settings__segmented button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-right: var(--gn-hairline) solid var(--gn-border);
+  color: var(--gn-text-dim);
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px var(--gn-space-2);
+  cursor: pointer;
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-settings__segmented button:last-child {
+  border-right: none;
+}
+
+.gn-settings__segmented button:hover {
+  color: var(--gn-text);
+  background: var(--gn-panel-raised);
+}
+
+/* Selection is STATE, so it keeps its glow when hover glow is off. */
+.gn-settings__segmented button[data-active='true'] {
+  color: var(--gn-accent-contrast);
+  background: var(--gn-accent);
+}
+
+/* --- Knob travel slider --------------------------------------------------- */
+
+.gn-settings__slider {
+  display: flex;
+  align-items: center;
+  gap: var(--gn-space-1);
+}
+
+.gn-settings__slider input {
+  appearance: none;
+  width: 96px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--gn-border-strong);
+  cursor: ew-resize;
+}
+
+.gn-settings__slider input::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gn-accent);
+  cursor: ew-resize;
+  transition: box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-settings__slider input:hover::-webkit-slider-thumb {
+  box-shadow: var(--gn-glow-hover);
+}
+
+.gn-settings__slider input::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: none;
+  border-radius: 50%;
+  background: var(--gn-accent);
+  cursor: ew-resize;
+}
+
+.gn-settings__value {
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-label);
+  color: var(--gn-text-dim);
+  min-width: 42px;
+  text-align: right;
+}
+
+/* --- Footer --------------------------------------------------------------- */
+
+.gn-settings__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--gn-space-2);
+  padding-top: var(--gn-space-1);
+  border-top: var(--gn-hairline) solid var(--gn-border);
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-label);
+  color: var(--gn-text-faint);
+}

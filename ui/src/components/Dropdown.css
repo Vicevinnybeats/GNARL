@@ -35,6 +35,15 @@
   background-position: calc(100% - 10px) 50%, calc(100% - 6px) 50%;
   background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
+
+  transition:
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-dropdown__select:hover {
+  border-color: var(--gn-accent);
+  box-shadow: var(--gn-glow-hover-soft);
 }
 
 .gn-dropdown__select:focus-visible {

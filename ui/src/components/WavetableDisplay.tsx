@@ -7,6 +7,7 @@ import {
   synthesiseInterpolated,
 } from '../bridge/wavetableData';
 import { applyWarp, warpBandwidthExpansion } from '../bridge/warp';
+import { isCanvasGlowEnabled } from '../settings';
 import { useModulationRef } from '../bridge/useModulation';
 import './WavetableDisplay.css';
 
@@ -200,8 +201,13 @@ export function WavetableDisplay({
         // merely brighter. Only applied to the front frames: a shadow on every
         // line in the stack is a lot of compositing for something the eye
         // cannot pick out anyway.
-        ctx.shadowBlur = glow;
-        ctx.shadowColor = glow > 0 ? colour : 'transparent';
+        // Read per FRAME, like the colours around it - a dataset lookup costs
+        // nothing, and this display redraws continuously anyway, so it needs
+        // no render dependency (CLAUDE.md section 6).
+        const shadow = isCanvasGlowEnabled() ? glow : 0;
+
+        ctx.shadowBlur = shadow;
+        ctx.shadowColor = shadow > 0 ? colour : 'transparent';
 
         ctx.stroke();
 

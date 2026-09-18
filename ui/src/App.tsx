@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Dropdown } from './components/Dropdown';
+import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { FxTab } from './tabs/FxTab';
@@ -13,24 +14,27 @@ import { getPluginInfo } from './bridge/pluginInfo';
 import { useArtwork } from './bridge/artwork';
 import { useParameter } from './bridge/useParameter';
 import { useChoiceParameter } from './bridge/useDiscreteParameter';
+import { THEMES, updateSettings, useSettings } from './settings';
 import './App.css';
 
 const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
 type Tab = (typeof TABS)[number];
 
-/** Matches the theme blocks in styles/tokens.css. */
-const THEMES = ['acid', 'ember', 'dream'] as const;
-type Theme = (typeof THEMES)[number];
-
 export function App() {
   const info = getPluginInfo();
 
   const [tab, setTab] = useState<Tab>('OSC');
-  // Dream is the DEFAULT, on the client's direction: they asked for the dreamy
-  // look as the instrument's face, not as a third option behind two clicks.
-  // Acid and Ember stay available on the theme button.
-  const [theme, setTheme] = useState<Theme>('dream');
   const [status, setStatus] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  /*  The theme lives in the settings store rather than in component state,
+      because it has to survive the plugin window closing - and because it now
+      has two ways in: the swatch button cycles it, the settings panel picks it
+      directly, and both have to agree. Dream is still the default, on the
+      client's direction: the dreamy look is the instrument's face, not a third
+      option behind two clicks. */
+  const settings = useSettings();
+  const theme = settings.theme;
 
   // Publishes the embedded background artwork to CSS, or leaves the procedural
   // gradient in place when the slot still holds its placeholder.
@@ -41,10 +45,6 @@ export function App() {
   const glide = useParameter(GLOBAL.glideTime);
   const polyMode = useChoiceParameter(GLOBAL.polyMode, POLY_MODE.length);
   const oversampling = useChoiceParameter(GLOBAL.oversampling, OVERSAMPLING.length);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
 
   /**
    * Hovering any control writes a one-line description here. This is how a
@@ -120,11 +120,31 @@ export function App() {
             aria-label="Switch theme"
             title={`Theme: ${theme}`}
             onClick={() =>
-              setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? 'acid')
+              updateSettings({
+                theme: THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? 'acid',
+              })
             }
           >
             <span className="gn-theme__swatch" />
           </button>
+
+          {/* The popover is positioned against this wrapper, so it opens under
+              the gear rather than against the window. */}
+          <div className="gn-settings">
+            <button
+              className="gn-settings__button"
+              type="button"
+              aria-label="Settings"
+              aria-expanded={settingsOpen}
+              data-open={settingsOpen}
+              title="Settings"
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              <GearIcon />
+            </button>
+
+            <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+          </div>
         </div>
       </header>
 

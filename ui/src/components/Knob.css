@@ -12,6 +12,15 @@
   touch-action: none;
   border-radius: 50%;
   outline: none;
+
+  /*  The dial itself is a canvas, so its ARC cannot be transitioned from CSS -
+      it is redrawn per value change. What transitions here is the halo around
+      it, which is the part that says "the pointer is on this one". */
+  transition: box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-knob:hover .gn-knob__dial {
+  box-shadow: var(--gn-glow-hover);
 }
 
 .gn-knob__dial:focus-visible {
@@ -39,9 +48,21 @@
   white-space: nowrap;
 }
 
+.gn-knob__readout {
+  transition: color var(--gn-motion-fast) var(--gn-ease);
+}
+
 .gn-knob:hover .gn-knob__readout,
 .gn-knob__readout[data-visible='true'] {
   color: var(--gn-accent);
+}
+
+.gn-knob__label {
+  transition: color var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-knob:hover .gn-knob__label {
+  color: var(--gn-text);
 }
 
 .gn-knob__label {

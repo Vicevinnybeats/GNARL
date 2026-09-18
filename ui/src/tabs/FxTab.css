@@ -84,10 +84,17 @@
   background: var(--gn-panel-raised);
   cursor: grab;
   user-select: none;
+
+  transition:
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease),
+    opacity var(--gn-motion-fast) var(--gn-ease);
 }
 
 .gn-fx-chain__row:hover {
   border-color: var(--gn-border-strong);
+  box-shadow: var(--gn-glow-hover-soft);
 }
 
 /*  Glow marks what is ACTIVE, never decoration (CLAUDE.md section 6), and the

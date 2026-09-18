@@ -18,6 +18,19 @@
   /* A one-pixel highlight along the top edge. Cheap, and it does most of the
      work of making a flat panel look like a moulded one. */
   box-shadow: inset 0 1px 0 var(--gn-glow-edge);
+
+  transition:
+    border-color var(--gn-motion) var(--gn-ease),
+    opacity var(--gn-motion) var(--gn-ease);
+}
+
+/*  A panel lifts its BORDER on hover and does not glow. Glow on a surface this
+    large is both the most expensive kind of compositing here and the least
+    informative - it says "the pointer is somewhere in this third of the
+    window", which is not news. The border is enough to group what you are
+    working on. */
+.gn-panel:hover {
+  border-color: var(--gn-border-strong);
 }
 
 .gn-panel[data-grow='true'] {

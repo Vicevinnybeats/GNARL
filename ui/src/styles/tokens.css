@@ -44,6 +44,33 @@
   --gn-glow-accent-soft: 0 0 18px color-mix(in srgb, var(--gn-accent) 28%, transparent);
   --gn-glow-edge: rgba(255, 255, 255, 0.045);
 
+  /*  HOVER glow, and deliberately a third of the strength of the state glow
+      above. State glow is information - which effects are on, which slot is
+      selected - and it has to read across the panel. This one only has to say
+      "the pointer is here", which the cursor has already said, so anything
+      brighter is decoration on a surface that cannot afford it.
+
+      THESE NUMBERS WERE MEASURED, not judged by eye. The first pair - 38% and
+      22% alpha at -2px spread - produced a maximum channel delta of SEVEN out
+      of 255 against the same frame with the glow off, confined to the hovered
+      row. It was applying correctly and was invisible, and eyeballing two
+      screenshots side by side did not show it either. Diffing them did. The
+      pair below measures around 30, which reads as a soft halo rather than a
+      light being switched on. */
+  --gn-glow-hover: 0 0 11px -1px color-mix(in srgb, var(--gn-accent) 62%, transparent);
+  --gn-glow-hover-soft: 0 0 9px -1px color-mix(in srgb, var(--gn-accent) 45%, transparent);
+
+  /*  Motion. Two durations only: `fast` for something following the pointer,
+      `base` for something the pointer asked for. A third would be a decision
+      to make at every call site. */
+  --gn-motion-fast: 90ms;
+  --gn-motion: 160ms;
+
+  /*  Decelerating, not ease-in-out. A control that starts fast and settles
+      reads as responsive; one that eases in reads as laggy, which in a plugin
+      people will blame on the audio. */
+  --gn-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
   /* Text */
   --gn-text: #e6e6ea;
   --gn-text-dim: #8a8a96;
@@ -97,6 +124,50 @@
   --gn-size-body: 12px;
   --gn-size-header: 14px;
   --gn-tracking-header: 0.14em;
+}
+
+
+/* ---------------------------------------------------------------------------
+   View settings (see ui/src/settings.ts)
+
+   BOTH GATES WORK BY REDEFINING TOKENS, not by overriding rules. Turning glow
+   off sets the glow tokens to `none` in one place and every rule that draws
+   one keeps reading the same token and stops drawing it. An override beside
+   each glow rule would have to be maintained in step with every new one, and
+   would silently miss the next one somebody adds.
+   --------------------------------------------------------------------------- */
+
+/*  HOVER glow off. The STATE glow stays: --gn-glow-accent marks what is
+    enabled and what is active, and a UI that stops telling you which of
+    fourteen effects are on is broken rather than calmer. */
+:root[data-glow='off'] {
+  --gn-glow-hover: none;
+  --gn-glow-hover-soft: none;
+}
+
+/*  Zero duration rather than `transition: none`, so a transition that is
+    mid-flight when the setting changes lands on its target instead of
+    snapping back to where it started. */
+:root[data-motion='off'] {
+  --gn-motion-fast: 0ms;
+  --gn-motion: 0ms;
+}
+
+/*  The OS setting is honoured even before anything is stored - settings.ts
+    seeds its defaults from the same query, but this covers the first paint,
+    which happens before React has mounted. An explicit choice in the panel
+    still wins, because it sets data-motion='on'. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='on']) {
+    --gn-motion-fast: 0ms;
+    --gn-motion: 0ms;
+  }
+}
+
+/* Help text under a panel's controls, off for someone who knows the synth. */
+:root[data-hints='off'] .gn-fx__hint,
+:root[data-hints='off'] .gn-hint {
+  display: none;
 }
 
 :root[data-theme='ember'] {

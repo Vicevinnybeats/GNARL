@@ -69,6 +69,24 @@
   padding: 0 var(--gn-space-3);
   background: var(--gn-panel);
   border-bottom: var(--gn-hairline) solid var(--gn-border);
+
+  /*  ABOVE THE BODY, so anything that opens out of the header - the settings
+      popover, and any menu that follows it - lands on top of the tab rather
+      than behind it.
+
+      This is needed because of a stacking context nobody declared: the Dream
+      theme gives this header a backdrop-filter, and backdrop-filter CREATES a
+      stacking context. That traps the popover's own z-index inside the header,
+      and the header then loses to .gn-body's z-index:1 as a whole. The result
+      was a settings panel visible only as its top edge and some ghost text
+      showing through the panels - and only in Dream, which is the default
+      theme, so it looked like the popover was simply broken.
+
+      z-index 2 rather than a large number: the only thing it has to beat is
+      .gn-body, and a number chosen to "definitely win" is a number nobody can
+      reason about later. */
+  position: relative;
+  z-index: 2;
 }
 
 /* In Dream the chrome is translucent so the artwork reads through it, which is
@@ -117,12 +135,35 @@
   letter-spacing: var(--gn-tracking-header);
   padding: var(--gn-space-1) var(--gn-space-3);
   cursor: pointer;
+
+  /*  Only the properties that actually change. `transition: all` would also
+      animate layout properties, and animating layout in a webview inside a
+      DAW is how a UI starts costing audio. */
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-tab:hover {
+  color: var(--gn-text);
+  border-color: var(--gn-border-strong);
 }
 
 .gn-tab[data-active='true'] {
   color: var(--gn-accent);
   border-color: var(--gn-border-strong);
   background: var(--gn-panel-raised);
+}
+
+/* The active tab is STATE, so its glow survives the hover-glow setting. */
+.gn-tab[data-active='true'] {
+  box-shadow: var(--gn-glow-accent-soft);
+}
+
+.gn-tab[data-active='true']:hover {
+  color: var(--gn-accent);
 }
 
 .gn-header__right {
@@ -202,9 +243,17 @@
   border-right: var(--gn-hairline) solid var(--gn-border);
 }
 
+.gn-preset__arrow,
+.gn-preset__name {
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease);
+}
+
 .gn-preset__arrow:hover,
 .gn-preset__name:hover {
   color: var(--gn-accent);
+  background: var(--gn-panel-raised);
 }
 
 /* --- Header groups ------------------------------------------------------- */
@@ -225,7 +274,10 @@
   align-self: stretch;
 }
 
-.gn-theme {
+/*  The theme swatch and the settings gear, which sit next to each other and
+    so have to behave identically. */
+.gn-theme,
+.gn-settings__button {
   appearance: none;
   background: transparent;
   border: var(--gn-hairline) solid var(--gn-border-strong);
@@ -235,6 +287,38 @@
   display: grid;
   place-items: center;
   cursor: pointer;
+  color: var(--gn-text-dim);
+  padding: 0;
+  transition:
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-theme:hover,
+.gn-settings__button:hover {
+  border-color: var(--gn-accent);
+  color: var(--gn-text);
+  box-shadow: var(--gn-glow-hover);
+}
+
+/*  The gear turns a sixth of a turn on hover. Enough to read as a response,
+    small enough not to be a performance - and it is a transform, so it
+    composites rather than triggering layout. */
+.gn-settings__button svg {
+  width: 13px;
+  height: 13px;
+  transition: transform var(--gn-motion) var(--gn-ease);
+}
+
+.gn-settings__button:hover svg,
+.gn-settings__button[data-open='true'] svg {
+  transform: rotate(60deg);
+}
+
+.gn-settings__button[data-open='true'] {
+  border-color: var(--gn-accent);
+  color: var(--gn-accent);
 }
 
 .gn-theme__swatch {

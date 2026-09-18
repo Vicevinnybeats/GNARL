@@ -8,6 +8,7 @@ import {
   type CurvePoint,
 } from '../dsp/lfoCurve';
 import { getGridLineCount, isTripletGrid } from '../dsp/syncRates';
+import { isCanvasGlowEnabled } from '../settings';
 import { useModulationRef } from '../bridge/useModulation';
 import './LfoEditor.css';
 
@@ -442,7 +443,7 @@ function drawCurve(
   context.strokeStyle = accent;
   context.lineWidth = 1.75;
   context.shadowColor = withAlpha(accent, 0.5);
-  context.shadowBlur = 7;
+  context.shadowBlur = isCanvasGlowEnabled() ? 7 : 0;
   context.stroke();
   context.shadowBlur = 0;
 }
@@ -510,7 +511,7 @@ function drawPlayhead(
   context.arc(x, y, 4, 0, Math.PI * 2);
   context.fillStyle = playing ? '#ffffff' : withAlpha(accent, 0.5);
   context.shadowColor = withAlpha(accent, 0.9);
-  context.shadowBlur = playing ? 10 : 0;
+  context.shadowBlur = playing && isCanvasGlowEnabled() ? 10 : 0;
   context.fill();
   context.shadowBlur = 0;
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '../theme';
+import { useSettings } from '../settings';
 import './Knob.css';
 
 export interface KnobProps {
@@ -20,8 +21,11 @@ export interface KnobProps {
 const ARC_START = 0.75 * Math.PI;
 const ARC_SWEEP = 1.5 * Math.PI;
 
-/** Pixels of vertical drag for a full 0->1 sweep, at each precision level. */
-const DRAG_RANGE_PX = 200;
+/*  Pixels of vertical drag for a full 0->1 sweep. The DEFAULT lives in
+    settings.ts, because it is adjustable: a knob that feels right on a
+    trackpad is twitchy on a mouse, and vice versa. The fine multipliers below
+    scale whatever that setting is, so the ratio between normal, fine and
+    ultra-fine holds at every sensitivity. */
 const FINE_MULTIPLIER = 0.2;
 const ULTRA_FINE_MULTIPLIER = 0.04;
 
@@ -44,6 +48,12 @@ export function Knob({
   defaultValue = 0,
 }: KnobProps) {
   const theme = useTheme();
+
+  /*  A render dependency for the same reason the theme is: this control draws
+      itself on a canvas, and a canvas does not repaint when a CSS custom
+      property changes (CLAUDE.md section 6). It also reads the drag
+      sensitivity, which is a plain value rather than a colour. */
+  const { knobDragPx: dragRangePx } = useSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<{ startY: number; startValue: number } | null>(null);
   const [isActive, setIsActive] = useState(false);
@@ -122,10 +132,14 @@ export function Knob({
           ? FINE_MULTIPLIER
           : 1;
 
-      const delta = ((drag.startY - e.clientY) / DRAG_RANGE_PX) * multiplier;
+      const delta = ((drag.startY - e.clientY) / dragRangePx) * multiplier;
       onChange(Math.min(1, Math.max(0, drag.startValue + delta)));
     },
-    [onChange],
+    // dragRangePx belongs here: without it the callback closes over whatever
+    // the sensitivity was when the knob mounted, so changing it in the
+    // settings would do nothing until the panel was re-rendered for some
+    // other reason - which is the hardest kind of "sometimes it works".
+    [onChange, dragRangePx],
   );
 
   const endDrag = useCallback(() => {
