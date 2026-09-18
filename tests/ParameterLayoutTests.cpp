@@ -13,7 +13,15 @@ using namespace gnarl;
 
 namespace
 {
-    /** Every ID the header declares, in one list, so a test can sweep them. */
+    /** Every ID the header declares, in one list, so a test can sweep them.
+
+        THIS LIST GOES STALE, and it went stale when the FX section landed: it
+        is the only place in the project that enumerates parameters by hand.
+        It is worth keeping anyway, because it is what catches an ID that is
+        declared in the header and never added to the layout - a dead ID that
+        nothing else notices, since the layout is what the APVTS is built from.
+        Adding a family means adding it here too, and the count assertion below
+        is what says so. */
     std::vector<std::string> allDeclaredIDs()
     {
         std::vector<std::string> ids;
@@ -97,6 +105,83 @@ namespace
                                 pid::pitchBendRange, pid::oversampling,
                                 pid::velocityCurve, pid::analogDrift,
                                 pid::filterRouting })
+            add (id);
+
+        // --- FX ------------------------------------------------------------
+        for (std::size_t i = 0; i < pid::kNumFxDistortions; ++i)
+        {
+            const auto& p = pid::fxDistortion[i];
+            for (const auto* id : { p.enabled, p.mix, p.type, p.drive, p.tone,
+                                    p.bias, p.output })
+                add (id);
+        }
+
+        for (std::size_t i = 0; i < pid::kNumFxEqs; ++i)
+        {
+            const auto& p = pid::fxEq[i];
+            for (const auto* id : { p.enabled, p.mix, p.highPassFreq,
+                                    p.lowShelfFreq, p.lowShelfGain,
+                                    p.band1Freq, p.band1Gain, p.band1Q,
+                                    p.band2Freq, p.band2Gain, p.band2Q,
+                                    p.highShelfFreq, p.highShelfGain,
+                                    p.lowPassFreq })
+                add (id);
+        }
+
+        for (std::size_t i = 0; i < pid::kNumFxFilters; ++i)
+        {
+            const auto& p = pid::fxFilter[i];
+            for (const auto* id : { p.enabled, p.mix, p.type, p.cutoff,
+                                    p.resonance, p.drive })
+                add (id);
+        }
+
+        for (const auto* id : { pid::fxDelay.enabled, pid::fxDelay.mix,
+                                pid::fxDelay.syncEnabled, pid::fxDelay.division,
+                                pid::fxDelay.timeMs, pid::fxDelay.feedback,
+                                pid::fxDelay.pingPong, pid::fxDelay.width,
+                                pid::fxDelay.lowCut, pid::fxDelay.highCut,
+                                pid::fxDelay.modRate, pid::fxDelay.modDepth })
+            add (id);
+
+        for (const auto* id : { pid::fxReverb.enabled, pid::fxReverb.mix,
+                                pid::fxReverb.size, pid::fxReverb.decay,
+                                pid::fxReverb.damping, pid::fxReverb.preDelay,
+                                pid::fxReverb.width, pid::fxReverb.lowCut,
+                                pid::fxReverb.highCut, pid::fxReverb.modDepth })
+            add (id);
+
+        for (const auto* id : { pid::fxChorus.enabled, pid::fxChorus.mix,
+                                pid::fxChorus.rate, pid::fxChorus.depth,
+                                pid::fxChorus.voices, pid::fxChorus.spread,
+                                pid::fxChorus.feedback })
+            add (id);
+
+        for (const auto* id : { pid::fxFlanger.enabled, pid::fxFlanger.mix,
+                                pid::fxFlanger.rate, pid::fxFlanger.depth,
+                                pid::fxFlanger.feedback, pid::fxFlanger.manual,
+                                pid::fxFlanger.stereo })
+            add (id);
+
+        for (const auto* id : { pid::fxPhaser.enabled, pid::fxPhaser.mix,
+                                pid::fxPhaser.rate, pid::fxPhaser.depth,
+                                pid::fxPhaser.stages, pid::fxPhaser.centre,
+                                pid::fxPhaser.feedback, pid::fxPhaser.stereo })
+            add (id);
+
+        for (const auto* id : { pid::fxHyper.enabled, pid::fxHyper.mix,
+                                pid::fxHyper.amount, pid::fxHyper.detune,
+                                pid::fxHyper.voices, pid::fxHyper.width })
+            add (id);
+
+        for (const auto* id : { pid::fxDimension.enabled, pid::fxDimension.mix,
+                                pid::fxDimension.amount, pid::fxDimension.width,
+                                pid::fxDimension.timeMs })
+            add (id);
+
+        for (const auto* id : { pid::fxLimiter.enabled, pid::fxLimiter.mix,
+                                pid::fxLimiter.threshold, pid::fxLimiter.release,
+                                pid::fxLimiter.ceiling })
             add (id);
 
         return ids;

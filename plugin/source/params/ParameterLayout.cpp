@@ -369,6 +369,258 @@ namespace
         addBool   (layout, p.bipolar, name ("Bipolar"), true);
     }
 
+    // --- FX ---------------------------------------------------------------
+    //
+    // A fixed roster of instances with named parameters, not slots with a type
+    // picker - see docs/fx-architecture.md. `enabled` defaults OFF for every
+    // instance: fourteen effects on by default is not a patch, it is a mess,
+    // and the init sound has to be something you can hear the oscillator in.
+
+    void addFxDistortion (Layout& layout, std::size_t index)
+    {
+        const auto& p = pid::fxDistortion[index];
+        const auto n = static_cast<int> (index) + 1;
+        const auto name = [n] (const juce::String& s) { return prefixed ("Dist", n, s); };
+
+        addBool   (layout, p.enabled, name ("On"), false);
+        addFloat  (layout, p.mix, name ("Mix"), ranges::unipolar(), 1.0f,
+                   ranges::formatPercent);
+        addChoice (layout, p.type, name ("Type"), choices::fxDistortionType,
+                   static_cast<int> (choices::FxDistortionType::tanh));
+        addFloat  (layout, p.drive, name ("Drive"), ranges::driveDb(), 6.0f,
+                   ranges::formatDecibels);
+
+        // A tilt before the curve. Driving a bass-heavy signal into a
+        // saturator with no pre-tilt just makes the low end louder; tilting
+        // up first is how the drive lands on the harmonics instead.
+        addFloat (layout, p.tone, name ("Tone"), ranges::bipolar(), 0.0f,
+                  ranges::formatSignedPercent);
+        addFloat (layout, p.bias, name ("Bias"), ranges::bipolar(), 0.0f,
+                  ranges::formatSignedPercent);
+        addFloat (layout, p.output, name ("Output"), ranges::trimDb(), 0.0f,
+                  ranges::formatDecibels);
+    }
+
+    void addFxEq (Layout& layout, std::size_t index)
+    {
+        const auto& p = pid::fxEq[index];
+        const auto n = static_cast<int> (index) + 1;
+        const auto name = [n] (const juce::String& s) { return prefixed ("EQ", n, s); };
+
+        addBool  (layout, p.enabled, name ("On"), false);
+        addFloat (layout, p.mix, name ("Mix"), ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+
+        // The cuts default to the ends of their range, so an EQ switched on
+        // with nothing else touched is flat rather than filtered.
+        addFloat (layout, p.highPassFreq, name ("HP"), ranges::fxFrequency(), 20.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.lowShelfFreq, name ("LS Freq"), ranges::fxFrequency(), 120.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.lowShelfGain, name ("LS Gain"), ranges::eqGainDb(), 0.0f,
+                  ranges::formatDecibels);
+        addFloat (layout, p.band1Freq, name ("B1 Freq"), ranges::fxFrequency(), 500.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.band1Gain, name ("B1 Gain"), ranges::eqGainDb(), 0.0f,
+                  ranges::formatDecibels);
+        addFloat (layout, p.band1Q, name ("B1 Q"), ranges::eqQ(), 1.0f, nullptr);
+        addFloat (layout, p.band2Freq, name ("B2 Freq"), ranges::fxFrequency(), 2500.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.band2Gain, name ("B2 Gain"), ranges::eqGainDb(), 0.0f,
+                  ranges::formatDecibels);
+        addFloat (layout, p.band2Q, name ("B2 Q"), ranges::eqQ(), 1.0f, nullptr);
+        addFloat (layout, p.highShelfFreq, name ("HS Freq"), ranges::fxFrequency(), 6000.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.highShelfGain, name ("HS Gain"), ranges::eqGainDb(), 0.0f,
+                  ranges::formatDecibels);
+        addFloat (layout, p.lowPassFreq, name ("LP"), ranges::fxFrequency(), 20000.0f,
+                  ranges::formatHertz);
+    }
+
+    void addFxFilter (Layout& layout, std::size_t index)
+    {
+        const auto& p = pid::fxFilter[index];
+        const auto n = static_cast<int> (index) + 1;
+        const auto name = [n] (const juce::String& s) { return prefixed ("FX Filter", n, s); };
+
+        addBool   (layout, p.enabled, name ("On"), false);
+        addFloat  (layout, p.mix, name ("Mix"), ranges::unipolar(), 1.0f,
+                   ranges::formatPercent);
+        addChoice (layout, p.type, name ("Type"), choices::fxFilterType,
+                   static_cast<int> (choices::FxFilterType::lowPass24));
+        addFloat  (layout, p.cutoff, name ("Cutoff"), ranges::cutoff(), 20000.0f,
+                   ranges::formatHertz);
+        addFloat  (layout, p.resonance, name ("Res"), ranges::unipolar(), 0.1f,
+                   ranges::formatPercent);
+        addFloat  (layout, p.drive, name ("Drive"), ranges::unipolar(), 0.0f,
+                   ranges::formatPercent);
+    }
+
+    void addFxDelay (Layout& layout)
+    {
+        const auto& p = pid::fxDelay;
+
+        addBool   (layout, p.enabled, "Delay On", false);
+        addFloat  (layout, p.mix, "Delay Mix", ranges::unipolar(), 0.3f,
+                   ranges::formatPercent);
+        addBool   (layout, p.syncEnabled, "Delay Sync", true);
+        addChoice (layout, p.division, "Delay Division", choices::lfoRateDivision,
+                   static_cast<int> (choices::LfoRateDivision::eighthDotted));
+        addFloat  (layout, p.timeMs, "Delay Time", ranges::delayTimeMs(), 250.0f,
+                   ranges::formatMilliseconds);
+        addFloat  (layout, p.feedback, "Delay Feedback", ranges::unipolar(), 0.35f,
+                   ranges::formatPercent);
+        addFloat  (layout, p.pingPong, "Delay Ping Pong", ranges::unipolar(), 0.0f,
+                   ranges::formatPercent);
+        addFloat  (layout, p.width, "Delay Width", ranges::unipolar(), 0.5f,
+                   ranges::formatPercent);
+        addFloat  (layout, p.lowCut, "Delay Low Cut", ranges::fxFrequency(), 120.0f,
+                   ranges::formatHertz);
+        addFloat  (layout, p.highCut, "Delay High Cut", ranges::fxFrequency(), 8000.0f,
+                   ranges::formatHertz);
+        addFloat  (layout, p.modRate, "Delay Mod Rate", ranges::fxModRate(), 0.4f,
+                   ranges::formatHertz);
+        addFloat  (layout, p.modDepth, "Delay Mod Depth", ranges::unipolar(), 0.0f,
+                   ranges::formatPercent);
+    }
+
+    void addFxReverb (Layout& layout)
+    {
+        const auto& p = pid::fxReverb;
+
+        addBool  (layout, p.enabled, "Reverb On", false);
+        addFloat (layout, p.mix, "Reverb Mix", ranges::unipolar(), 0.25f,
+                  ranges::formatPercent);
+        addFloat (layout, p.size, "Reverb Size", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.decay, "Reverb Decay", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.damping, "Reverb Damping", ranges::unipolar(), 0.4f,
+                  ranges::formatPercent);
+        addFloat (layout, p.preDelay, "Reverb Pre-Delay", ranges::preDelayMs(), 10.0f,
+                  ranges::formatMilliseconds);
+        addFloat (layout, p.width, "Reverb Width", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.lowCut, "Reverb Low Cut", ranges::fxFrequency(), 200.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.highCut, "Reverb High Cut", ranges::fxFrequency(), 7000.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.modDepth, "Reverb Mod", ranges::unipolar(), 0.2f,
+                  ranges::formatPercent);
+    }
+
+    void addFxChorus (Layout& layout)
+    {
+        const auto& p = pid::fxChorus;
+
+        addBool  (layout, p.enabled, "Chorus On", false);
+        addFloat (layout, p.mix, "Chorus Mix", ranges::unipolar(), 0.4f,
+                  ranges::formatPercent);
+        addFloat (layout, p.rate, "Chorus Rate", ranges::fxModRate(), 0.6f,
+                  ranges::formatHertz);
+        addFloat (layout, p.depth, "Chorus Depth", ranges::unipolar(), 0.4f,
+                  ranges::formatPercent);
+        addInt   (layout, p.voices, "Chorus Voices", 1, 4, 2);
+        addFloat (layout, p.spread, "Chorus Spread", ranges::unipolar(), 0.6f,
+                  ranges::formatPercent);
+        addFloat (layout, p.feedback, "Chorus Feedback", ranges::unipolar(), 0.0f,
+                  ranges::formatPercent);
+    }
+
+    void addFxFlanger (Layout& layout)
+    {
+        const auto& p = pid::fxFlanger;
+
+        addBool  (layout, p.enabled, "Flanger On", false);
+        addFloat (layout, p.mix, "Flanger Mix", ranges::unipolar(), 0.4f,
+                  ranges::formatPercent);
+        addFloat (layout, p.rate, "Flanger Rate", ranges::fxModRate(), 0.25f,
+                  ranges::formatHertz);
+        addFloat (layout, p.depth, "Flanger Depth", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+
+        // Bipolar: a negative feedback flanger has its nulls where a positive
+        // one has its peaks, and the two sound nothing alike.
+        addFloat (layout, p.feedback, "Flanger Feedback", ranges::bipolar(), 0.3f,
+                  ranges::formatSignedPercent);
+        addFloat (layout, p.manual, "Flanger Manual", ranges::unipolar(), 0.2f,
+                  ranges::formatPercent);
+        addFloat (layout, p.stereo, "Flanger Stereo", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+    }
+
+    void addFxPhaser (Layout& layout)
+    {
+        const auto& p = pid::fxPhaser;
+
+        addBool  (layout, p.enabled, "Phaser On", false);
+        addFloat (layout, p.mix, "Phaser Mix", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.rate, "Phaser Rate", ranges::fxModRate(), 0.3f,
+                  ranges::formatHertz);
+        addFloat (layout, p.depth, "Phaser Depth", ranges::unipolar(), 0.6f,
+                  ranges::formatPercent);
+
+        // Even numbers only would be tidier, but odd stage counts invert the
+        // dry/wet relationship and that is a usable sound rather than a bug.
+        addInt   (layout, p.stages, "Phaser Stages", 2, 12, 4);
+        addFloat (layout, p.centre, "Phaser Centre", ranges::fxFrequency(), 800.0f,
+                  ranges::formatHertz);
+        addFloat (layout, p.feedback, "Phaser Feedback", ranges::bipolar(), 0.2f,
+                  ranges::formatSignedPercent);
+        addFloat (layout, p.stereo, "Phaser Stereo", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+    }
+
+    void addFxHyper (Layout& layout)
+    {
+        const auto& p = pid::fxHyper;
+
+        addBool  (layout, p.enabled, "Hyper On", false);
+        addFloat (layout, p.mix, "Hyper Mix", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.amount, "Hyper Amount", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.detune, "Hyper Detune", ranges::unipolar(), 0.4f,
+                  ranges::formatPercent);
+        addInt   (layout, p.voices, "Hyper Voices", 2, 8, 4);
+        addFloat (layout, p.width, "Hyper Width", ranges::unipolar(), 0.8f,
+                  ranges::formatPercent);
+    }
+
+    void addFxDimension (Layout& layout)
+    {
+        const auto& p = pid::fxDimension;
+
+        addBool  (layout, p.enabled, "Dimension On", false);
+        addFloat (layout, p.mix, "Dimension Mix", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.amount, "Dimension Amount", ranges::unipolar(), 0.5f,
+                  ranges::formatPercent);
+        addFloat (layout, p.width, "Dimension Width", ranges::unipolar(), 0.7f,
+                  ranges::formatPercent);
+        addFloat (layout, p.timeMs, "Dimension Time", ranges::skewed (1.0f, 40.0f, 12.0f),
+                  12.0f, ranges::formatMilliseconds);
+    }
+
+    void addFxLimiter (Layout& layout)
+    {
+        const auto& p = pid::fxLimiter;
+
+        addBool  (layout, p.enabled, "Limiter On", false);
+        addFloat (layout, p.mix, "Limiter Mix", ranges::unipolar(), 1.0f,
+                  ranges::formatPercent);
+        addFloat (layout, p.threshold, "Limiter Threshold", ranges::limiterDb(), 0.0f,
+                  ranges::formatDecibels);
+        addFloat (layout, p.release, "Limiter Release", ranges::limiterRelease(), 50.0f,
+                  ranges::formatMilliseconds);
+
+        // Just below 0 dBFS, not at it: a true peak of exactly zero clips in a
+        // lossy encoder, which is where most of this music ends up.
+        addFloat (layout, p.ceiling, "Limiter Ceiling", ranges::limiterDb(), -0.3f,
+                  ranges::formatDecibels);
+    }
+
     void addMacros (Layout& layout)
     {
         static const char* macroNames[] = { "GROWL", "Macro 2", "Macro 3", "Macro 4" };
@@ -440,6 +692,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     addMacros (layout);
     addGlobal (layout);
 
+    // FX last, so adding the whole section did not move a single existing
+    // automation lane. That is the whole reason the order rule exists.
+    for (std::size_t i = 0; i < pid::kNumFxDistortions; ++i)
+        addFxDistortion (layout, i);
+
+    for (std::size_t i = 0; i < pid::kNumFxEqs; ++i)
+        addFxEq (layout, i);
+
+    for (std::size_t i = 0; i < pid::kNumFxFilters; ++i)
+        addFxFilter (layout, i);
+
+    addFxDelay (layout);
+    addFxReverb (layout);
+    addFxChorus (layout);
+    addFxFlanger (layout);
+    addFxPhaser (layout);
+    addFxHyper (layout);
+    addFxDimension (layout);
+    addFxLimiter (layout);
+
     return layout;
 }
 
@@ -447,7 +719,7 @@ int getDeclaredParameterCount()
 {
     // Kept in step by ParameterLayoutTests, which counts what the layout
     // actually produced. Update this when a parameter is added on purpose.
-    return 316;
+    return 430;
 }
 
 } // namespace gnarl::params

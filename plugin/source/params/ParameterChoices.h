@@ -262,6 +262,84 @@ inline const juce::StringArray modCurve {
     "Linear", "Exp", "Log", "S-Curve", "Quantize"
 };
 
+// --- FX --------------------------------------------------------------------
+/** The FX distortion's curve.
+
+    A superset of the filter's drive curves, plus the two that only make sense
+    as a standalone effect: bitcrush (quantisation, not saturation) and
+    downsample (aliasing on purpose). Those two are here rather than in
+    DriveCurve because the filter's drive stage is oversampled to REMOVE
+    aliasing, and a curve whose whole point is aliasing would fight it. */
+enum class FxDistortionType
+{
+    tanh = 0,
+    tube,
+    hardClip,
+    fold,
+    rectify,
+    bitcrush,
+    downsample,
+    count
+};
+
+inline const juce::StringArray fxDistortionType {
+    "Tanh", "Tube", "Hard Clip", "Fold", "Rectify", "Bitcrush", "Downsample"
+};
+
+/** The FX filter's type. Deliberately fewer than the voice filter's: the
+    formant and comb filters are per-voice character, and running them on the
+    summed mix smears every note together. */
+enum class FxFilterType
+{
+    lowPass12 = 0,
+    lowPass24,
+    highPass12,
+    highPass24,
+    bandPass12,
+    notch12,
+    count
+};
+
+inline const juce::StringArray fxFilterType {
+    "LP 12", "LP 24", "HP 12", "HP 24", "BP 12", "Notch 12"
+};
+
+/** Where an effect sits in the chain.
+
+    The ORDER is a permutation of these, stored in the ValueTree rather than as
+    a parameter - see docs/fx-architecture.md. The enum's order is the DEFAULT
+    chain order, chosen to be the one that needs the least rearranging: shape
+    and distort first, then modulate, then space, then catch the peaks.
+
+    Append only, like every other choice list: the permutation is stored as
+    these names, so reordering the enum would reorder every saved chain. */
+enum class FxSlot
+{
+    distortion1 = 0,
+    eq1,
+    filter1,
+    distortion2,
+    eq2,
+    filter2,
+    chorus,
+    flanger,
+    phaser,
+    hyper,
+    dimension,
+    delay,
+    reverb,
+    limiter,
+    count
+};
+
+inline const juce::StringArray fxSlotName {
+    "Distortion 1", "EQ 1", "Filter 1",
+    "Distortion 2", "EQ 2", "Filter 2",
+    "Chorus", "Flanger", "Phaser",
+    "Hyper", "Dimension",
+    "Delay", "Reverb", "Limiter"
+};
+
 // --- Global ----------------------------------------------------------------
 enum class PolyMode
 {
@@ -319,6 +397,9 @@ inline bool choiceListsAreConsistent()
         && check (gridDivision,    GridDivision::count)
         && check (modSource,       ModSource::count)
         && check (modCurve,        ModCurve::count)
+        && check (fxDistortionType, FxDistortionType::count)
+        && check (fxFilterType,    FxFilterType::count)
+        && check (fxSlotName,      FxSlot::count)
         && check (polyMode,        PolyMode::count)
         && check (oversampling,    Oversampling::count)
         && check (velocityCurve,   VelocityCurve::count);

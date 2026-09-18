@@ -35,6 +35,8 @@ target_sources(GNARL PRIVATE
     source/dsp/CombFilter.h
     source/dsp/Envelope.h
     source/dsp/FilterSlot.h
+    source/dsp/FxChain.h
+    source/dsp/FxDistortion.h
     source/dsp/FormantFilter.h
     source/dsp/LadderFilter.h
     source/dsp/Lfo.h

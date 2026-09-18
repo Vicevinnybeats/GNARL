@@ -61,6 +61,18 @@ namespace gnarl::pid
     inline constexpr std::size_t kNumModSlots    = 16;
     inline constexpr std::size_t kNumMacros      = 4;
 
+    /** FX instances that are duplicated. See docs/fx-architecture.md: the rack
+        is a fixed roster with a reorderable ORDER, not slots with a type
+        picker, so these are counts of real instances rather than of slots. */
+    inline constexpr std::size_t kNumFxDistortions = 2;
+    inline constexpr std::size_t kNumFxEqs         = 2;
+    inline constexpr std::size_t kNumFxFilters     = 2;
+
+    /** Every effect instance in the rack, which is what the chain order is a
+        permutation OF. Kept in step with dsp::FxSlot by
+        tests/FxChainTests.cpp. */
+    inline constexpr std::size_t kNumFxInstances = 14;
+
     /** Hard ceiling on simultaneous voices, and on unison voices per osc. */
     inline constexpr int kMaxVoices       = 16;
     inline constexpr int kMaxUnisonVoices = 16;
@@ -494,6 +506,126 @@ namespace gnarl::pid
     };
 
     // ----------------------------------------------------------------------
+    struct FxDistortionIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* type;
+        const char* drive;
+        const char* tone;
+        const char* bias;
+        const char* output;
+    };
+
+    /** Index 0 is "fx_dist1_...": the UI's 1-based numbering minus one. */
+    inline constexpr FxDistortionIDs fxDistortion[2] = {
+        {
+            .enabled = "fx_dist1_enabled",
+            .mix     = "fx_dist1_mix",
+            .type    = "fx_dist1_type",
+            .drive   = "fx_dist1_drive",
+            .tone    = "fx_dist1_tone",
+            .bias    = "fx_dist1_bias",
+            .output  = "fx_dist1_output",
+        },
+        {
+            .enabled = "fx_dist2_enabled",
+            .mix     = "fx_dist2_mix",
+            .type    = "fx_dist2_type",
+            .drive   = "fx_dist2_drive",
+            .tone    = "fx_dist2_tone",
+            .bias    = "fx_dist2_bias",
+            .output  = "fx_dist2_output",
+        },
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxEqIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* highPassFreq;
+        const char* lowShelfFreq;
+        const char* lowShelfGain;
+        const char* band1Freq;
+        const char* band1Gain;
+        const char* band1Q;
+        const char* band2Freq;
+        const char* band2Gain;
+        const char* band2Q;
+        const char* highShelfFreq;
+        const char* highShelfGain;
+        const char* lowPassFreq;
+    };
+
+    /** Index 0 is "fx_eq1_...": the UI's 1-based numbering minus one. */
+    inline constexpr FxEqIDs fxEq[2] = {
+        {
+            .enabled       = "fx_eq1_enabled",
+            .mix           = "fx_eq1_mix",
+            .highPassFreq  = "fx_eq1_hp_freq",
+            .lowShelfFreq  = "fx_eq1_ls_freq",
+            .lowShelfGain  = "fx_eq1_ls_gain",
+            .band1Freq     = "fx_eq1_b1_freq",
+            .band1Gain     = "fx_eq1_b1_gain",
+            .band1Q        = "fx_eq1_b1_q",
+            .band2Freq     = "fx_eq1_b2_freq",
+            .band2Gain     = "fx_eq1_b2_gain",
+            .band2Q        = "fx_eq1_b2_q",
+            .highShelfFreq = "fx_eq1_hs_freq",
+            .highShelfGain = "fx_eq1_hs_gain",
+            .lowPassFreq   = "fx_eq1_lp_freq",
+        },
+        {
+            .enabled       = "fx_eq2_enabled",
+            .mix           = "fx_eq2_mix",
+            .highPassFreq  = "fx_eq2_hp_freq",
+            .lowShelfFreq  = "fx_eq2_ls_freq",
+            .lowShelfGain  = "fx_eq2_ls_gain",
+            .band1Freq     = "fx_eq2_b1_freq",
+            .band1Gain     = "fx_eq2_b1_gain",
+            .band1Q        = "fx_eq2_b1_q",
+            .band2Freq     = "fx_eq2_b2_freq",
+            .band2Gain     = "fx_eq2_b2_gain",
+            .band2Q        = "fx_eq2_b2_q",
+            .highShelfFreq = "fx_eq2_hs_freq",
+            .highShelfGain = "fx_eq2_hs_gain",
+            .lowPassFreq   = "fx_eq2_lp_freq",
+        },
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxFilterIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* type;
+        const char* cutoff;
+        const char* resonance;
+        const char* drive;
+    };
+
+    /** Index 0 is "fx_filter1_...": the UI's 1-based numbering minus one. */
+    inline constexpr FxFilterIDs fxFilter[2] = {
+        {
+            .enabled   = "fx_filter1_enabled",
+            .mix       = "fx_filter1_mix",
+            .type      = "fx_filter1_type",
+            .cutoff    = "fx_filter1_cutoff",
+            .resonance = "fx_filter1_resonance",
+            .drive     = "fx_filter1_drive",
+        },
+        {
+            .enabled   = "fx_filter2_enabled",
+            .mix       = "fx_filter2_mix",
+            .type      = "fx_filter2_type",
+            .cutoff    = "fx_filter2_cutoff",
+            .resonance = "fx_filter2_resonance",
+            .drive     = "fx_filter2_drive",
+        },
+    };
+
+    // ----------------------------------------------------------------------
     struct SubOscillatorIDs
     {
         const char* enabled;
@@ -589,6 +721,190 @@ namespace gnarl::pid
         .lowDownward   = "ott_low_down",
         .midDownward   = "ott_mid_down",
         .highDownward  = "ott_high_down",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxDelayIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* syncEnabled;
+        const char* division;
+        const char* timeMs;
+        const char* feedback;
+        const char* pingPong;
+        const char* width;
+        const char* lowCut;
+        const char* highCut;
+        const char* modRate;
+        const char* modDepth;
+    };
+
+    inline constexpr FxDelayIDs fxDelay {
+        .enabled     = "fx_delay_enabled",
+        .mix         = "fx_delay_mix",
+        .syncEnabled = "fx_delay_sync_enabled",
+        .division    = "fx_delay_division",
+        .timeMs      = "fx_delay_time_ms",
+        .feedback    = "fx_delay_feedback",
+        .pingPong    = "fx_delay_ping_pong",
+        .width       = "fx_delay_width",
+        .lowCut      = "fx_delay_low_cut",
+        .highCut     = "fx_delay_high_cut",
+        .modRate     = "fx_delay_mod_rate",
+        .modDepth    = "fx_delay_mod_depth",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxReverbIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* size;
+        const char* decay;
+        const char* damping;
+        const char* preDelay;
+        const char* width;
+        const char* lowCut;
+        const char* highCut;
+        const char* modDepth;
+    };
+
+    inline constexpr FxReverbIDs fxReverb {
+        .enabled  = "fx_reverb_enabled",
+        .mix      = "fx_reverb_mix",
+        .size     = "fx_reverb_size",
+        .decay    = "fx_reverb_decay",
+        .damping  = "fx_reverb_damping",
+        .preDelay = "fx_reverb_pre_delay",
+        .width    = "fx_reverb_width",
+        .lowCut   = "fx_reverb_low_cut",
+        .highCut  = "fx_reverb_high_cut",
+        .modDepth = "fx_reverb_mod_depth",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxChorusIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* rate;
+        const char* depth;
+        const char* voices;
+        const char* spread;
+        const char* feedback;
+    };
+
+    inline constexpr FxChorusIDs fxChorus {
+        .enabled  = "fx_chorus_enabled",
+        .mix      = "fx_chorus_mix",
+        .rate     = "fx_chorus_rate",
+        .depth    = "fx_chorus_depth",
+        .voices   = "fx_chorus_voices",
+        .spread   = "fx_chorus_spread",
+        .feedback = "fx_chorus_feedback",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxFlangerIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* rate;
+        const char* depth;
+        const char* feedback;
+        const char* manual;
+        const char* stereo;
+    };
+
+    inline constexpr FxFlangerIDs fxFlanger {
+        .enabled  = "fx_flanger_enabled",
+        .mix      = "fx_flanger_mix",
+        .rate     = "fx_flanger_rate",
+        .depth    = "fx_flanger_depth",
+        .feedback = "fx_flanger_feedback",
+        .manual   = "fx_flanger_manual",
+        .stereo   = "fx_flanger_stereo",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxPhaserIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* rate;
+        const char* depth;
+        const char* stages;
+        const char* centre;
+        const char* feedback;
+        const char* stereo;
+    };
+
+    inline constexpr FxPhaserIDs fxPhaser {
+        .enabled  = "fx_phaser_enabled",
+        .mix      = "fx_phaser_mix",
+        .rate     = "fx_phaser_rate",
+        .depth    = "fx_phaser_depth",
+        .stages   = "fx_phaser_stages",
+        .centre   = "fx_phaser_centre",
+        .feedback = "fx_phaser_feedback",
+        .stereo   = "fx_phaser_stereo",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxHyperIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* amount;
+        const char* detune;
+        const char* voices;
+        const char* width;
+    };
+
+    inline constexpr FxHyperIDs fxHyper {
+        .enabled = "fx_hyper_enabled",
+        .mix     = "fx_hyper_mix",
+        .amount  = "fx_hyper_amount",
+        .detune  = "fx_hyper_detune",
+        .voices  = "fx_hyper_voices",
+        .width   = "fx_hyper_width",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxDimensionIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* amount;
+        const char* width;
+        const char* timeMs;
+    };
+
+    inline constexpr FxDimensionIDs fxDimension {
+        .enabled = "fx_dimension_enabled",
+        .mix     = "fx_dimension_mix",
+        .amount  = "fx_dimension_amount",
+        .width   = "fx_dimension_width",
+        .timeMs  = "fx_dimension_time_ms",
+    };
+
+    // ----------------------------------------------------------------------
+    struct FxLimiterIDs
+    {
+        const char* enabled;
+        const char* mix;
+        const char* threshold;
+        const char* release;
+        const char* ceiling;
+    };
+
+    inline constexpr FxLimiterIDs fxLimiter {
+        .enabled   = "fx_limiter_enabled",
+        .mix       = "fx_limiter_mix",
+        .threshold = "fx_limiter_threshold",
+        .release   = "fx_limiter_release",
+        .ceiling   = "fx_limiter_ceiling",
     };
 
     // ----------------------------------------------------------------------

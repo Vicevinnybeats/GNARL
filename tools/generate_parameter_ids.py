@@ -138,18 +138,179 @@ OTT = [
     ("highDownward",    "high_down"),
 ]
 
+
+# ---------------------------------------------------------------------------
+# FX
+#
+# A FIXED ROSTER of effect instances, each with its own NAMED parameters - not
+# ten generic slots. See docs/fx-architecture.md for why: a slot whose type can
+# change means every automation lane pointing into it silently changes meaning
+# the moment the type does, which is the same failure CLAUDE.md rejects for mod
+# destinations.
+#
+# Instances are duplicated exactly where the genre stacks them: two
+# distortions, two EQs, two filters. Two reverbs in series is a mistake rather
+# than a feature, so everything else is a single instance.
+#
+# The chain ORDER is not here. It is a permutation in the ValueTree, because
+# "effect order" is not something anyone automates and an index into an ordered
+# list cannot be a stable parameter.
+#
+# Every instance carries `enabled` and `mix`, including the ones where a wet
+# blend is unusual (EQ, limiter). Switching an effect in and out and riding its
+# wet level ARE automated, and an instance that breaks the pattern costs the UI
+# more than the knob costs the host.
+
+FX_DIST = [
+    ("enabled",  "enabled"),
+    ("mix",      "mix"),
+    ("type",     "type"),
+    ("drive",    "drive"),
+    ("tone",     "tone"),
+    # Asymmetry. A symmetric curve makes only odd harmonics; bias is what puts
+    # even ones in, and it is the difference between "fuzzy" and "growling".
+    ("bias",     "bias"),
+    ("output",   "output"),
+]
+
+FX_EQ = [
+    ("enabled",       "enabled"),
+    ("mix",           "mix"),
+    ("highPassFreq",  "hp_freq"),
+    ("lowShelfFreq",  "ls_freq"),
+    ("lowShelfGain",  "ls_gain"),
+    ("band1Freq",     "b1_freq"),
+    ("band1Gain",     "b1_gain"),
+    ("band1Q",        "b1_q"),
+    ("band2Freq",     "b2_freq"),
+    ("band2Gain",     "b2_gain"),
+    ("band2Q",        "b2_q"),
+    ("highShelfFreq", "hs_freq"),
+    ("highShelfGain", "hs_gain"),
+    ("lowPassFreq",   "lp_freq"),
+]
+
+FX_FILTER = [
+    ("enabled",   "enabled"),
+    ("mix",       "mix"),
+    ("type",      "type"),
+    ("cutoff",    "cutoff"),
+    ("resonance", "resonance"),
+    ("drive",     "drive"),
+]
+
+FX_DELAY = [
+    ("enabled",     "enabled"),
+    ("mix",         "mix"),
+    ("syncEnabled", "sync_enabled"),
+    ("division",    "division"),
+    ("timeMs",      "time_ms"),
+    ("feedback",    "feedback"),
+    ("pingPong",    "ping_pong"),
+    ("width",       "width"),
+    # A feedback path with no filtering builds up either mud or ice after a few
+    # repeats; every usable delay filters what it feeds back.
+    ("lowCut",      "low_cut"),
+    ("highCut",     "high_cut"),
+    ("modRate",     "mod_rate"),
+    ("modDepth",    "mod_depth"),
+]
+
+FX_REVERB = [
+    ("enabled",  "enabled"),
+    ("mix",      "mix"),
+    ("size",     "size"),
+    ("decay",    "decay"),
+    ("damping",  "damping"),
+    ("preDelay", "pre_delay"),
+    ("width",    "width"),
+    ("lowCut",   "low_cut"),
+    ("highCut",  "high_cut"),
+    ("modDepth", "mod_depth"),
+]
+
+FX_CHORUS = [
+    ("enabled",  "enabled"),
+    ("mix",      "mix"),
+    ("rate",     "rate"),
+    ("depth",    "depth"),
+    ("voices",   "voices"),
+    ("spread",   "spread"),
+    ("feedback", "feedback"),
+]
+
+FX_FLANGER = [
+    ("enabled",  "enabled"),
+    ("mix",      "mix"),
+    ("rate",     "rate"),
+    ("depth",    "depth"),
+    ("feedback", "feedback"),
+    ("manual",   "manual"),
+    ("stereo",   "stereo"),
+]
+
+FX_PHASER = [
+    ("enabled",  "enabled"),
+    ("mix",      "mix"),
+    ("rate",     "rate"),
+    ("depth",    "depth"),
+    ("stages",   "stages"),
+    ("centre",   "centre"),
+    ("feedback", "feedback"),
+    ("stereo",   "stereo"),
+]
+
+FX_HYPER = [
+    ("enabled", "enabled"),
+    ("mix",     "mix"),
+    ("amount",  "amount"),
+    ("detune",  "detune"),
+    ("voices",  "voices"),
+    ("width",   "width"),
+]
+
+FX_DIMENSION = [
+    ("enabled", "enabled"),
+    ("mix",     "mix"),
+    ("amount",  "amount"),
+    ("width",   "width"),
+    ("timeMs",  "time_ms"),
+]
+
+FX_LIMITER = [
+    ("enabled",   "enabled"),
+    ("mix",       "mix"),
+    ("threshold", "threshold"),
+    ("release",   "release"),
+    ("ceiling",   "ceiling"),
+]
+
 FAMILIES = [
     ("OscillatorIDs", "osc",     OSC,    2,  "osc{i}_"),
     ("FilterIDs",     "filter",  FILTER, 2,  "filter{i}_"),
     ("EnvelopeIDs",   "envelope", ENV,   4,  "env{i}_"),
     ("LfoIDs",        "lfo",     LFO,    4,  "lfo{i}_"),
     ("ModSlotIDs",    "modSlot", MOD,    16, "mod{i}_"),
+
+    # FX instances that are duplicated because the genre stacks them.
+    ("FxDistortionIDs", "fxDistortion", FX_DIST,   2, "fx_dist{i}_"),
+    ("FxEqIDs",         "fxEq",         FX_EQ,     2, "fx_eq{i}_"),
+    ("FxFilterIDs",     "fxFilter",     FX_FILTER, 2, "fx_filter{i}_"),
 ]
 
 SINGLETONS = [
     ("SubOscillatorIDs", "sub",   SUB,   "sub_"),
     ("NoiseIDs",         "noise", NOISE, "noise_"),
     ("OttIDs",           "ott",   OTT,   "ott_"),
+
+    ("FxDelayIDs",     "fxDelay",     FX_DELAY,     "fx_delay_"),
+    ("FxReverbIDs",    "fxReverb",    FX_REVERB,    "fx_reverb_"),
+    ("FxChorusIDs",    "fxChorus",    FX_CHORUS,    "fx_chorus_"),
+    ("FxFlangerIDs",   "fxFlanger",   FX_FLANGER,   "fx_flanger_"),
+    ("FxPhaserIDs",    "fxPhaser",    FX_PHASER,    "fx_phaser_"),
+    ("FxHyperIDs",     "fxHyper",     FX_HYPER,     "fx_hyper_"),
+    ("FxDimensionIDs", "fxDimension", FX_DIMENSION, "fx_dimension_"),
+    ("FxLimiterIDs",   "fxLimiter",   FX_LIMITER,   "fx_limiter_"),
 ]
 
 GLOBALS = [
@@ -260,6 +421,18 @@ namespace gnarl::pid
     inline constexpr std::size_t kNumModSlots    = 16;
     inline constexpr std::size_t kNumMacros      = 4;
 
+    /** FX instances that are duplicated. See docs/fx-architecture.md: the rack
+        is a fixed roster with a reorderable ORDER, not slots with a type
+        picker, so these are counts of real instances rather than of slots. */
+    inline constexpr std::size_t kNumFxDistortions = 2;
+    inline constexpr std::size_t kNumFxEqs         = 2;
+    inline constexpr std::size_t kNumFxFilters     = 2;
+
+    /** Every effect instance in the rack, which is what the chain order is a
+        permutation OF. Kept in step with dsp::FxSlot by
+        tests/FxChainTests.cpp. */
+    inline constexpr std::size_t kNumFxInstances = 14;
+
     /** Hard ceiling on simultaneous voices, and on unison voices per osc. */
     inline constexpr int kMaxVoices       = 16;
     inline constexpr int kMaxUnisonVoices = 16;
@@ -300,12 +473,18 @@ while "\n\n\n\n" in text:
     text = text.replace("\n\n\n\n", "\n\n\n")
 open(REPO / "plugin/source/params/ParameterIDs.h", "w").write(text)
 
+fx_families = len(FX_DIST)*2 + len(FX_EQ)*2 + len(FX_FILTER)*2
+fx_singles = sum(len(f) for f in (FX_DELAY, FX_REVERB, FX_CHORUS, FX_FLANGER,
+                                  FX_PHASER, FX_HYPER, FX_DIMENSION, FX_LIMITER))
+
 total = (len(OSC)*2 + len(SUB) + len(NOISE) + len(OTT) + len(FILTER)*2 + len(ENV)*4
-         + len(LFO)*4 + len(MOD)*16 + MACRO_COUNT + len(GLOBALS))
+         + len(LFO)*4 + len(MOD)*16 + MACRO_COUNT + len(GLOBALS)
+         + fx_families + fx_singles)
 print("declared parameter ids:", total)
 for label, n in [("osc", len(OSC)*2), ("sub", len(SUB)), ("noise", len(NOISE)),
                  ("ott", len(OTT)),
                  ("filters", len(FILTER)*2), ("envelopes", len(ENV)*4),
                  ("lfos", len(LFO)*4), ("mod matrix", len(MOD)*16),
-                 ("macros", MACRO_COUNT), ("global", len(GLOBALS))]:
+                 ("macros", MACRO_COUNT), ("global", len(GLOBALS)),
+                 ("fx (x2)", fx_families), ("fx (single)", fx_singles)]:
     print(f"  {label:12} {n}")

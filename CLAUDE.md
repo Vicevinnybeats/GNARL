@@ -200,6 +200,20 @@ a loose test threshold hid. Note that an *even* curve (rectify) cannot have
 unity RMS gain at all: it moves most of the signal's energy to DC, which the DC
 blocker then removes.
 
+**And the same fix does not transfer to a wider drive range.** `FxDistortion`
+compensated the way `DriveStage` does — the slope at the origin — and
+reproduced the bug with the sign flipped: every curve came out **12.5 dB
+down**. The slope at zero is the *small-signal* gain, so normalising it makes
+the linear region unity and leaves the loud part of the signal wherever the
+curve's compression put it. Over the FX stage's 48 dB that region is one the
+signal has already left. So `FxDistortion` matches **RMS** on a reference sine
+instead (`kCompensationSine`, -12 dBFS), measured **about the mean rather than
+about zero** — which is exactly what the DC blocker downstream leaves, and is
+why the even curve needs no exclusion here even though it does in the filter.
+A nonlinear curve has no single gain, so this is a level match at one
+amplitude by construction; the residual at other levels is the compression the
+user asked for.
+
 **`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
 building several differently-sized frames from one harmonic series gives each a
 different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip

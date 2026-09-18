@@ -84,6 +84,53 @@ inline juce::NormalisableRange<float> pitchSemitones() { return linear (-48.0f, 
 /** Fine pitch offset, in cents. */
 inline juce::NormalisableRange<float> pitchCents()     { return linear (-100.0f, 100.0f, 0.01f); }
 
+// --- FX --------------------------------------------------------------------
+
+/** Delay time when not tempo-synced. Skewed low: the musically interesting
+    settings are short, and a linear knob spends most of its travel between
+    one and two seconds where nothing changes. Down to 1 ms so the delay
+    doubles as a comb/flanger by hand. */
+inline juce::NormalisableRange<float> delayTimeMs() { return skewed (1.0f, 4000.0f, 250.0f); }
+
+/** Reverb pre-delay. Short: past about 200 ms it stops reading as a room and
+    starts reading as a second, quieter note. */
+inline juce::NormalisableRange<float> preDelayMs()  { return skewed (0.0f, 250.0f, 30.0f); }
+
+/** Modulation rate for the chorus, flanger and phaser. Tops out well below
+    the LFO's 200 Hz: past a few Hz these stop being modulation and become
+    ring modulation, which the warp section already does properly. */
+inline juce::NormalisableRange<float> fxModRate()   { return skewed (0.01f, 20.0f, 1.0f); }
+
+/** A shelving or cut frequency inside an effect. Same shape as the voice
+    filter's cutoff, so the two feel like the same control. */
+inline juce::NormalisableRange<float> fxFrequency() { return skewed (20.0f, 20000.0f, 1000.0f); }
+
+/** Band gain for the EQ, in dB. +-18 rather than +-24: past 18 dB a bell is
+    doing damage rather than shaping, and the extra travel costs resolution
+    across the range people use. */
+inline juce::NormalisableRange<float> eqGainDb()    { return linear (-18.0f, 18.0f, 0.1f); }
+
+/** EQ bell width. Q rather than bandwidth, skewed so the middle of the knob
+    is the moderate Q people reach for. */
+inline juce::NormalisableRange<float> eqQ()         { return skewed (0.2f, 18.0f, 1.0f); }
+
+/** Limiter threshold and ceiling. The ceiling stops just below 0 dBFS by
+    default because a true-peak of exactly 0 clips in a lossy encoder. */
+inline juce::NormalisableRange<float> limiterDb()   { return linear (-40.0f, 0.0f, 0.1f); }
+
+/** Limiter release. Fast enough to be transparent on a bass note, slow enough
+    to be usable as a pumping effect. */
+inline juce::NormalisableRange<float> limiterRelease() { return skewed (1.0f, 500.0f, 50.0f); }
+
+/** Drive gain for the FX distortion, in dB of input gain rather than an
+    abstract 0..1 - the amount of drive is a level decision and reads better
+    as one. */
+inline juce::NormalisableRange<float> driveDb()     { return linear (0.0f, 48.0f, 0.1f); }
+
+/** Output trim on an effect. Narrower than the master: this is for making up
+    what the effect took, not for mixing. */
+inline juce::NormalisableRange<float> trimDb()      { return linear (-24.0f, 24.0f, 0.1f); }
+
 // --- Formatting ------------------------------------------------------------
 // Host automation panels and the plugin's own readouts both use these, so a
 // value reads the same everywhere.

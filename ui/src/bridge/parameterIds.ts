@@ -368,6 +368,84 @@ export const MOD = [
   },
 ] as const;
 
+/** FX distortions. Two instances because stacking drive is most of a riddim patch - see docs/fx-architecture.md. */
+export const FX_DISTORTION = [
+  {
+    enabled: 'fx_dist1_enabled',
+    mix:     'fx_dist1_mix',
+    type:    'fx_dist1_type',
+    drive:   'fx_dist1_drive',
+    tone:    'fx_dist1_tone',
+    bias:    'fx_dist1_bias',
+    output:  'fx_dist1_output',
+  },
+  {
+    enabled: 'fx_dist2_enabled',
+    mix:     'fx_dist2_mix',
+    type:    'fx_dist2_type',
+    drive:   'fx_dist2_drive',
+    tone:    'fx_dist2_tone',
+    bias:    'fx_dist2_bias',
+    output:  'fx_dist2_output',
+  },
+] as const;
+
+/** FX EQs. Two instances: one to carve before distortion, one to fix what it did. */
+export const FX_EQ = [
+  {
+    enabled:       'fx_eq1_enabled',
+    mix:           'fx_eq1_mix',
+    highPassFreq:  'fx_eq1_hp_freq',
+    lowShelfFreq:  'fx_eq1_ls_freq',
+    lowShelfGain:  'fx_eq1_ls_gain',
+    band1Freq:     'fx_eq1_b1_freq',
+    band1Gain:     'fx_eq1_b1_gain',
+    band1Q:        'fx_eq1_b1_q',
+    band2Freq:     'fx_eq1_b2_freq',
+    band2Gain:     'fx_eq1_b2_gain',
+    band2Q:        'fx_eq1_b2_q',
+    highShelfFreq: 'fx_eq1_hs_freq',
+    highShelfGain: 'fx_eq1_hs_gain',
+    lowPassFreq:   'fx_eq1_lp_freq',
+  },
+  {
+    enabled:       'fx_eq2_enabled',
+    mix:           'fx_eq2_mix',
+    highPassFreq:  'fx_eq2_hp_freq',
+    lowShelfFreq:  'fx_eq2_ls_freq',
+    lowShelfGain:  'fx_eq2_ls_gain',
+    band1Freq:     'fx_eq2_b1_freq',
+    band1Gain:     'fx_eq2_b1_gain',
+    band1Q:        'fx_eq2_b1_q',
+    band2Freq:     'fx_eq2_b2_freq',
+    band2Gain:     'fx_eq2_b2_gain',
+    band2Q:        'fx_eq2_b2_q',
+    highShelfFreq: 'fx_eq2_hs_freq',
+    highShelfGain: 'fx_eq2_hs_gain',
+    lowPassFreq:   'fx_eq2_lp_freq',
+  },
+] as const;
+
+/** FX filters. Distinct from the two VOICE filters in FILTER, which are per-voice and sit before the mix. */
+export const FX_FILTER = [
+  {
+    enabled:   'fx_filter1_enabled',
+    mix:       'fx_filter1_mix',
+    type:      'fx_filter1_type',
+    cutoff:    'fx_filter1_cutoff',
+    resonance: 'fx_filter1_resonance',
+    drive:     'fx_filter1_drive',
+  },
+  {
+    enabled:   'fx_filter2_enabled',
+    mix:       'fx_filter2_mix',
+    type:      'fx_filter2_type',
+    cutoff:    'fx_filter2_cutoff',
+    resonance: 'fx_filter2_resonance',
+    drive:     'fx_filter2_drive',
+  },
+] as const;
+
 /** Sub oscillator. */
 export const SUB = {
   enabled:     'sub_enabled',
@@ -417,6 +495,98 @@ export const OTT = {
   highDownward:  'ott_high_down',
 } as const;
 
+/** FX delay. */
+export const FX_DELAY = {
+  enabled:     'fx_delay_enabled',
+  mix:         'fx_delay_mix',
+  syncEnabled: 'fx_delay_sync_enabled',
+  division:    'fx_delay_division',
+  timeMs:      'fx_delay_time_ms',
+  feedback:    'fx_delay_feedback',
+  pingPong:    'fx_delay_ping_pong',
+  width:       'fx_delay_width',
+  lowCut:      'fx_delay_low_cut',
+  highCut:     'fx_delay_high_cut',
+  modRate:     'fx_delay_mod_rate',
+  modDepth:    'fx_delay_mod_depth',
+} as const;
+
+/** FX reverb. */
+export const FX_REVERB = {
+  enabled:  'fx_reverb_enabled',
+  mix:      'fx_reverb_mix',
+  size:     'fx_reverb_size',
+  decay:    'fx_reverb_decay',
+  damping:  'fx_reverb_damping',
+  preDelay: 'fx_reverb_pre_delay',
+  width:    'fx_reverb_width',
+  lowCut:   'fx_reverb_low_cut',
+  highCut:  'fx_reverb_high_cut',
+  modDepth: 'fx_reverb_mod_depth',
+} as const;
+
+/** FX chorus. */
+export const FX_CHORUS = {
+  enabled:  'fx_chorus_enabled',
+  mix:      'fx_chorus_mix',
+  rate:     'fx_chorus_rate',
+  depth:    'fx_chorus_depth',
+  voices:   'fx_chorus_voices',
+  spread:   'fx_chorus_spread',
+  feedback: 'fx_chorus_feedback',
+} as const;
+
+/** FX flanger. */
+export const FX_FLANGER = {
+  enabled:  'fx_flanger_enabled',
+  mix:      'fx_flanger_mix',
+  rate:     'fx_flanger_rate',
+  depth:    'fx_flanger_depth',
+  feedback: 'fx_flanger_feedback',
+  manual:   'fx_flanger_manual',
+  stereo:   'fx_flanger_stereo',
+} as const;
+
+/** FX phaser. */
+export const FX_PHASER = {
+  enabled:  'fx_phaser_enabled',
+  mix:      'fx_phaser_mix',
+  rate:     'fx_phaser_rate',
+  depth:    'fx_phaser_depth',
+  stages:   'fx_phaser_stages',
+  centre:   'fx_phaser_centre',
+  feedback: 'fx_phaser_feedback',
+  stereo:   'fx_phaser_stereo',
+} as const;
+
+/** FX hyper/unison widener. */
+export const FX_HYPER = {
+  enabled: 'fx_hyper_enabled',
+  mix:     'fx_hyper_mix',
+  amount:  'fx_hyper_amount',
+  detune:  'fx_hyper_detune',
+  voices:  'fx_hyper_voices',
+  width:   'fx_hyper_width',
+} as const;
+
+/** FX dimension expander. */
+export const FX_DIMENSION = {
+  enabled: 'fx_dimension_enabled',
+  mix:     'fx_dimension_mix',
+  amount:  'fx_dimension_amount',
+  width:   'fx_dimension_width',
+  timeMs:  'fx_dimension_time_ms',
+} as const;
+
+/** FX limiter. */
+export const FX_LIMITER = {
+  enabled:   'fx_limiter_enabled',
+  mix:       'fx_limiter_mix',
+  threshold: 'fx_limiter_threshold',
+  release:   'fx_limiter_release',
+  ceiling:   'fx_limiter_ceiling',
+} as const;
+
 /** Macro knobs. MACRO[0] is GROWL. */
 export const MACRO = [
   'macro1',
@@ -455,6 +625,17 @@ export type ParameterId =
   | ValuesOf<(typeof ENV)[number]>
   | ValuesOf<(typeof LFO)[number]>
   | ValuesOf<(typeof MOD)[number]>
+  | ValuesOf<(typeof FX_DISTORTION)[number]>
+  | ValuesOf<(typeof FX_EQ)[number]>
+  | ValuesOf<(typeof FX_FILTER)[number]>
+  | ValuesOf<typeof FX_DELAY>
+  | ValuesOf<typeof FX_REVERB>
+  | ValuesOf<typeof FX_CHORUS>
+  | ValuesOf<typeof FX_FLANGER>
+  | ValuesOf<typeof FX_PHASER>
+  | ValuesOf<typeof FX_HYPER>
+  | ValuesOf<typeof FX_DIMENSION>
+  | ValuesOf<typeof FX_LIMITER>
   | (typeof MACRO)[number]
   | ValuesOf<typeof GLOBAL>;
 
@@ -468,6 +649,17 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
   ...ENV.flatMap((e) => Object.values(e)),
   ...LFO.flatMap((l) => Object.values(l)),
   ...MOD.flatMap((m) => Object.values(m)),
+  ...FX_DISTORTION.flatMap((d) => Object.values(d)),
+  ...FX_EQ.flatMap((e) => Object.values(e)),
+  ...FX_FILTER.flatMap((f) => Object.values(f)),
+  ...Object.values(FX_DELAY),
+  ...Object.values(FX_REVERB),
+  ...Object.values(FX_CHORUS),
+  ...Object.values(FX_FLANGER),
+  ...Object.values(FX_PHASER),
+  ...Object.values(FX_HYPER),
+  ...Object.values(FX_DIMENSION),
+  ...Object.values(FX_LIMITER),
   ...MACRO,
   ...Object.values(GLOBAL),
 ];

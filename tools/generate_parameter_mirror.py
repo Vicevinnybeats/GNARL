@@ -40,10 +40,26 @@ families = {
     'envelope': grab_family('envelope'),
     'lfo':      grab_family('lfo'),
     'modSlot':  grab_family('modSlot'),
+    'fxDistortion': grab_family('fxDistortion'),
+    'fxEq':         grab_family('fxEq'),
+    'fxFilter':     grab_family('fxFilter'),
 }
+
+# COUNTS: the mirror's own total is checked against the header's declared
+# count, so a family added to one and not the other fails here rather than in
+# a control that silently binds to nothing.
 sub = grab_singleton('sub')
 noise = grab_singleton('noise')
 ott = grab_singleton('ott')
+
+fx_delay     = grab_singleton('fxDelay')
+fx_reverb    = grab_singleton('fxReverb')
+fx_chorus    = grab_singleton('fxChorus')
+fx_flanger   = grab_singleton('fxFlanger')
+fx_phaser    = grab_singleton('fxPhaser')
+fx_hyper     = grab_singleton('fxHyper')
+fx_dimension = grab_singleton('fxDimension')
+fx_limiter   = grab_singleton('fxLimiter')
 macros = grab_macros()
 globals_ = grab_globals()
 
@@ -107,9 +123,27 @@ def emit_object(name, rows, doc):
         out.append(f"  {(key + ':').ljust(w + 1)} '{val}',")
     out.append("} as const;\n")
 
+emit_family('FX_DISTORTION', families['fxDistortion'],
+            'FX distortions. Two instances because stacking drive is most of a '
+            'riddim patch - see docs/fx-architecture.md.')
+emit_family('FX_EQ', families['fxEq'], 'FX EQs. Two instances: one to carve '
+            'before distortion, one to fix what it did.')
+emit_family('FX_FILTER', families['fxFilter'],
+            'FX filters. Distinct from the two VOICE filters in FILTER, which '
+            'are per-voice and sit before the mix.')
+
 emit_object('SUB', sub, 'Sub oscillator.')
 emit_object('NOISE', noise, 'Noise generator.')
 emit_object('OTT', ott, 'Built-in OTT-style three-band up/downward compressor.')
+
+emit_object('FX_DELAY', fx_delay, 'FX delay.')
+emit_object('FX_REVERB', fx_reverb, 'FX reverb.')
+emit_object('FX_CHORUS', fx_chorus, 'FX chorus.')
+emit_object('FX_FLANGER', fx_flanger, 'FX flanger.')
+emit_object('FX_PHASER', fx_phaser, 'FX phaser.')
+emit_object('FX_HYPER', fx_hyper, 'FX hyper/unison widener.')
+emit_object('FX_DIMENSION', fx_dimension, 'FX dimension expander.')
+emit_object('FX_LIMITER', fx_limiter, 'FX limiter.')
 
 out.append("/** Macro knobs. MACRO[0] is GROWL. */")
 out.append("export const MACRO = [")
@@ -134,6 +168,17 @@ export type ParameterId =
   | ValuesOf<(typeof ENV)[number]>
   | ValuesOf<(typeof LFO)[number]>
   | ValuesOf<(typeof MOD)[number]>
+  | ValuesOf<(typeof FX_DISTORTION)[number]>
+  | ValuesOf<(typeof FX_EQ)[number]>
+  | ValuesOf<(typeof FX_FILTER)[number]>
+  | ValuesOf<typeof FX_DELAY>
+  | ValuesOf<typeof FX_REVERB>
+  | ValuesOf<typeof FX_CHORUS>
+  | ValuesOf<typeof FX_FLANGER>
+  | ValuesOf<typeof FX_PHASER>
+  | ValuesOf<typeof FX_HYPER>
+  | ValuesOf<typeof FX_DIMENSION>
+  | ValuesOf<typeof FX_LIMITER>
   | (typeof MACRO)[number]
   | ValuesOf<typeof GLOBAL>;
 
@@ -147,6 +192,17 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
   ...ENV.flatMap((e) => Object.values(e)),
   ...LFO.flatMap((l) => Object.values(l)),
   ...MOD.flatMap((m) => Object.values(m)),
+  ...FX_DISTORTION.flatMap((d) => Object.values(d)),
+  ...FX_EQ.flatMap((e) => Object.values(e)),
+  ...FX_FILTER.flatMap((f) => Object.values(f)),
+  ...Object.values(FX_DELAY),
+  ...Object.values(FX_REVERB),
+  ...Object.values(FX_CHORUS),
+  ...Object.values(FX_FLANGER),
+  ...Object.values(FX_PHASER),
+  ...Object.values(FX_HYPER),
+  ...Object.values(FX_DIMENSION),
+  ...Object.values(FX_LIMITER),
   ...MACRO,
   ...Object.values(GLOBAL),
 ];
@@ -154,10 +210,11 @@ export const ALL_PARAMETER_IDS: readonly ParameterId[] = [
 
 open(OUT, 'w').write("\n".join(out))
 
-total = (sum(len(r) for r in families['osc']) + len(sub) + len(noise) + len(ott)
-         + sum(len(r) for r in families['filter'])
-         + sum(len(r) for r in families['envelope'])
-         + sum(len(r) for r in families['lfo'])
-         + sum(len(r) for r in families['modSlot'])
+# Summed from what was actually grabbed, so a family added to the header and
+# forgotten here shows up as a total that disagrees with the generator's.
+total = (sum(sum(len(r) for r in rows) for rows in families.values())
+         + len(sub) + len(noise) + len(ott)
+         + len(fx_delay) + len(fx_reverb) + len(fx_chorus) + len(fx_flanger)
+         + len(fx_phaser) + len(fx_hyper) + len(fx_dimension) + len(fx_limiter)
          + len(macros) + len(globals_))
 print("mirrored ids:", total)
