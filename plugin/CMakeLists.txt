@@ -77,6 +77,10 @@ target_sources(GNARL PRIVATE
     source/preset/PresetFormat.h
     source/preset/PresetManager.cpp
     source/preset/PresetManager.h
+    source/preset/PresetMorph.cpp
+    source/preset/PresetMorph.h
+    source/preset/PresetRandomiser.cpp
+    source/preset/PresetRandomiser.h
     source/preset/TableLoader.h
     ui-bridge/WebUIEditor.cpp
     ui-bridge/WebUIEditor.h
