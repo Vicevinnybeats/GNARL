@@ -71,6 +71,27 @@ export const MOD_CURVE = ['Linear', 'Exp', 'Log', 'S-Curve', 'Quantize'] as cons
 /** Macro 1 is GROWL, the one macro with a fixed identity. */
 export const MACRO_NAMES = ['GROWL', 'Macro 2', 'Macro 3', 'Macro 4'] as const;
 
+/** FX distortion curves. A superset of DRIVE_CURVE: bitcrush and downsample only make sense in the rack, where aliasing is the effect rather than something to remove. */
+export const FX_DISTORTION_TYPE = [
+  'Tanh', 'Tube', 'Hard Clip', 'Fold',
+  'Rectify', 'Bitcrush', 'Downsample',
+] as const;
+
+/** FX filter types. A subset of FILTER_TYPE - no formant and no comb, because those get their character from tracking the note and the FX filter runs on the summed signal. */
+export const FX_FILTER_TYPE = [
+  'LP 12', 'LP 24', 'HP 12', 'HP 24',
+  'BP 12', 'Notch 12',
+] as const;
+
+/** The rack's fourteen instances, in their DEFAULT chain order. The order the user sets is stored separately, as ValueTree state - see docs/fx-architecture.md. This array's own order is frozen like every other choice list. */
+export const FX_SLOT_NAME = [
+  'Distortion 1', 'EQ 1', 'Filter 1',
+  'Distortion 2', 'EQ 2', 'Filter 2',
+  'Chorus', 'Flanger', 'Phaser',
+  'Hyper', 'Dimension', 'Delay',
+  'Reverb', 'Limiter',
+] as const;
+
 export const OVERSAMPLING = ['Off', '2x', '4x'] as const;
 
 export const POLY_MODE = ['Poly', 'Mono', 'Legato'] as const;

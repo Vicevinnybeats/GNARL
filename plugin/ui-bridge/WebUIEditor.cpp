@@ -2,8 +2,10 @@
 
 #include "PluginProcessor.h"
 #include "WebUIResourceProvider.h"
+#include "dsp/FxChain.h"
 #include "dsp/LfoCurve.h"
 #include "dsp/Modulation.h"
+#include "params/ParameterChoices.h"
 #include "params/ParameterIDs.h"
 
 #include <cmath>
@@ -141,7 +143,16 @@ juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
                              { complete (handleSetLfoCurve (args)); })
         .withNativeFunction ("gnarlSetModDestination",
                              [this] (const juce::Array<juce::var>& args, auto complete)
-                             { complete (handleSetModDestination (args)); });
+                             { complete (handleSetModDestination (args)); })
+        .withNativeFunction ("gnarlGetFxOrder",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleGetFxOrder (args)); })
+        .withNativeFunction ("gnarlSetFxOrder",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleSetFxOrder (args)); })
+        .withNativeFunction ("gnarlMoveFxSlot",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleMoveFxSlot (args)); });
 
     for (auto& relay : sliderRelays)
         options = options.withOptionsFrom (*relay);
@@ -267,6 +278,71 @@ juce::var WebUIEditor::handleSetModDestination (const juce::Array<juce::var>& ar
     processor.getModState().setDestination (slot, args[1].toString());
 
     return juce::var (true);
+}
+
+juce::var WebUIEditor::handleGetFxOrder (const juce::Array<juce::var>&)
+{
+    const auto& order = processor.getFxOrder().getOrder();
+
+    /*  Returns SLOT INDICES, not names. The names are already mirrored into
+        ui/src/bridge/choices.ts and guarded by ParameterMirrorTests, so
+        sending them over the bridge every time would be a second copy that
+        nothing checks - and the UI needs the index anyway to look the
+        instance's parameters up. The ValueTree stores names; that is a
+        different trade, because a preset outlives a build. */
+    auto slots = juce::Array<juce::var>();
+
+    for (std::size_t i = 0; i < dsp::FxOrder::kNumSlots; ++i)
+        slots.add (static_cast<int> (order.getSlot (i)));
+
+    auto* root = new juce::DynamicObject();
+    root->setProperty ("slots", slots);
+
+    return juce::var (root);
+}
+
+juce::var WebUIEditor::handleSetFxOrder (const juce::Array<juce::var>& args)
+{
+    if (args.isEmpty())
+        return juce::var (false);
+
+    const auto* incoming = args[0].getArray();
+
+    if (incoming == nullptr
+        || incoming->size() != static_cast<int> (dsp::FxOrder::kNumSlots))
+        return juce::var (false);
+
+    std::array<choices::FxSlot, dsp::FxOrder::kNumSlots> order {};
+
+    for (int i = 0; i < incoming->size(); ++i)
+    {
+        const auto index = static_cast<int> ((*incoming)[i]);
+
+        if (index < 0 || index >= static_cast<int> (choices::FxSlot::count))
+            return juce::var (false);
+
+        order[static_cast<std::size_t> (i)] = static_cast<choices::FxSlot> (index);
+    }
+
+    // The bridge rejects anything that is not a permutation, so a malformed
+    // message changes nothing rather than producing a chain that runs one
+    // effect twice.
+    return juce::var (processor.getFxOrder().setOrder (order));
+}
+
+juce::var WebUIEditor::handleMoveFxSlot (const juce::Array<juce::var>& args)
+{
+    if (args.size() < 2)
+        return juce::var (false);
+
+    const auto from = static_cast<int> (args[0]);
+    const auto to = static_cast<int> (args[1]);
+
+    if (from < 0 || to < 0)
+        return juce::var (false);
+
+    return juce::var (processor.getFxOrder().move (static_cast<std::size_t> (from),
+                                                  static_cast<std::size_t> (to)));
 }
 
 void WebUIEditor::timerCallback()

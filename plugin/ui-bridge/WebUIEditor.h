@@ -52,6 +52,15 @@ private:
     juce::var handleSetLfoCurve (const juce::Array<juce::var>& args);
     juce::var handleSetModDestination (const juce::Array<juce::var>& args);
 
+    /** The FX chain's ORDER, which is ValueTree state rather than a parameter
+        for the reasons in docs/fx-architecture.md - so it needs a native
+        function, like the LFO curves and the mod destinations, rather than a
+        relay. Everything else in the rack IS a parameter and goes through a
+        relay, so it keeps automation, undo and gesture handling. */
+    juce::var handleGetFxOrder (const juce::Array<juce::var>& args);
+    juce::var handleSetFxOrder (const juce::Array<juce::var>& args);
+    juce::var handleMoveFxSlot (const juce::Array<juce::var>& args);
+
     GnarlProcessor& processor;
 
     // Relays must outlive the WebBrowserComponent they were registered with,

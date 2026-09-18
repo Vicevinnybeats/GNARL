@@ -8,6 +8,16 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
     />
     <title>GNARL</title>
+    <!--
+      An empty inline icon. Nothing in a plugin webview shows a tab icon, so
+      this is not decoration: without it the browser requests /favicon.ico,
+      gets a 404, and logs a console error - and tools/screenshot_ui.mjs exits
+      non-zero on ANY console error, which made its "no console errors" check
+      useless as a signal for the layout work it exists to verify. A data URI
+      rather than a file so there is nothing extra to embed in the binary; the
+      CSP already allows img-src data:.
+    -->
+    <link rel="icon" href="data:," />
   </head>
   <body>
     <div id="root"></div>

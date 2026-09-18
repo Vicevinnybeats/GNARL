@@ -101,6 +101,18 @@ await page.click('.gn-panel:has(.gn-panel__title) .gn-toggle');
 await page.waitForTimeout(250);
 await shoot('fx-ott-on');
 
+/*  The rack's own panels, because each of the fourteen lays its controls out
+    differently and the tallest is the one that can overflow. The EQ is the
+    densest (three rows of four knobs) and the delay is the only one whose
+    controls CHANGE with a setting, so both are worth a picture. A panel that
+    overflows draws on top of its siblings, and that is invisible in code
+    review (CLAUDE.md section 6). */
+for (const slot of ['EQ 1', 'Delay', 'Reverb']) {
+  await page.click(`.gn-fx-chain__name:text-is("${slot}")`);
+  await page.waitForTimeout(150);
+  await shoot(`fx-${slot.toLowerCase().replace(/ /g, '')}`);
+}
+
 await browser.close();
 
 if (errors.length > 0) {

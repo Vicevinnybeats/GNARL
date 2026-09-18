@@ -1,6 +1,17 @@
+/*  ROW HEIGHTS ARE EXPLICIT, NOT FLEX PROPORTIONS. The vertical budget at the
+    design size is exact: 720 minus the 58 px header, the 22 px status bar and
+    16 px of padding leaves 624 px. Content-sized rows overflow that, and an
+    overflowing child renders ON TOP of its siblings - which has bitten this
+    project three times (CLAUDE.md section 6). 260 + 8 + 356 = 624.
+
+    These two numbers were set by SCREENSHOTTING, not by arithmetic on paper:
+    the first split gave the OTT 236 px and its three band panels came out cut
+    off mid-knob. The clipping worked - which is the point of the overflow
+    rule - but the content still did not fit, so the OTT's globals went into
+    one row and the rack's rows came down to 22 px. */
 .gn-fx-tab {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 260px 356px;
   gap: var(--gn-space-2);
   height: 100%;
   min-height: 0;
@@ -34,6 +45,121 @@
   letter-spacing: var(--gn-tracking-header);
   text-transform: uppercase;
   color: var(--gn-accent);
+}
+
+/* --- The rack ---------------------------------------------------------- */
+
+/*  The chain is a fixed 208 px column and the controls take the rest. Fixed,
+    because the longest slot name sets the width and it must not move when the
+    selection changes - a list whose columns twitch as you click down it is
+    unreadable. */
+.gn-fx-rack {
+  display: grid;
+  grid-template-columns: 208px 1fr;
+  gap: var(--gn-space-2);
+  min-height: 0;
+}
+
+.gn-fx-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+}
+
+/*  22 px a row: fourteen of them plus thirteen 1 px gaps is 321 px, which
+    fits inside the 356 px the tab gives this row once the panel header and
+    padding are taken off. Sized to FIT rather than to scroll, because the
+    whole point of the list is seeing the chain at once - a rack you have to
+    scroll to see the end of is a rack whose order you cannot read. */
+.gn-fx-chain__row {
+  display: grid;
+  grid-template-columns: 10px 14px 1fr auto;
+  align-items: center;
+  gap: var(--gn-space-1);
+  height: 22px;
+  padding: 0 var(--gn-space-1);
+  border: var(--gn-hairline) solid transparent;
+  border-radius: var(--gn-radius-sm);
+  background: var(--gn-panel-raised);
+  cursor: grab;
+  user-select: none;
+}
+
+.gn-fx-chain__row:hover {
+  border-color: var(--gn-border-strong);
+}
+
+/*  Glow marks what is ACTIVE, never decoration (CLAUDE.md section 6), and the
+    selected row is the one piece of state in this list worth a glow. */
+.gn-fx-chain__row[data-selected='true'] {
+  border-color: var(--gn-accent);
+  box-shadow: 0 0 6px -1px var(--gn-accent);
+}
+
+.gn-fx-chain__row[data-dragging='true'] {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+/* A disabled effect stays legible - it is still part of the chain. */
+.gn-fx-chain__row[data-off='true'] .gn-fx-chain__name,
+.gn-fx-chain__row[data-off='true'] .gn-fx-chain__index {
+  color: var(--gn-text-faint);
+}
+
+.gn-fx-chain__grip {
+  color: var(--gn-text-faint);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.gn-fx-chain__index {
+  font-family: var(--gn-font-mono, var(--gn-font-display));
+  font-size: var(--gn-size-label);
+  color: var(--gn-text-dim);
+  text-align: right;
+}
+
+.gn-fx-chain__name {
+  font-size: var(--gn-size-value);
+  color: var(--gn-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gn-fx-chain__toggle {
+  display: flex;
+  align-items: center;
+}
+
+.gn-fx__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-1);
+  min-width: 0;
+}
+
+.gn-fx__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gn-space-1);
+  font-size: var(--gn-size-label);
+  letter-spacing: var(--gn-tracking-header);
+  text-transform: uppercase;
+  color: var(--gn-text-dim);
+}
+
+/*  The one-line note under an effect's controls. Dim and small: it explains a
+    control that is not obvious, and it must never compete with the readouts. */
+.gn-fx__hint {
+  margin: auto 0 0;
+  font-size: var(--gn-size-label);
+  line-height: 1.45;
+  color: var(--gn-text-faint);
+  max-width: 62ch;
 }
 
 .gn-fx__note {

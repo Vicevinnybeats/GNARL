@@ -445,6 +445,14 @@ whenever you add one.
   defaults, dumped by `tools/dump_parameter_defaults.cpp` from the actual
   parameter tree. Without it every knob sits at zero and every readout says
   "0%", which is useless for judging layout and misleading in a screenshot.
+  **`parameterDefaults.json` goes stale silently**, and did: the FX section
+  added 114 parameters and the file still held 316, so every FX knob in the
+  preview sat at its minimum reading "0%" — exactly the symptom above, and it
+  looked like a formatting bug in the new panels rather than a stale dump.
+  Regenerate it in the same commit as any parameter change:
+  `cmake -B build -DGNARL_BUILD_DEMO_RENDERER=ON && cmake --build build
+  --target GnarlDumpDefaults && ./build/tests/GnarlDumpDefaults
+  ui/src/bridge/parameterDefaults.json`.
 - `ui/src/bridge/useParameter.ts` formats values in TypeScript, which
   **duplicates the C++ formatters** and has already disagreed with them once.
   Phase 6 should relay the C++ string over the bridge so there is one
@@ -648,7 +656,7 @@ Consequences of the figure above:
 | 6b | Animated wavetable display | **done** |
 | 6c | UI: MOD tab — LFO editor, envelopes, matrix, macros | **done** |
 | 3 | LFO engine, envelopes, mod matrix, macros | **done** |
-| 4 | FX chain (14 instances, reorderable) | **done** (UI pending) |
+| 4 | FX chain (14 instances, reorderable) + FX tab | **done** |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
 | 6 | Full UI | not started |
 | 7 | Backend, licensing, subscription | not started |

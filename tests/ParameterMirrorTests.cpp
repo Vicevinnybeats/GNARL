@@ -226,6 +226,12 @@ TEST_CASE ("The TypeScript choice lists match the C++ ones", "[params][mirror]")
     checkChoiceList (source, "MOD_CURVE", choices::modCurve);
     checkChoiceList (source, "OVERSAMPLING", choices::oversampling);
     checkChoiceList (source, "POLY_MODE", choices::polyMode);
+
+    // The FX lists went into ParameterChoices.h without a mirror, which is
+    // the same gap this test was written to close for the modulation lists.
+    checkChoiceList (source, "FX_DISTORTION_TYPE", choices::fxDistortionType);
+    checkChoiceList (source, "FX_FILTER_TYPE", choices::fxFilterType);
+    checkChoiceList (source, "FX_SLOT_NAME", choices::fxSlotName);
 }
 
 #endif
