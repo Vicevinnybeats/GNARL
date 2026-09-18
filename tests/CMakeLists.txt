@@ -18,6 +18,7 @@ add_executable(GnarlTests
     ModStateBridgeTests.cpp
     ModulationTests.cpp
     ParameterLayoutTests.cpp
+    PresetTests.cpp
     ParameterMirrorTests.cpp
     PluginSmokeTests.cpp
     VoiceManagerTests.cpp

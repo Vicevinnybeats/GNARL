@@ -29,6 +29,21 @@ GnarlProcessor::GnarlProcessor()
     // string: 114 of them, once per block, would be 114 hash lookups.
     fxRack.bind (apvts);
 
+    presetManager = std::make_unique<preset::PresetManager> (*this);
+
+    tableLoader = std::make_unique<preset::TableLoader> (wavetableLibrary);
+
+    // Publishing is the message thread's job, so the loader hands back here
+    // rather than touching the pointers the audio thread reads.
+    tableLoader->setCallback ([this]
+    {
+        if (settingsReader != nullptr)
+        {
+            settingsReader->ensureTablesLoaded();
+            settingsReader->read (voiceSettings);
+        }
+    });
+
     settingsReader = std::make_unique<params::SettingsReader> (apvts, wavetableLibrary,
                                                                *modStateBridge);
 
@@ -70,7 +85,19 @@ GnarlProcessor::GnarlProcessor()
           && glideAlwaysParam != nullptr);
 }
 
-GnarlProcessor::~GnarlProcessor() = default;
+GnarlProcessor::~GnarlProcessor()
+{
+    /*  THE LOADER GOES FIRST, EXPLICITLY. Members are destroyed in reverse
+        declaration order, and the table loader is declared BEFORE the settings
+        reader - so the default order would tear the reader down while a
+        generation pass was still running a callback against it. Resetting the
+        loader here joins its thread and cancels its pending update before
+        anything it touches goes away.
+
+        This is the kind of ordering that works by accident until somebody
+        reorders two member declarations for tidiness. */
+    tableLoader.reset();
+}
 
 void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
 {
@@ -639,32 +666,66 @@ void GnarlProcessor::setStateInformation (const void* data, int sizeInBytes)
     const auto version = static_cast<int> (tree.getProperty ("stateVersion", 1));
     juce::ignoreUnused (version); // migrations land here as the format evolves
 
-    apvts.replaceState (tree);
+    // One path for both. A preset and a session must recall identically, and
+    // two functions that both "load a patch" are two that will one day
+    // disagree - which the customer meets as a preset that sounds right from
+    // the browser and wrong after reopening the project.
+    applyPresetState (tree);
+}
+
+void GnarlProcessor::applyPresetState (const juce::ValueTree& state)
+{
+    if (! state.isValid())
+        return;
+
+    apvts.replaceState (state);
 
     // Skip the ramps: a preset load should be a change, not a glide from the
     // old patch's values to the new ones.
     masterGain.snapToTarget();
 
-    // The new state may select tables that have never been generated. This is
-    // the message thread, so building them here is correct - and it is the
-    // reason a preset load can take a few tens of milliseconds.
-    // The MODSTATE branch came in with the tree, so the curves and the slot
-    // destinations have to be re-read and republished before the next block.
-    // The bridge's own listener covers the redirect, but calling it here makes
-    // the ordering explicit rather than incidental.
+    // The MODSTATE and FXORDER branches came in with the tree, so the curves,
+    // the slot destinations and the chain order all have to be re-read and
+    // republished before the next block. Each bridge's own listener covers an
+    // ordinary edit; calling them here makes the ordering explicit for a whole
+    // tree arriving at once rather than incidental.
     if (modStateBridge != nullptr)
         modStateBridge->refresh();
 
-    // The FXORDER branch came in with the tree too, so the chain order has to
-    // be re-read and republished before the next block.
     if (fxOrderBridge != nullptr)
         fxOrderBridge->refresh();
 
-    if (settingsReader != nullptr)
+    if (settingsReader == nullptr)
+        return;
+
+    /*  THE TABLES ARE GENERATED OFF THIS THREAD. Building one costs tens of
+        milliseconds, so a preset changing both oscillators' tables would
+        freeze the window for over a tenth of a second - on every click
+        through a browser, which is how people audition. The parameters are
+        applied now and the tables follow; until one is ready the audio thread
+        keeps playing the table it already had, so the patch arrives in two
+        steps instead of arriving late.
+
+        ensureTablesLoaded still runs, and is what publishes the pointers: for
+        a table that is already built it is the whole job, and for one that is
+        not it publishes as soon as the loader says it exists. */
+    if (tableLoader != nullptr)
+    {
+        const auto indices = settingsReader->getSelectedTableIndices();
+
+        tableLoader->request ({ indices.begin(), indices.end() });
+    }
+    else
     {
         settingsReader->ensureTablesLoaded();
-        settingsReader->read (voiceSettings);
     }
+
+    settingsReader->read (voiceSettings);
+}
+
+bool GnarlProcessor::isLoadingTables() const noexcept
+{
+    return tableLoader != nullptr && tableLoader->isWorking();
 }
 
 } // namespace gnarl

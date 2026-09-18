@@ -9,6 +9,8 @@
 #include "dsp/WavetableLibrary.h"
 #include "params/FxOrderBridge.h"
 #include "params/ModStateBridge.h"
+#include "preset/PresetManager.h"
+#include "preset/TableLoader.h"
 #include "params/SettingsReader.h"
 
 #include <array>
@@ -76,6 +78,20 @@ public:
     /** The FX chain order, which is ValueTree state rather than a parameter -
         see docs/fx-architecture.md. The UI reorders the rack through this. */
     params::FxOrderBridge& getFxOrder() noexcept { return *fxOrderBridge; }
+
+    preset::PresetManager& getPresets() noexcept { return *presetManager; }
+
+    /** MESSAGE THREAD. Replaces the whole patch from a preset's state tree.
+
+        Shared by setStateInformation and the preset browser on purpose: a
+        preset and a session must recall identically, and two code paths that
+        both "load a patch" are two paths that will one day disagree. */
+    void applyPresetState (const juce::ValueTree& state);
+
+    /** True while wavetables a preset asked for are still being generated.
+        The UI marks the patch as still arriving rather than pretending it is
+        complete. */
+    bool isLoadingTables() const noexcept;
 
     /** Voice count for the UI's readout. Read from the message thread. */
     int getSoundingVoiceCount() const noexcept { return voiceManager.getSoundingVoiceCount(); }
@@ -168,6 +184,12 @@ private:
         before the reader, which borrows a reference to it. */
     std::unique_ptr<params::ModStateBridge> modStateBridge;
     std::unique_ptr<params::FxOrderBridge> fxOrderBridge;
+    std::unique_ptr<preset::PresetManager> presetManager;
+
+    /** Generates wavetables off the message thread, so clicking through a
+        preset bank does not freeze the window for a tenth of a second per
+        click. See preset/TableLoader.h. */
+    std::unique_ptr<preset::TableLoader> tableLoader;
 
     /** Constructed after apvts, because it caches raw parameter pointers. */
     std::unique_ptr<params::SettingsReader> settingsReader;

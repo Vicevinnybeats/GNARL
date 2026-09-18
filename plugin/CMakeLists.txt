@@ -73,6 +73,11 @@ target_sources(GNARL PRIVATE
     source/params/ParameterRanges.h
     source/params/SettingsReader.cpp
     source/params/SettingsReader.h
+    source/preset/PresetFormat.cpp
+    source/preset/PresetFormat.h
+    source/preset/PresetManager.cpp
+    source/preset/PresetManager.h
+    source/preset/TableLoader.h
     ui-bridge/WebUIEditor.cpp
     ui-bridge/WebUIEditor.h
     ui-bridge/WebUIResourceProvider.cpp
