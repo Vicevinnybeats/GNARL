@@ -316,6 +316,25 @@ whenever you add one.
   `#ff5c1a`), and glow marking what is ACTIVE. Radii 3–5 px. This is a
   deliberate move from the flat matte look the project started with, on the
   client's direction and against concrete references.
+- **"Dream" is the exception to the one-accent rule, and the only one.** The
+  reference the client chose is a two-tone instrument — violet body, cyan
+  controls — which a single accent cannot reproduce. So Dream declares a
+  second accent (`--gn-accent-2`), and the rule becomes: one accent per theme,
+  except Dream, which has exactly two. **Cyan is the control colour and violet
+  the body colour, and they never swap roles** — every knob ring, every live
+  value and every meter is cyan, so the eye still has one colour that means
+  "this is live". Mixing the two per control is what turns a mood into a mess.
+  `--gn-accent-2` defaults to `--gn-accent`, so a component can use it
+  unconditionally and stays single-toned in the themes that only have one.
+- **A canvas does not repaint when a CSS custom property changes.** Every
+  control that draws itself reads its colours with `getComputedStyle`, which
+  is right — one palette, one file — but it means a theme switch left the
+  canvas controls on the old palette: the knobs stayed acid green on a violet
+  instrument. Canvas controls that redraw on demand (`Knob`, `EnvelopeDisplay`)
+  therefore take `useTheme()` as a render dependency; the ones that redraw every
+  frame anyway (the wavetable display, the LFO editor) re-read the properties
+  each frame and do not need it. Adding a canvas control means deciding which
+  of the two it is.
 - **Glow is not free.** Every `box-shadow` and every canvas `shadowBlur` is
   compositing work, in a webview inside a DAW that is already busy with audio.
   So: glow marks state, never decoration; the wavetable display glows one line
@@ -352,6 +371,28 @@ whenever you add one.
   **duplicates the C++ formatters** and has already disagreed with them once.
   Phase 6 should relay the C++ string over the bridge so there is one
   formatter.
+
+### The background artwork
+
+The Dream theme draws a full-bleed image behind the whole interface, embedded
+in the binary like any other asset — no file IO at runtime, nothing to go
+missing on a customer's machine. It is **one composited layer that never
+animates**, which is why it is affordable where glow is not.
+
+The slot (`ui/public/assets/backdrop.png`) ships a **1×1 transparent
+placeholder**, and `ui/src/bridge/artwork.ts` detects that and leaves the CSS
+variable unset — the app then draws its procedural gradient, which is a
+finished look on its own. That matters because the artwork is commissioned
+separately from the code and the plugin has to be shippable in between.
+
+The art always sits under a scrim. **Readability on a dense synth is not
+negotiable**: it sets a mood, it does not compete with a 10px label. If a
+candidate image needs the scrim turned up to stay legible, the image is wrong,
+not the scrim.
+
+See [`docs/artwork-brief.md`](docs/artwork-brief.md) for the size and
+composition constraints, the generation prompts, and the legal position on
+generated art in a product we sell.
 
 ### The wavetable display
 

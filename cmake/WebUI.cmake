@@ -14,10 +14,17 @@ set(GNARL_UI_DIR   "${CMAKE_SOURCE_DIR}/ui")
 set(GNARL_UI_DIST  "${GNARL_UI_DIR}/dist")
 
 # Keep this list in sync with ui/vite.config.ts rollupOptions.output.
+#
+# backdrop.png is the instrument's background ARTWORK, copied through from
+# ui/public/assets/ by Vite. It is in this list unconditionally, and the slot
+# ships a 1x1 transparent placeholder, so a build with no artwork commissioned
+# yet still configures - the UI detects the placeholder and falls back to its
+# procedural gradient. See docs/artwork-brief.md.
 set(GNARL_UI_FILES
     "index.html"
     "assets/index.js"
-    "assets/index.css")
+    "assets/index.css"
+    "assets/backdrop.png")
 
 function(gnarl_find_npm out_var)
     find_program(GNARL_NPM_EXECUTABLE NAMES npm npm.cmd)
@@ -30,7 +37,11 @@ function(gnarl_stub_ui)
     file(MAKE_DIRECTORY "${GNARL_UI_DIST}/assets")
     foreach(f IN LISTS GNARL_UI_FILES)
         if (NOT EXISTS "${GNARL_UI_DIST}/${f}")
-            if (f STREQUAL "index.html")
+            if (f MATCHES "\\.png$")
+                # A 1x1 transparent PNG, so the resource resolves and the UI's
+                # placeholder check leaves the gradient in place.
+                file(WRITE "${GNARL_UI_DIST}/${f}" "")
+            elseif (f STREQUAL "index.html")
                 file(WRITE "${GNARL_UI_DIST}/${f}"
                     "<!doctype html><html><head><meta charset=\"utf-8\">"
                     "<title>GNARL</title><style>html,body{margin:0;background:#0a0a0c;"

@@ -29,7 +29,8 @@ TEST_CASE ("Every embedded UI file resolves", "[webui]")
 {
     // Must match GNARL_UI_FILES in cmake/WebUI.cmake and the output names in
     // ui/vite.config.ts.
-    const char* paths[] = { "/index.html", "/assets/index.js", "/assets/index.css" };
+    const char* paths[] = { "/index.html", "/assets/index.js", "/assets/index.css",
+                            "/assets/backdrop.png" };
 
     for (const auto* path : paths)
     {
@@ -98,4 +99,34 @@ TEST_CASE ("The resource provider origin is a usable URL", "[webui]")
 
     CHECK (origin.isNotEmpty());
     CHECK (juce::URL (origin).getOrigin().isNotEmpty());
+}
+
+TEST_CASE ("The artwork slot resolves as an image", "[webui]")
+{
+    /*  The background artwork is embedded like any other asset, and it is in
+        the resource list unconditionally - the slot ships a 1x1 transparent
+        placeholder so a build with no artwork commissioned yet still
+        configures and still loads.
+
+        Served with the wrong MIME type it simply never paints, and the UI
+        falls back to its gradient without complaining anywhere. That is
+        exactly the silent failure these tests exist for.
+    */
+    auto resource = WebUIResourceProvider::get ("/assets/backdrop.png");
+
+    REQUIRE (resource.has_value());
+    CHECK (resource->data.size() > 0);
+    CHECK (resource->mimeType.toStdString() == "image/png");
+}
+
+TEST_CASE ("The image MIME types cover the formats artwork may ship as",
+           "[webui]")
+{
+    // docs/artwork-brief.md tells whoever replaces the artwork that these
+    // formats are already served, so the claim has to stay true.
+    CHECK (WebUIResourceProvider::mimeTypeFor ("a.png").toStdString() == "image/png");
+    CHECK (WebUIResourceProvider::mimeTypeFor ("a.jpg").toStdString() == "image/jpeg");
+    CHECK (WebUIResourceProvider::mimeTypeFor ("a.jpeg").toStdString() == "image/jpeg");
+    CHECK (WebUIResourceProvider::mimeTypeFor ("a.webp").toStdString() == "image/webp");
+    CHECK (WebUIResourceProvider::mimeTypeFor ("a.avif").toStdString() == "image/avif");
 }

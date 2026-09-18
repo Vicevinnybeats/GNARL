@@ -84,3 +84,37 @@
 .gn-row[data-gap='wide'] {
   gap: var(--gn-space-6);
 }
+
+/*
+ * Dream: translucent panels, so the artwork reads through the whole face of
+ * the instrument rather than only around its edges.
+ *
+ * backdrop-filter rather than a lower opacity: dropping the panel's alpha
+ * alone puts whatever the art is doing straight behind a 10px label, and the
+ * label loses. Blurring what is behind keeps the colour and throws away the
+ * detail, which is exactly the trade a dense UI wants.
+ *
+ * One blurred layer per panel, static - it is composited on scroll and resize,
+ * not per frame, so it is nothing like the cost of animated glow.
+ */
+:root[data-theme='dream'] .gn-panel {
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--gn-panel-raised) 78%, transparent) 0%,
+      color-mix(in srgb, var(--gn-panel) 68%, transparent) 100%
+    );
+  backdrop-filter: blur(18px) saturate(1.15);
+  border-color: color-mix(in srgb, var(--gn-accent-2) 30%, transparent);
+
+  /* A violet bloom outside the panel and a light catch along its top edge:
+     together they read as a lit pane of glass rather than a flat card. */
+  box-shadow:
+    inset 0 1px 0 var(--gn-glow-edge),
+    0 0 22px color-mix(in srgb, var(--gn-accent-2) 11%, transparent);
+}
+
+:root[data-theme='dream'] .gn-panel__head {
+  background: color-mix(in srgb, var(--gn-panel-raised) 55%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--gn-accent-2) 24%, transparent);
+}

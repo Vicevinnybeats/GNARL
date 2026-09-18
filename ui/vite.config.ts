@@ -6,7 +6,10 @@ import react from '@vitejs/plugin-react';
  * filenames must be STABLE and UNHASHED — the C++ resource provider resolves
  * them by name at compile time and cannot follow a content hash.
  *
- * Keep this list in sync with GNARL_UI_FILES in cmake/WebUI.cmake.
+ * Keep this list in sync with GNARL_UI_FILES in cmake/WebUI.cmake. That list
+ * also carries ui/public/assets/backdrop.png, which Vite copies through
+ * untouched - anything added to public/ that the plugin must serve has to be
+ * named there too, or it is built and then never embedded.
  */
 export default defineConfig({
   plugins: [react()],

@@ -10,6 +10,7 @@ import { PlaceholderTab } from './tabs/PlaceholderTab';
 import { OVERSAMPLING, POLY_MODE } from './bridge/choices';
 import { GLOBAL } from './bridge/parameterIds';
 import { getPluginInfo } from './bridge/pluginInfo';
+import { useArtwork } from './bridge/artwork';
 import { useParameter } from './bridge/useParameter';
 import { useChoiceParameter } from './bridge/useDiscreteParameter';
 import './App.css';
@@ -18,14 +19,22 @@ const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
 type Tab = (typeof TABS)[number];
 
 /** Matches the theme blocks in styles/tokens.css. */
-type Theme = 'acid' | 'ember';
+const THEMES = ['acid', 'ember', 'dream'] as const;
+type Theme = (typeof THEMES)[number];
 
 export function App() {
   const info = getPluginInfo();
 
   const [tab, setTab] = useState<Tab>('OSC');
-  const [theme, setTheme] = useState<Theme>('acid');
+  // Dream is the DEFAULT, on the client's direction: they asked for the dreamy
+  // look as the instrument's face, not as a third option behind two clicks.
+  // Acid and Ember stay available on the theme button.
+  const [theme, setTheme] = useState<Theme>('dream');
   const [status, setStatus] = useState('');
+
+  // Publishes the embedded background artwork to CSS, or leaves the procedural
+  // gradient in place when the slot still holds its placeholder.
+  useArtwork();
 
   const master = useParameter(GLOBAL.masterGain);
   const voices = useParameter(GLOBAL.maxVoices);
@@ -109,7 +118,10 @@ export function App() {
             className="gn-theme"
             type="button"
             aria-label="Switch theme"
-            onClick={() => setTheme(theme === 'acid' ? 'ember' : 'acid')}
+            title={`Theme: ${theme}`}
+            onClick={() =>
+              setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? 'acid')
+            }
           >
             <span className="gn-theme__swatch" />
           </button>

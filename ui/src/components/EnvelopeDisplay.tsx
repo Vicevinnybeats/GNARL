@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import { applyTension } from '../dsp/lfoCurve';
+import { useTheme } from '../theme';
 import './EnvelopeDisplay.css';
 
 /**
@@ -38,6 +39,7 @@ export interface EnvelopeDisplayProps {
 const SUSTAIN_SHARE = 0.18;
 
 export function EnvelopeDisplay(props: EnvelopeDisplayProps) {
+  const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -77,7 +79,9 @@ export function EnvelopeDisplay(props: EnvelopeDisplayProps) {
     observer.observe(canvas);
 
     return () => observer.disconnect();
-  }, [props]);
+    // `theme` triggers a redraw: the colours come from getComputedStyle and a
+    // canvas does not repaint when a custom property changes.
+  }, [props, theme]);
 
   return (
     <div className="gn-envelope-display" data-highlight={props.highlight ? 'true' : 'false'}>

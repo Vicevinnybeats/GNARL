@@ -15,7 +15,15 @@
  *  - the wavetable display glows one line, not every line in its stack
  *  - no glow on anything that animates per frame except that one line
  *
- * Still fixed: one accent per theme, two typefaces, and density as a feature.
+ * THE "DREAM" THEME BREAKS THE ONE-ACCENT RULE, deliberately and only there.
+ * The reference the client chose is a two-tone instrument - violet body, cyan
+ * controls - and reproducing it with a single accent is not possible. So Dream
+ * declares a SECOND accent, and the rule becomes: one accent per theme, except
+ * Dream, which has exactly two and no more. Acid and Ember still have one each,
+ * and every component reads --gn-accent first, so a component that ignores
+ * --gn-accent-2 simply comes out single-toned rather than broken.
+ *
+ * Still fixed: two typefaces, and density as a feature.
  */
 :root {
   /* Surfaces */
@@ -45,6 +53,23 @@
   --gn-accent: #b4ff2e;
   --gn-accent-dim: #7aad1f;
   --gn-accent-contrast: #0a0a0c;
+
+  /* The SECOND accent. Identical to the first everywhere except Dream, so a
+     component can use it unconditionally and stay single-toned in the themes
+     that only have one colour. */
+  --gn-accent-2: var(--gn-accent);
+  --gn-accent-2-dim: var(--gn-accent-dim);
+
+  /* The artwork layer. Themes that do not want one set the image to `none`
+     and the whole layer costs nothing. */
+  --gn-artwork: none;
+  --gn-artwork-opacity: 0;
+  --gn-artwork-blur: 0px;
+
+  /* The scrim between the artwork and the controls. Readability on a dense
+     synth is not negotiable, so the art is always behind a wash dark enough
+     to keep 10px labels legible - it sets a mood, it does not compete. */
+  --gn-artwork-scrim: linear-gradient(180deg, rgba(7, 7, 10, 0.82) 0%, rgba(7, 7, 10, 0.9) 100%);
 
   /* Semantic */
   --gn-warn: #ffb02e;
@@ -78,6 +103,72 @@
   --gn-accent: #ff5c1a;
   --gn-accent-dim: #a83a0d;
   --gn-accent-contrast: #0a0a0c;
+}
+
+/*
+ * "Dream" - the soft, two-tone look, on the client's direction and against a
+ * concrete reference.
+ *
+ * Cyan is the CONTROL colour and violet the BODY colour, and they do not swap
+ * roles: every knob ring, every active value and every meter is cyan, so the
+ * eye still has one colour that means "this is live". Violet carries the
+ * surfaces, the glows and the artwork wash. Mixing the two per control is what
+ * would turn this from a mood into a mess.
+ *
+ * The surfaces are lifted well above the near-black of the other themes,
+ * because a dreamy gradient over #07070a just reads as a dark theme with a
+ * purple tint. They are still dark enough for a 10px label at full contrast.
+ */
+:root[data-theme='dream'] {
+  --gn-bg: #12092a;
+  --gn-panel: #271551;
+  --gn-panel-raised: #34206b;
+  --gn-border: #4a2f87;
+  --gn-border-strong: #6b45b8;
+
+  /* Lifted well above the other themes. A dreamy wash over near-black reads
+     as a dark theme with a purple tint; the reference's body is genuinely
+     bright, and the controls have to sit ON it rather than glow out of a
+     hole. */
+  --gn-panel-gradient: linear-gradient(160deg, #3a2472 0%, #271551 48%, #1c0f3d 100%);
+  --gn-head-gradient: linear-gradient(180deg, #4a2c8c 0%, #2e1a5c 100%);
+
+  /* Three stops, not two: a single linear wash reads as a gradient, while a
+     violet bloom top-left falling to deep indigo reads as LIGHT in a room. */
+  --gn-app-gradient:
+    radial-gradient(110% 85% at 14% -8%, rgba(178, 106, 255, 0.55) 0%, transparent 60%),
+    radial-gradient(100% 75% at 90% 8%, rgba(70, 220, 255, 0.28) 0%, transparent 58%),
+    radial-gradient(120% 90% at 50% 108%, rgba(120, 60, 220, 0.3) 0%, transparent 62%),
+    linear-gradient(180deg, #241553 0%, #12092a 72%);
+
+  --gn-accent: #5fe3ff;
+  --gn-accent-dim: #2a8fae;
+  --gn-accent-contrast: #07121a;
+
+  --gn-accent-2: #b06bff;
+  --gn-accent-2-dim: #6d3fa8;
+
+  --gn-text: #f4f0ff;
+  --gn-text-dim: #b8a8dc;
+  --gn-text-faint: #8574b0;
+
+  /* Wider and softer than the other themes' glow: the point here is bloom
+     rather than a hard neon edge. Still only on things that are ACTIVE. */
+  --gn-glow-accent: 0 0 12px color-mix(in srgb, var(--gn-accent) 60%, transparent);
+  --gn-glow-accent-soft: 0 0 26px color-mix(in srgb, var(--gn-accent) 30%, transparent);
+  --gn-glow-edge: rgba(255, 255, 255, 0.07);
+
+  --gn-artwork-opacity: 0.5;
+  --gn-artwork-blur: 1px;
+
+  /* Lighter than the default scrim, because Dream's own surfaces are lighter
+     and the artwork is most of the point of this theme. */
+  --gn-artwork-scrim:
+    linear-gradient(180deg, rgba(18, 9, 42, 0.58) 0%, rgba(18, 9, 42, 0.84) 100%);
+
+  /* Softer geometry, matching the reference. */
+  --gn-radius: 8px;
+  --gn-radius-sm: 5px;
 }
 
 * {

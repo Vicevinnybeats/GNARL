@@ -72,9 +72,28 @@ if (oscSelects.length > 1) {
   await shoot('osc-graintable');
 }
 
+// The theme button cycles dream -> acid -> ember (Dream is the default). Each
+// one is shot, because
+// the canvas controls read their colours from CSS custom properties and a
+// canvas does not repaint when one changes - a theme that looks right in the
+// DOM and wrong on the knobs is exactly the bug this catches.
+await page.click('.gn-theme');
+await page.waitForTimeout(250);
+await shoot('theme-acid');
+
 await page.click('.gn-theme');
 await page.waitForTimeout(250);
 await shoot('theme-ember');
+
+await page.click('.gn-theme');
+await page.waitForTimeout(350);
+await shoot('theme-dream');
+
+await page.click('.gn-tab:text-is("MOD")');
+await page.waitForTimeout(400);
+await shoot('theme-dream-mod');
+await page.click('.gn-tab:text-is("OSC")');
+await page.waitForTimeout(200);
 
 await page.click('.gn-tab:text-is("FX")');
 await page.waitForTimeout(150);

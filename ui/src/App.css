@@ -1,8 +1,65 @@
 .gn-app {
+  position: relative;
   display: grid;
   grid-template-rows: 58px 1fr 22px;
   height: 100%;
   background: var(--gn-bg);
+
+  /* The themed light. Painted on the app rather than on <body> so the artwork
+     layer can sit between it and the panels. */
+  background-image: var(--gn-app-gradient);
+}
+
+/*
+ * THE ARTWORK LAYER.
+ *
+ * A single fixed background image behind everything, under a scrim. One
+ * composited layer that never animates, which is why it is affordable in a
+ * webview inside a busy DAW - unlike glow, which is per-frame compositing.
+ *
+ * `background-image: none` when no artwork is set, and the browser skips the
+ * whole layer. So a build with no art is not a broken build: it is the
+ * procedural gradient on its own, which is a finished look in itself.
+ *
+ * `cover` with a centred position, because the plugin window is resizable and
+ * the art must never letterbox. Anything important in the image has to survive
+ * being cropped at 70% and at 200% of the design size - see
+ * docs/artwork-brief.md.
+ */
+.gn-app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-image: var(--gn-artwork);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  opacity: var(--gn-artwork-opacity);
+  filter: blur(var(--gn-artwork-blur)) saturate(1.1);
+}
+
+/* The scrim, over the artwork and under the controls. Readability on a dense
+   synth is not negotiable: the art sets a mood, it does not compete with a
+   10px label. */
+.gn-app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--gn-artwork-scrim);
+}
+
+/* Everything real sits above both layers. */
+.gn-header,
+.gn-body,
+.gn-statusbar {
+  position: relative;
+  z-index: 1;
 }
 
 .gn-header {
@@ -12,6 +69,28 @@
   padding: 0 var(--gn-space-3);
   background: var(--gn-panel);
   border-bottom: var(--gn-hairline) solid var(--gn-border);
+}
+
+/* In Dream the chrome is translucent so the artwork reads through it, which is
+   the whole point of having artwork. Only in Dream: the other themes have no
+   art behind them, so translucency there would just wash the header out. */
+:root[data-theme='dream'] .gn-header {
+  background: color-mix(in srgb, var(--gn-panel) 72%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom-color: color-mix(in srgb, var(--gn-accent-2) 26%, transparent);
+}
+
+:root[data-theme='dream'] .gn-statusbar {
+  background: color-mix(in srgb, var(--gn-panel) 60%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+/* The logo picks up the two-tone wash in Dream, and stays plain elsewhere. */
+:root[data-theme='dream'] .gn-logo {
+  background: linear-gradient(100deg, var(--gn-accent) 0%, var(--gn-accent-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .gn-logo {

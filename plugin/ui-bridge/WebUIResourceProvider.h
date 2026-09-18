@@ -26,7 +26,14 @@ public:
     /** The origin the WebBrowserComponent serves the embedded UI from. */
     static juce::String getOrigin();
 
-private:
+    /** The MIME type for a path's extension.
+
+        Public because it is a pure function worth testing directly: a wrong
+        MIME type is one of the two ways this class fails SILENTLY - the
+        browser refuses to execute a bundle served as octet-stream, or simply
+        never paints an image, and neither writes anything to any log. Testing
+        it through get() would only cover the extensions that happen to be
+        embedded today. */
     static juce::String mimeTypeFor (const juce::String& path);
 };
 

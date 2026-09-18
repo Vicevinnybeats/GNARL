@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useTheme } from '../theme';
 import './Knob.css';
 
 export interface KnobProps {
@@ -42,6 +43,7 @@ export function Knob({
   onGestureEnd,
   defaultValue = 0,
 }: KnobProps) {
+  const theme = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<{ startY: number; startValue: number } | null>(null);
   const [isActive, setIsActive] = useState(false);
@@ -93,7 +95,10 @@ export function Knob({
     ctx.strokeStyle = accent;
     ctx.lineWidth = 2;
     ctx.stroke();
-  }, [value, size]);
+    // `theme` is unused in the body on purpose: it is a REDRAW TRIGGER. The
+    // colours come from getComputedStyle above, and a canvas does not repaint
+    // when a CSS custom property changes.
+  }, [value, size, theme]);
 
   // --- Drag ----------------------------------------------------------------
   const handlePointerDown = useCallback(

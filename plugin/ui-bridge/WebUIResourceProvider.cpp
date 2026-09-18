@@ -43,6 +43,10 @@ juce::String WebUIResourceProvider::mimeTypeFor (const juce::String& path)
     if (path.endsWithIgnoreCase (".json")) return "application/json; charset=utf-8";
     if (path.endsWithIgnoreCase (".svg"))  return "image/svg+xml";
     if (path.endsWithIgnoreCase (".png"))  return "image/png";
+    if (path.endsWithIgnoreCase (".jpg")
+     || path.endsWithIgnoreCase (".jpeg")) return "image/jpeg";
+    if (path.endsWithIgnoreCase (".webp")) return "image/webp";
+    if (path.endsWithIgnoreCase (".avif")) return "image/avif";
     if (path.endsWithIgnoreCase (".woff2"))return "font/woff2";
     if (path.endsWithIgnoreCase (".wasm")) return "application/wasm";
 
