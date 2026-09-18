@@ -20,7 +20,12 @@ GnarlProcessor::GnarlProcessor()
     // to a mode the engine does not have.
     jassert (choices::choiceListsAreConsistent());
 
-    settingsReader = std::make_unique<params::SettingsReader> (apvts, wavetableLibrary);
+    // Before the reader: the reader borrows a reference to it, and reads its
+    // published snapshot every block.
+    modStateBridge = std::make_unique<params::ModStateBridge> (apvts);
+
+    settingsReader = std::make_unique<params::SettingsReader> (apvts, wavetableLibrary,
+                                                               *modStateBridge);
 
     masterGain.bind (apvts, pid::masterGain, dsp::ramp::gainSeconds);
 
@@ -192,8 +197,124 @@ void GnarlProcessor::updateOtt() noexcept
     ott.setSettings (settings);
 }
 
+GnarlProcessor::ModulationSnapshot GnarlProcessor::getModulationSnapshot() const noexcept
+{
+    ModulationSnapshot snapshot;
+
+    // The base values, so the UI has something meaningful to draw with
+    // nothing playing: the knob positions, unmodulated.
+    for (std::size_t i = 0; i < pid::kNumOscillators; ++i)
+        snapshot.tablePositions[i] = voiceSettings.oscillators[i].settings.tablePosition;
+
+    for (std::size_t i = 0; i < pid::kNumFilters; ++i)
+        snapshot.filterCutoffHz[i] = voiceSettings.filters[i].cutoffHz;
+
+    // The newest sounding voice, not an average across voices. Averaging the
+    // modulation of a held chord would draw a shape no single note is
+    // following, which is worse than showing one note honestly.
+    const dsp::Voice* newest = nullptr;
+
+    for (std::size_t i = 0; i < dsp::VoiceManager::getNumVoices(); ++i)
+    {
+        const auto& voice = voiceManager.getVoice (i);
+
+        if (voice.isIdle())
+            continue;
+
+        if (newest == nullptr || voice.getStartOrder() > newest->getStartOrder())
+            newest = &voice;
+    }
+
+    if (newest == nullptr)
+        return snapshot;
+
+    snapshot.hasVoice = true;
+
+    for (std::size_t i = 0; i < pid::kNumLfos; ++i)
+    {
+        snapshot.lfoValues[i] = newest->getLfoValue (i);
+        snapshot.lfoPhases[i] = newest->getLfoPhase (i);
+    }
+
+    // Applied the same way the engine applies them, so what the UI draws is
+    // what the oscillator reads - a display that computed its own version of
+    // the modulation would drift from the sound.
+    dsp::ModulationOffsets offsets;
+
+    for (std::size_t i = 0; i < static_cast<std::size_t> (dsp::ModDestination::count); ++i)
+        offsets.values[i] = newest->getModulationOffset (static_cast<dsp::ModDestination> (i));
+
+    dsp::VoiceSettings::OscillatorState oscillators[pid::kNumOscillators] {};
+    dsp::VoiceSettings::SubState sub {};
+    dsp::VoiceSettings::NoiseState noise {};
+    dsp::FilterSlot::Settings filters[pid::kNumFilters] {};
+
+    dsp::applyModulation (voiceSettings, offsets, oscillators, sub, noise, filters);
+
+    for (std::size_t i = 0; i < pid::kNumOscillators; ++i)
+        snapshot.tablePositions[i] = oscillators[i].settings.tablePosition;
+
+    for (std::size_t i = 0; i < pid::kNumFilters; ++i)
+        snapshot.filterCutoffHz[i] = filters[i].cutoffHz;
+
+    return snapshot;
+}
+
+void GnarlProcessor::updateTransport() noexcept
+{
+    auto& transport = voiceSettings.transport;
+
+    // No playhead at all is a valid answer - an offline render, or a host that
+    // does not provide one. Free-run LFOs then fall back to accumulating from
+    // the note, which is the only sensible thing without a timeline.
+    if (auto* host = getPlayHead())
+    {
+        if (const auto position = host->getPosition())
+        {
+            transport.bpm = position->getBpm().orFallback (transport.bpm);
+            transport.ppqPosition = position->getPpqPosition().orFallback (0.0);
+            transport.isPlaying = position->getIsPlaying();
+
+            return;
+        }
+    }
+
+    transport.isPlaying = false;
+}
+
 void GnarlProcessor::handleMidiMessage (const juce::MidiMessage& message)
 {
+    if (message.isController() && message.getControllerNumber() == 1)
+    {
+        modWheelValue = static_cast<float> (message.getControllerValue()) / 127.0f;
+        return;
+    }
+
+    if (message.isPitchWheel())
+    {
+        // 0..16383 with 8192 at centre; the engine wants 0..1 with 0.5 at
+        // centre, so a mod slot can use it like any other unipolar source.
+        pitchBendValue = static_cast<float> (message.getPitchWheelValue())
+                       / 16383.0f;
+        return;
+    }
+
+    if (message.isChannelPressure())
+    {
+        aftertouchValue = static_cast<float> (message.getChannelPressureValue()) / 127.0f;
+        return;
+    }
+
+    if (message.isAftertouch())
+    {
+        // Polyphonic aftertouch collapsed to one global value. Per-voice
+        // aftertouch needs the voice manager to route by note, which is not
+        // worth the routing until something asks for it - and a controller
+        // that sends poly pressure should still do something.
+        aftertouchValue = static_cast<float> (message.getAfterTouchValue()) / 127.0f;
+        return;
+    }
+
     if (message.isNoteOn())
     {
         voiceManager.noteOn (message.getNoteNumber(),
@@ -313,6 +434,14 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
     // so two notes of one chord would be filtered differently.
     settingsReader->read (voiceSettings);
 
+    // The host transport and the MIDI controllers are not in the parameter
+    // tree, so they are applied after the read rather than by it.
+    updateTransport();
+
+    voiceSettings.modWheel = modWheelValue;
+    voiceSettings.pitchBend = pitchBendValue;
+    voiceSettings.aftertouch = aftertouchValue;
+
     const auto numSamples = buffer.getNumSamples();
 
     // Note events are dispatched at their exact sample offsets, so the engine
@@ -424,6 +553,13 @@ void GnarlProcessor::setStateInformation (const void* data, int sizeInBytes)
     // The new state may select tables that have never been generated. This is
     // the message thread, so building them here is correct - and it is the
     // reason a preset load can take a few tens of milliseconds.
+    // The MODSTATE branch came in with the tree, so the curves and the slot
+    // destinations have to be re-read and republished before the next block.
+    // The bridge's own listener covers the redirect, but calling it here makes
+    // the ordering explicit rather than incidental.
+    if (modStateBridge != nullptr)
+        modStateBridge->refresh();
+
     if (settingsReader != nullptr)
     {
         settingsReader->ensureTablesLoaded();

@@ -22,7 +22,8 @@ class GnarlProcessor;
     Everything here runs on the message thread. The audio thread must never
     reach into this class.
 */
-class WebUIEditor final : public juce::AudioProcessorEditor
+class WebUIEditor final : public juce::AudioProcessorEditor,
+                          private juce::Timer
 {
 public:
     explicit WebUIEditor (GnarlProcessor&);
@@ -37,6 +38,20 @@ private:
 
     juce::WebBrowserComponent::Options makeWebOptions();
 
+    /** Pushes the live modulation values to the page. */
+    void timerCallback() override;
+
+    // --- Native functions, called from the page ---------------------------
+    //
+    // These cover the modulation state that is NOT a host parameter: the
+    // drawable LFO curves and the mod slots' destinations. Everything else the
+    // UI touches is a parameter and goes through a relay instead, which is
+    // what keeps automation, undo and gesture handling working.
+
+    juce::var handleGetModState (const juce::Array<juce::var>& args);
+    juce::var handleSetLfoCurve (const juce::Array<juce::var>& args);
+    juce::var handleSetModDestination (const juce::Array<juce::var>& args);
+
     GnarlProcessor& processor;
 
     // Relays must outlive the WebBrowserComponent they were registered with,
@@ -45,6 +60,11 @@ private:
     std::vector<std::unique_ptr<juce::WebSliderParameterAttachment>> sliderAttachments;
 
     std::unique_ptr<juce::WebBrowserComponent> webView;
+
+    /** The last frame pushed, so an unchanged frame is not sent again. With
+        nothing playing that means no bridge traffic at all, rather than 60
+        identical messages a second for as long as the editor is open. */
+    juce::String lastModulationFrame;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WebUIEditor)
 };

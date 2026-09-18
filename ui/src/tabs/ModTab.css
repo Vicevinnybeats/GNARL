@@ -1,0 +1,222 @@
+/*
+ * EXPLICIT ROW HEIGHTS, not flex proportions - same rule as the OSC tab, and
+ * for the same reason: an overflowing grid child renders ON TOP of its
+ * siblings rather than being clipped by the grid.
+ *
+ * The budget at the design size is 624px (720 minus the 58px header, the 22px
+ * status bar and 16px of body padding), and the rows have to be sized to what
+ * their panels ACTUALLY need rather than to what looks balanced:
+ *
+ *   LFO        240 = 22 head + 12 pad + 150 editor + 56 control row
+ *   Envelopes  184 = 22 head + 12 pad + 54 display + 48 knobs + 48 curves
+ *   Matrix     184 = 22 head + 12 pad + 14 column head + 6 rows of 22
+ *
+ *   240 + 8 + 184 + 8 + 184 = 624.
+ *
+ * The first version of this file guessed 268/150/190 and the envelope panels
+ * drew straight over the mod matrix, which is the same bug the OSC tab hit
+ * twice. Panel.css now carries the structural half of the fix.
+ */
+.gn-mod-tab {
+  display: grid;
+  grid-template-rows: 240px 184px minmax(0, 1fr);
+  gap: var(--gn-space-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.gn-mod-tab__envelopes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gn-space-2);
+  min-height: 0;
+}
+
+/* The matrix takes the width it needs; the macros are a fixed column, because
+   a macro knob that resizes with the window stops being a landmark. */
+.gn-mod-tab__bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: var(--gn-space-2);
+  min-height: 0;
+}
+
+.gn-mod-tab__divider {
+  width: var(--gn-hairline);
+  align-self: stretch;
+  margin: 0 var(--gn-space-1);
+  background: var(--gn-border);
+}
+
+.gn-mod-tab .gn-panel__body {
+  gap: var(--gn-space-1);
+  padding: var(--gn-space-1) var(--gn-space-2) var(--gn-space-2);
+}
+
+/* --- LFO ------------------------------------------------------------------ */
+
+.gn-lfo__body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--gn-space-2);
+  min-height: 0;
+  height: 100%;
+}
+
+.gn-lfo__tabs {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.gn-lfo__tab {
+  width: 20px;
+  height: 18px;
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: var(--gn-radius-sm);
+  background: var(--gn-panel-raised);
+  color: var(--gn-text-dim);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 90ms ease, border-color 90ms ease, box-shadow 90ms ease;
+}
+
+.gn-lfo__tab:hover {
+  color: var(--gn-text);
+}
+
+/* Glow marks which LFO is on screen - state, not decoration. */
+.gn-lfo__tab[data-active='true'] {
+  border-color: var(--gn-accent);
+  color: var(--gn-accent);
+  box-shadow: var(--gn-glow-accent);
+}
+
+.gn-lfo__value {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 54px;
+  height: 18px;
+  margin-left: var(--gn-space-2);
+  padding: 0 4px;
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: var(--gn-radius-sm);
+  background: var(--gn-bg);
+  overflow: hidden;
+}
+
+.gn-lfo__value-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: color-mix(in srgb, var(--gn-accent) 22%, transparent);
+  /* No transition: this is driven at 60 Hz from the engine, and easing a
+     value that already moves every frame only makes it lag. */
+}
+
+.gn-lfo__value-text {
+  position: relative;
+  font-family: var(--gn-font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--gn-text);
+}
+
+/* --- Envelopes ------------------------------------------------------------ */
+
+.gn-env__body {
+  display: grid;
+  grid-template-rows: minmax(40px, 1fr) auto auto;
+  gap: 3px;
+  min-height: 0;
+  height: 100%;
+}
+
+/* The knob rows must not wrap: a wrapped row is taller than the track and is
+   what pushed the envelope panels over the matrix. */
+.gn-env__body .gn-row {
+  flex-wrap: nowrap;
+}
+
+.gn-env__body .gn-row {
+  justify-content: space-between;
+}
+
+/* --- Mod matrix ----------------------------------------------------------- */
+
+.gn-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.gn-matrix__count {
+  font-family: var(--gn-font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  color: var(--gn-text-dim);
+}
+
+.gn-matrix__head,
+.gn-matrix__row {
+  display: grid;
+  grid-template-columns: 26px 78px minmax(80px, 1fr) 58px 62px 78px 48px 26px;
+  align-items: center;
+  gap: var(--gn-space-1);
+}
+
+.gn-matrix__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 2px;
+  background: var(--gn-panel);
+  color: var(--gn-text-faint);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gn-matrix__row {
+  padding: 1px 0;
+  border-radius: var(--gn-radius-sm);
+  opacity: 0.55;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+/* A routed slot is lit; an empty one recedes. With sixteen rows on screen the
+   user has to be able to find the three that are doing something. */
+.gn-matrix__row[data-routed='true'] {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--gn-accent) 7%, transparent) 0%,
+    transparent 70%
+  );
+}
+
+/* --- Macros --------------------------------------------------------------- */
+
+/* A uniform 2x2. The first version gave GROWL the whole top row at a larger
+   size, and the fourth macro fell off the bottom of the panel - a control the
+   user cannot reach is worse than one that is not singled out. */
+.gn-macros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--gn-space-1);
+  place-items: center;
+  height: 100%;
+  min-height: 0;
+}
+
+/* GROWL is still marked as the macro with a fixed identity, by its label
+   rather than by its size. */
+.gn-macros__item[data-primary='true'] .gn-knob__label {
+  color: var(--gn-accent);
+}

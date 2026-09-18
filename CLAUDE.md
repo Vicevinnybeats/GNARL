@@ -175,6 +175,23 @@ twice in a sample with different inputs corrupts its state. The OTT crossover
 did exactly that and its three bands cancelled rather than summed — measured
 24 dB down. Each cascade path needs its own filters.
 
+**And a STEREO path is two paths.** The same rule broke a second time, more
+subtly: `Voice::renderFilters` ran one `FilterSlot` over the whole left
+channel and then over the whole right, so the two channels interleaved into a
+single filter's state. The output was then a function of the BLOCK LAYOUT
+rather than of the signal — the same note rendered in 32-sample chunks and in
+256-sample chunks differed by 5× through the formant filter — and a centred
+patch came out with different left and right channels. Every component test
+still passed, because every component was individually correct. The voice now
+holds one `FilterSlot` per channel per slot, and
+`tests/EngineTests.cpp` asserts block-size invariance and channel identity,
+which is the only shape of test that can see this.
+
+**Block-size invariance is a property worth testing directly.** If rendering a
+note in 64-sample blocks and in 512-sample blocks does not give the same
+samples, something is carrying state across a boundary it should not. That one
+assertion caught a bug three layers below where it was looking.
+
 **A drive control must not double as a volume control.** `DriveStage`
 compensates by measuring the slope of the whole stage (pre-gain included) with
 respect to its input. Measuring only the curve's own slope leaves the pre-gain
@@ -188,6 +205,14 @@ building several differently-sized frames from one harmonic series gives each a
 different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip
 levels end up on different scales and a glide crossing a level boundary jumps
 in volume.
+
+**`prepare()` resets; a live rate change must not.** The oversampling factor
+is a live parameter, so `Voice::setSampleRate` runs while notes are sounding.
+Routing envelopes and LFOs through their `prepare()` there reset every one of
+them to idle at level zero, silencing every held voice the moment the user
+touched the oversampling control. `Envelope` and `Lfo` therefore have a
+`setSampleRate` that changes the rate and nothing else. Same family as the
+`SmoothedValue::reset` trap below.
 
 **`juce::SmoothedValue::reset()` snaps the current value to the target.** So
 the obvious `reset (sr, newRamp); setTargetValue (x);` teleports the value
@@ -211,6 +236,10 @@ The audio thread never frees anything.
 
 ## 4. Parameter conventions
 
+- The TypeScript choice lists in `ui/src/bridge/choices.ts` are guarded by
+  `tests/ParameterMirrorTests.cpp` as well as the IDs. A drifted choice list
+  fails exactly as silently as a drifted ID: the dropdown works, it just shows
+  the wrong label for every saved patch.
 - **IDs live only in `plugin/source/params/ParameterIDs.h`.** No string
   literal parameter ID appears anywhere else in the C++ codebase.
 - Both `ParameterIDs.h` and its TypeScript mirror `ui/src/bridge/parameterIds.ts`
@@ -296,8 +325,16 @@ whenever you add one.
   budget at the design size is exact — 720 minus the 58 px header, 22 px
   status bar and 16 px padding leaves 624 px. Content-sized rows overflow
   that, and an overflowing child renders *on top of* its siblings. This bit
-  twice: the oscillator's send row ended up drawn across the Sub and Noise
-  panel headers both times.
+  three times: the oscillator's send row across the Sub and Noise panel
+  headers twice, then the MOD tab's envelope panels straight across the mod
+  matrix.
+- **The structural half of that fix is `min-height: 0` on `.gn-panel`.** A
+  grid or flex item's automatic minimum size is its *content* size, so a panel
+  taller than its track grows past it — and the body's own `overflow: hidden`
+  cannot help, because the body is sized by the panel rather than the other
+  way round. The first two fixes only adjusted row heights; this is the one
+  that makes the clipping actually happen. Size the rows to what the panels
+  need anyway, and screenshot after any layout change.
 - Density is a feature. The four tabs are the only nesting allowed.
 - **Knob values are always visible**, dim at rest and bright while
   interacting. Hiding them until hover keeps a panel tidy and makes a dense
@@ -477,13 +514,15 @@ Consequences of the figure above:
 | 2b | OTT compressor (pulled forward from Phase 4 by request) | **done** |
 | 6a | UI: primitives, OSC tab, FX tab, theme switching | **partial** |
 | 6b | Animated wavetable display | **done** |
-| 3 | LFO engine, envelopes, mod matrix, macros | not started |
+| 6c | UI: MOD tab — LFO editor, envelopes, matrix, macros | **done** |
+| 3 | LFO engine, envelopes, mod matrix, macros | **done** |
 | 4 | FX chain (10 slots) | not started |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
 | 6 | Full UI | not started |
 | 7 | Backend, licensing, subscription | not started |
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
+| 10 | Marketing site (Three.js + GSAP sticky scroll) — see [`docs/website-brief.md`](docs/website-brief.md) | not started |
 
 **The synth now makes sound.** Oscillators, sub, noise, send routing and both
 filter slots are wired end to end, and `tests/EngineTests.cpp` drives the whole
@@ -504,8 +543,29 @@ cmake --build build --target GnarlRenderDemo
 ```
 
 The modulation in those clips is applied per block from `tools/render_demo.cpp`,
-because the LFO engine is Phase 3. It is a fair preview of the tone; the real
-thing will be smoother.
+because that tool predates the LFO engine. The engine itself now modulates in
+32-sample chunks, which is the number that matters: a 256-sample block is
+5.3 ms, and a 1/16 wobble at 140 BPM completes in 107 ms, so once per block is
+about 20 steps per cycle and is audibly stepped. 32 samples is 0.67 ms, or
+about 160 steps per cycle of that same wobble.
+
+**The modulation state that is not a parameter** — the drawable LFO curves and
+the mod slots' destination strings — lives in the ValueTree and reaches the
+audio thread through `params::ModStateBridge`, which publishes into a rotating
+set of three snapshots with an atomic index. The UI reads and writes it through
+three native functions on the editor (`gnarlGetModState`, `gnarlSetLfoCurve`,
+`gnarlSetModDestination`); everything else the UI touches is a parameter and
+goes through a relay, so it keeps automation, undo and gesture handling.
+
+**Live modulation reaches the UI by push, not poll.** `WebUIEditor` emits a
+`gnarlModulation` event at 60 Hz with each LFO's value and phase and the
+post-modulation table positions and cutoffs, and drops a frame identical to the
+last one — so an idle editor costs no bridge traffic at all. The wavetable
+display and the LFO editor's playhead read it from a ref inside their animation
+loops rather than through React state, because a `setState` per frame
+re-renders the whole tab sixty times a second. `ui/src/bridge/previewEngine.ts`
+simulates the same frames in the browser preview, where there is no engine to
+push them.
 
 ---
 

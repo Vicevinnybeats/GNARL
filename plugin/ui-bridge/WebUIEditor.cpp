@@ -2,7 +2,11 @@
 
 #include "PluginProcessor.h"
 #include "WebUIResourceProvider.h"
+#include "dsp/LfoCurve.h"
+#include "dsp/Modulation.h"
 #include "params/ParameterIDs.h"
+
+#include <cmath>
 
 namespace gnarl
 {
@@ -31,19 +35,43 @@ namespace
     constexpr int kMinHeight = 504;
     constexpr int kMaxWidth  = 2360;  // 2.00x
     constexpr int kMaxHeight = 1440;
+
+    /** How often the live modulation values are pushed to the page.
+
+        60 Hz, not 30: the display draws a wobble, and at 30 Hz a 1/16 pattern
+        at 140 BPM is sampled about three times per cycle, which reads as a
+        stutter rather than as motion. The payload is a few dozen numbers, and
+        a frame identical to the last one is not sent at all. */
+    constexpr int kModulationFrameHz = 60;
+
+    /** Rounded before comparing, so a value jittering in the seventh decimal
+        does not defeat the identical-frame check. Three decimals is finer than
+        one pixel at any size this UI runs at. */
+    juce::var rounded (float value)
+    {
+        return juce::var (std::round (value * 1000.0f) / 1000.0f);
+    }
 }
 
 WebUIEditor::WebUIEditor (GnarlProcessor& p)
     : juce::AudioProcessorEditor (&p), processor (p)
 {
-    // Relays are created before the web view, because the view's Options hold
-    // references to them.
-    attachSliderParameter (pid::masterGain);
+    // EVERY parameter gets a relay, not just the ones a particular panel
+    // happens to use today. A relay the page never reads costs one registered
+    // event listener; a parameter with no relay is a control that silently
+    // does nothing in the plugin while working perfectly in the browser
+    // preview - which is the worse failure by a long way, and is exactly what
+    // happened while only the master gain was attached here.
+    for (auto* parameter : processor.getParameters())
+        if (const auto* withID = dynamic_cast<const juce::AudioProcessorParameterWithID*> (parameter))
+            attachSliderParameter (withID->paramID);
 
     webView = std::make_unique<juce::WebBrowserComponent> (makeWebOptions());
     addAndMakeVisible (*webView);
 
     webView->goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
+
+    startTimerHz (kModulationFrameHz);
 
     setResizable (true, true);
     setResizeLimits (kMinWidth, kMinHeight, kMaxWidth, kMaxHeight);
@@ -51,7 +79,12 @@ WebUIEditor::WebUIEditor (GnarlProcessor& p)
     setSize (kDefaultWidth, kDefaultHeight);
 }
 
-WebUIEditor::~WebUIEditor() = default;
+WebUIEditor::~WebUIEditor()
+{
+    // Before the web view goes away: a timer callback that reached a
+    // half-destroyed view would be a crash on editor close.
+    stopTimer();
+}
 
 void WebUIEditor::attachSliderParameter (const juce::String& parameterID)
 {
@@ -99,12 +132,193 @@ juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
         .withResourceProvider ([] (const auto& url) { return WebUIResourceProvider::get (url); },
                                juce::URL (WebUIResourceProvider::getOrigin()).getOrigin())
         .withInitialisationData ("pluginVersion", juce::String (JucePlugin_VersionString))
-        .withInitialisationData ("stateVersion",  pid::kStateVersion);
+        .withInitialisationData ("stateVersion",  pid::kStateVersion)
+        .withNativeFunction ("gnarlGetModState",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleGetModState (args)); })
+        .withNativeFunction ("gnarlSetLfoCurve",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleSetLfoCurve (args)); })
+        .withNativeFunction ("gnarlSetModDestination",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleSetModDestination (args)); });
 
     for (auto& relay : sliderRelays)
         options = options.withOptionsFrom (*relay);
 
     return options;
+}
+
+juce::var WebUIEditor::handleGetModState (const juce::Array<juce::var>&)
+{
+    auto& modState = processor.getModState();
+
+    auto* root = new juce::DynamicObject();
+
+    auto curves = juce::Array<juce::var>();
+
+    for (std::size_t lfo = 0; lfo < pid::kNumLfos; ++lfo)
+    {
+        const auto curve = modState.getCurve (lfo);
+        auto points = juce::Array<juce::var>();
+
+        for (int i = 0; i < curve.getNumPoints(); ++i)
+        {
+            const auto& point = curve.getPoint (i);
+
+            auto* entry = new juce::DynamicObject();
+            entry->setProperty ("time", rounded (point.time));
+            entry->setProperty ("value", rounded (point.value));
+            entry->setProperty ("tension", rounded (point.tension));
+            entry->setProperty ("step", point.shape == dsp::LfoCurve::Shape::step);
+
+            points.add (juce::var (entry));
+        }
+
+        curves.add (juce::var (points));
+    }
+
+    auto destinations = juce::Array<juce::var>();
+
+    for (std::size_t slot = 0; slot < pid::kNumModSlots; ++slot)
+        destinations.add (modState.getDestinationParameterID (slot));
+
+    // The destination list comes from the engine's own table rather than being
+    // duplicated in TypeScript, so a destination cannot exist in the picker
+    // and not in the matrix.
+    auto available = juce::Array<juce::var>();
+
+    for (int i = 1; i < static_cast<int> (dsp::ModDestination::count); ++i)
+    {
+        const auto destination = static_cast<dsp::ModDestination> (i);
+
+        auto* entry = new juce::DynamicObject();
+        entry->setProperty ("id", dsp::getParameterIDForDestination (destination));
+        entry->setProperty ("name", dsp::getDestinationDisplayName (destination));
+
+        available.add (juce::var (entry));
+    }
+
+    root->setProperty ("curves", curves);
+    root->setProperty ("destinations", destinations);
+    root->setProperty ("available", available);
+
+    return juce::var (root);
+}
+
+juce::var WebUIEditor::handleSetLfoCurve (const juce::Array<juce::var>& args)
+{
+    if (args.size() < 2)
+        return juce::var (false);
+
+    const auto index = static_cast<std::size_t> (juce::jmax (0, static_cast<int> (args[0])));
+
+    if (index >= pid::kNumLfos)
+        return juce::var (false);
+
+    const auto* points = args[1].getArray();
+
+    if (points == nullptr)
+        return juce::var (false);
+
+    dsp::LfoCurve curve;
+    curve.clear();
+
+    for (const auto& entry : *points)
+    {
+        if (auto* object = entry.getDynamicObject())
+        {
+            dsp::LfoCurve::Point point {};
+            point.time = juce::jlimit (0.0f, 1.0f,
+                static_cast<float> (static_cast<double> (object->getProperty ("time"))));
+            point.value = juce::jlimit (0.0f, 1.0f,
+                static_cast<float> (static_cast<double> (object->getProperty ("value"))));
+            point.tension = juce::jlimit (-1.0f, 1.0f,
+                static_cast<float> (static_cast<double> (object->getProperty ("tension"))));
+            point.shape = static_cast<bool> (object->getProperty ("step"))
+                ? dsp::LfoCurve::Shape::step
+                : dsp::LfoCurve::Shape::curved;
+
+            curve.addPoint (point);
+        }
+    }
+
+    // An empty curve would evaluate to zero at every phase, which reads as a
+    // dead LFO. The editor cannot produce one, but the bridge is an interface
+    // and an interface gets whatever it gets.
+    if (curve.getNumPoints() == 0)
+        return juce::var (false);
+
+    processor.getModState().setCurve (index, curve);
+
+    return juce::var (true);
+}
+
+juce::var WebUIEditor::handleSetModDestination (const juce::Array<juce::var>& args)
+{
+    if (args.size() < 2)
+        return juce::var (false);
+
+    const auto slot = static_cast<std::size_t> (juce::jmax (0, static_cast<int> (args[0])));
+
+    if (slot >= pid::kNumModSlots)
+        return juce::var (false);
+
+    processor.getModState().setDestination (slot, args[1].toString());
+
+    return juce::var (true);
+}
+
+void WebUIEditor::timerCallback()
+{
+    if (webView == nullptr)
+        return;
+
+    const auto snapshot = processor.getModulationSnapshot();
+
+    auto* root = new juce::DynamicObject();
+
+    auto lfoValues = juce::Array<juce::var>();
+    auto lfoPhases = juce::Array<juce::var>();
+
+    for (std::size_t i = 0; i < pid::kNumLfos; ++i)
+    {
+        lfoValues.add (rounded (snapshot.lfoValues[i]));
+        lfoPhases.add (rounded (snapshot.lfoPhases[i]));
+    }
+
+    auto tablePositions = juce::Array<juce::var>();
+
+    for (std::size_t i = 0; i < pid::kNumOscillators; ++i)
+        tablePositions.add (rounded (snapshot.tablePositions[i]));
+
+    auto cutoffs = juce::Array<juce::var>();
+
+    for (std::size_t i = 0; i < pid::kNumFilters; ++i)
+        cutoffs.add (rounded (snapshot.filterCutoffHz[i]));
+
+    root->setProperty ("lfoValues", lfoValues);
+    root->setProperty ("lfoPhases", lfoPhases);
+    root->setProperty ("tablePositions", tablePositions);
+    root->setProperty ("cutoffHz", cutoffs);
+    root->setProperty ("voices", processor.getSoundingVoiceCount());
+    root->setProperty ("playing", snapshot.hasVoice);
+
+    const juce::var frame (root);
+
+    // Identical frames are dropped. An idle editor - no notes, nothing
+    // modulating - then costs no bridge traffic at all, instead of 60
+    // messages a second for however long the plugin window stays open.
+    const auto serialised = juce::JSON::toString (frame, true);
+
+    if (serialised == lastModulationFrame)
+        return;
+
+    lastModulationFrame = serialised;
+
+    // ...IfBrowserIsVisible: a hidden view cannot draw, so pushing to it is
+    // pure waste.
+    webView->emitEventIfBrowserIsVisible ("gnarlModulation", frame);
 }
 
 void WebUIEditor::paint (juce::Graphics& g)

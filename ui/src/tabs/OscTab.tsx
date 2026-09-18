@@ -55,6 +55,7 @@ function OscillatorPanel({ index }: { index: 0 | 1 }) {
           warpMode={warp.index}
           warpAmount={warpAmount.scaled}
           flat={isGrain}
+          oscIndex={index}
         />
       </div>
 

@@ -33,12 +33,19 @@ target_sources(GNARL PRIVATE
     source/PluginProcessor.cpp
     source/PluginProcessor.h
     source/dsp/CombFilter.h
+    source/dsp/Envelope.h
     source/dsp/FilterSlot.h
     source/dsp/FormantFilter.h
     source/dsp/LadderFilter.h
+    source/dsp/Lfo.h
+    source/dsp/LfoCurve.h
+    source/dsp/ModMatrix.h
+    source/dsp/Modulation.cpp
+    source/dsp/Modulation.h
     source/dsp/Saturation.h
     source/dsp/SmoothedParameter.h
     source/dsp/StateVariableFilter.h
+    source/dsp/SyncRates.h
     source/dsp/Voice.cpp
     source/dsp/Voice.h
     source/dsp/NoiseGenerator.h
@@ -46,6 +53,7 @@ target_sources(GNARL PRIVATE
     source/dsp/VoiceManager.cpp
     source/dsp/VoiceManager.h
     source/dsp/VoiceOversampler.h
+    source/dsp/VoiceSettings.cpp
     source/dsp/VoiceSettings.h
     source/dsp/WarpProcessor.h
     source/dsp/Wavetable.cpp
@@ -54,6 +62,8 @@ target_sources(GNARL PRIVATE
     source/dsp/WavetableLibrary.h
     source/dsp/WavetableOscillator.cpp
     source/dsp/WavetableOscillator.h
+    source/params/ModStateBridge.cpp
+    source/params/ModStateBridge.h
     source/params/ParameterChoices.h
     source/params/ParameterIDs.h
     source/params/ParameterLayout.cpp

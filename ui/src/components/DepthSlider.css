@@ -1,0 +1,55 @@
+.gn-depth {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: var(--gn-radius-sm);
+  background: var(--gn-bg);
+  cursor: ew-resize;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.gn-depth:focus-visible {
+  outline: var(--gn-hairline) solid var(--gn-accent);
+  outline-offset: 1px;
+}
+
+.gn-depth__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--gn-accent) 26%, transparent);
+  /* Driven by a drag, so no transition: easing a value the pointer is already
+     moving only makes it feel loose. */
+}
+
+.gn-depth[data-active='true'] .gn-depth__fill {
+  background: color-mix(in srgb, var(--gn-accent) 42%, transparent);
+}
+
+/* The zero line. Without it a bipolar bar at -10% and +10% look the same. */
+.gn-depth__centre {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 50%;
+  width: var(--gn-hairline);
+  background: var(--gn-border-strong);
+}
+
+.gn-depth__text {
+  position: relative;
+  font-family: var(--gn-font-mono, ui-monospace, monospace);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--gn-text-dim);
+  pointer-events: none;
+}
+
+.gn-depth[data-active='true'] .gn-depth__text {
+  color: var(--gn-text);
+}

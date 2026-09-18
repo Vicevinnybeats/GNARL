@@ -6,8 +6,10 @@
 #include "dsp/VoiceOversampler.h"
 #include "dsp/VoiceSettings.h"
 #include "dsp/WavetableLibrary.h"
+#include "params/ModStateBridge.h"
 #include "params/SettingsReader.h"
 
+#include <array>
 #include <memory>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -65,8 +67,39 @@ public:
     dsp::VoiceManager& getVoiceManager() noexcept { return voiceManager; }
     dsp::WavetableLibrary& getWavetableLibrary() noexcept { return wavetableLibrary; }
 
+    /** The LFO curves and mod destinations, which are ValueTree state rather
+        than host parameters. The editor reads and writes through this. */
+    params::ModStateBridge& getModState() noexcept { return *modStateBridge; }
+
     /** Voice count for the UI's readout. Read from the message thread. */
     int getSoundingVoiceCount() const noexcept { return voiceManager.getSoundingVoiceCount(); }
+
+    /** Live modulation state for the UI, so the display can show what the
+        engine is doing rather than what the user set.
+
+        Read from the message thread while the audio thread writes, without a
+        lock: the worst case is one frame of a slightly stale meter, and a lock
+        in the render path to avoid that would be a bad trade. */
+    struct ModulationSnapshot
+    {
+        std::array<float, pid::kNumLfos> lfoValues {};
+        std::array<float, pid::kNumLfos> lfoPhases {};
+
+        /** Post-modulation table position per oscillator, 0..1 - what the
+            wavetable display draws so it moves on its own. */
+        std::array<float, pid::kNumOscillators> tablePositions {};
+
+        /** Post-modulation cutoff per filter, in Hz. */
+        std::array<float, pid::kNumFilters> filterCutoffHz {};
+
+        /** True when at least one voice is sounding. With nothing playing
+            there is no per-voice LFO to read, and the UI should idle rather
+            than freeze on the last note's values. */
+        bool hasVoice = false;
+    };
+
+    /** MESSAGE THREAD. */
+    ModulationSnapshot getModulationSnapshot() const noexcept;
 
 private:
     /** Shared by the float and double processBlock overloads. */
@@ -98,11 +131,19 @@ private:
 
     void handleMidiMessage (const juce::MidiMessage& message);
 
+    /** BLOCK-RATE. Copies the host's tempo and position into the settings, so
+        free-run LFOs are locked to the timeline. */
+    void updateTransport() noexcept;
+
     juce::AudioProcessorValueTreeState apvts;
 
     /** Owned here, on the message thread's side of the fence. The audio thread
         only ever sees borrowed const pointers to already-generated tables. */
     dsp::WavetableLibrary wavetableLibrary;
+
+    /** Constructed after apvts, because it listens to its tree. Declared
+        before the reader, which borrows a reference to it. */
+    std::unique_ptr<params::ModStateBridge> modStateBridge;
 
     /** Constructed after apvts, because it caches raw parameter pointers. */
     std::unique_ptr<params::SettingsReader> settingsReader;
@@ -163,6 +204,14 @@ private:
     std::atomic<float>* polyModeParam = nullptr;
     std::atomic<float>* glideTimeParam = nullptr;
     std::atomic<float>* glideAlwaysParam = nullptr;
+
+    /** MIDI controller state, written from the audio thread as messages
+        arrive and read back into the settings each block. Members rather than
+        parameters: these are performance controls, and a host that recorded
+        them as automation would fight the player's own controller. */
+    float modWheelValue = 0.0f;
+    float pitchBendValue = 0.5f;
+    float aftertouchValue = 0.0f;
 
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;

@@ -2,6 +2,7 @@
 
 #include "../dsp/VoiceSettings.h"
 #include "../dsp/WavetableLibrary.h"
+#include "ModStateBridge.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -29,7 +30,8 @@ class SettingsReader
 {
 public:
     SettingsReader (juce::AudioProcessorValueTreeState& state,
-                    dsp::WavetableLibrary& wavetableLibrary);
+                    dsp::WavetableLibrary& wavetableLibrary,
+                    const ModStateBridge& modState);
 
     /** BLOCK-RATE. Fills `settings` from the current parameter values. */
     void read (dsp::VoiceSettings& settings) const noexcept;
@@ -115,13 +117,61 @@ private:
         std::atomic<float>* combDamping = nullptr;
     };
 
+    struct EnvelopeParams
+    {
+        std::atomic<float>* mode = nullptr;
+        std::atomic<float>* delay = nullptr;
+        std::atomic<float>* attack = nullptr;
+        std::atomic<float>* hold = nullptr;
+        std::atomic<float>* decay = nullptr;
+        std::atomic<float>* sustain = nullptr;
+        std::atomic<float>* release = nullptr;
+        std::atomic<float>* attackCurve = nullptr;
+        std::atomic<float>* decayCurve = nullptr;
+        std::atomic<float>* releaseCurve = nullptr;
+        std::atomic<float>* velocityAmount = nullptr;
+    };
+
+    struct LfoParams
+    {
+        std::atomic<float>* shape = nullptr;
+        std::atomic<float>* syncEnabled = nullptr;
+        std::atomic<float>* rateHz = nullptr;
+        std::atomic<float>* rateDivision = nullptr;
+        std::atomic<float>* mode = nullptr;
+        std::atomic<float>* phase = nullptr;
+        std::atomic<float>* smooth = nullptr;
+        std::atomic<float>* gridDivision = nullptr;
+        std::atomic<float>* bipolar = nullptr;
+    };
+
+    struct ModSlotParams
+    {
+        std::atomic<float>* enabled = nullptr;
+        std::atomic<float>* source = nullptr;
+        std::atomic<float>* depth = nullptr;
+        std::atomic<float>* curve = nullptr;
+        std::atomic<float>* auxSource = nullptr;
+        std::atomic<float>* auxAmount = nullptr;
+        std::atomic<float>* bipolar = nullptr;
+    };
+
     juce::AudioProcessorValueTreeState& apvts;
     dsp::WavetableLibrary& library;
+
+    /** The curves and destinations that are not host parameters. Borrowed;
+        owned by the processor. */
+    const ModStateBridge& modStateBridge;
 
     std::array<OscillatorParams, pid::kNumOscillators> oscillators {};
     SubParams sub {};
     NoiseParams noise {};
     std::array<FilterParams, pid::kNumFilters> filters {};
+
+    std::array<EnvelopeParams, pid::kNumEnvelopes> envelopes {};
+    std::array<LfoParams, pid::kNumLfos> lfos {};
+    std::array<ModSlotParams, pid::kNumModSlots> modSlots {};
+    std::array<std::atomic<float>*, pid::kNumMacros> macros {};
 
     std::atomic<float>* filterRouting = nullptr;
     std::atomic<float>* analogDrift = nullptr;

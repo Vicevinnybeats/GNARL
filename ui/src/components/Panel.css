@@ -6,6 +6,15 @@
   flex-direction: column;
   min-width: 0;
 
+  /* THE ROOT OF THE OVERFLOW BUG, three times now.
+     A grid or flex item's automatic minimum size is its CONTENT size, so a
+     panel whose contents are taller than its track grows past it and draws
+     over the panel below - the body's own overflow:hidden cannot help,
+     because the body is sized by the panel, not the other way round. Every
+     previous fix adjusted the row heights of whichever tab had just broken;
+     this is the fix that makes the clipping actually happen. */
+  min-height: 0;
+
   /* A one-pixel highlight along the top edge. Cheap, and it does most of the
      work of making a flat panel look like a moulded one. */
   box-shadow: inset 0 1px 0 var(--gn-glow-edge);

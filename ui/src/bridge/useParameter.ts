@@ -34,6 +34,8 @@ export function useParameter(id: ParameterId): ParameterHandle {
   const [label, setLabel] = useState(() => state.properties.label);
   const [interval, setInterval] = useState(() => state.properties.interval);
   const [rangeEnd, setRangeEnd] = useState(() => state.properties.end);
+  const [rangeStart, setRangeStart] = useState(() => state.properties.start);
+  const [skew, setSkew] = useState(() => state.properties.skew);
 
   useEffect(() => {
     const sync = () => {
@@ -44,6 +46,8 @@ export function useParameter(id: ParameterId): ParameterHandle {
       setLabel(state.properties.label);
       setInterval(state.properties.interval);
       setRangeEnd(state.properties.end);
+      setRangeStart(state.properties.start);
+      setSkew(state.properties.skew);
     };
 
     const valueToken = state.valueChangedEvent.addListener(sync);
@@ -60,10 +64,19 @@ export function useParameter(id: ParameterId): ParameterHandle {
   const setNormalised = useCallback(
     (v: number) => {
       const clamped = Math.min(1, Math.max(0, v));
-      setNormalisedLocal(clamped); // optimistic: no round trip before repaint
+
+      // Optimistic: no round trip before repaint. The READOUT is computed
+      // locally too, not left to arrive with the backend's echo - otherwise
+      // the number sits still while the control moves under the pointer,
+      // which reads as a broken control. The echo overwrites it a frame later
+      // with the authoritative value, which is what makes this safe rather
+      // than a second source of truth.
+      setNormalisedLocal(clamped);
+      setScaled(denormalise(clamped, rangeStart, rangeEnd, skew));
+
       state.setNormalisedValue(clamped);
     },
-    [state],
+    [state, rangeStart, rangeEnd, skew],
   );
 
   const beginGesture = useCallback(() => state.sliderDragStarted(), [state]);
@@ -76,6 +89,25 @@ export function useParameter(id: ParameterId): ParameterHandle {
   const text = formatValue(scaled, label, interval, rangeEnd);
 
   return { normalised, scaled, label, text, setNormalised, beginGesture, endGesture };
+}
+
+/**
+ * Normalised value to real-world value, matching juce::NormalisableRange.
+ *
+ * JUCE applies the skew as `proportion^(1/skew)` before mapping onto the
+ * range, so a skewed knob's readout has to do the same or it disagrees with
+ * the value the engine actually received.
+ */
+function denormalise(
+  normalised: number,
+  start: number,
+  end: number,
+  skew: number,
+): number {
+  const proportion =
+    skew === 1 || skew <= 0 ? normalised : Math.pow(normalised, 1 / skew);
+
+  return start + (end - start) * proportion;
 }
 
 /**

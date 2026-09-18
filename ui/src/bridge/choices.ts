@@ -26,6 +26,51 @@ export const FILTER_ROUTING = ['Series', 'Parallel', 'Split'] as const;
 
 export const DRIVE_CURVE = ['Tanh', 'Tube', 'Hard Clip', 'Fold', 'Rectify'] as const;
 
+export const ENVELOPE_MODE = ['ADSR', 'DAHDSR'] as const;
+
+/** Index 0 is the drawn curve: the drawable LFO is the feature, not an option
+    buried behind the built-in shapes. */
+export const LFO_SHAPE = [
+  'Custom', 'Sine', 'Triangle', 'Saw Up', 'Saw Down', 'Square',
+  'Random Step', 'Random Smooth',
+] as const;
+
+export const LFO_MODE = ['Trigger', 'Envelope', 'Free Run', 'S&H'] as const;
+
+/** Triplet and dotted rates are FIRST-CLASS entries interleaved with the
+    straight ones, not a separate mode behind a toggle. Riddim is built on the
+    1/3 and 1/6 grids, so reaching a triplet rate must cost exactly as much as
+    reaching a straight one. Slow to fast. */
+export const LFO_RATE_DIVISION = [
+  '8 Bars', '4 Bars', '2 Bars',
+  '1/1',
+  '1/2 D', '1/2', '1/2 T',
+  '1/4 D', '1/4', '1/4 T',
+  '1/8 D', '1/8', '1/8 T',
+  '1/16 D', '1/16', '1/16 T',
+  '1/32 D', '1/32', '1/32 T',
+  '1/64',
+] as const;
+
+/** 1/12 and 1/24 are the triplet grids, drawn distinctly in the editor. */
+export const GRID_DIVISION = [
+  'Off', '1/4', '1/8', '1/12', '1/16', '1/24', '1/32',
+] as const;
+
+export const MOD_SOURCE = [
+  'None',
+  'Env 1', 'Env 2', 'Env 3', 'Env 4',
+  'LFO 1', 'LFO 2', 'LFO 3', 'LFO 4',
+  'Velocity', 'Note', 'Random', 'Uni Voice',
+  'Mod Wheel', 'Pitch Bend', 'Aftertouch',
+  'Macro 1', 'Macro 2', 'Macro 3', 'Macro 4',
+] as const;
+
+export const MOD_CURVE = ['Linear', 'Exp', 'Log', 'S-Curve', 'Quantize'] as const;
+
+/** Macro 1 is GROWL, the one macro with a fixed identity. */
+export const MACRO_NAMES = ['GROWL', 'Macro 2', 'Macro 3', 'Macro 4'] as const;
+
 export const OVERSAMPLING = ['Off', '2x', '4x'] as const;
 
 export const POLY_MODE = ['Poly', 'Mono', 'Legato'] as const;

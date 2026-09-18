@@ -54,8 +54,9 @@ namespace
 }
 
 SettingsReader::SettingsReader (juce::AudioProcessorValueTreeState& state,
-                                dsp::WavetableLibrary& wavetableLibrary)
-    : apvts (state), library (wavetableLibrary)
+                                dsp::WavetableLibrary& wavetableLibrary,
+                                const ModStateBridge& modState)
+    : apvts (state), library (wavetableLibrary), modStateBridge (modState)
 {
     const auto bind = [this] (const char* id) { return apvts.getRawParameterValue (id); };
 
@@ -132,6 +133,57 @@ SettingsReader::SettingsReader (juce::AudioProcessorValueTreeState& state,
         target.combFeedback  = bind (ids.combFeedback);
         target.combDamping   = bind (ids.combDamping);
     }
+
+    for (std::size_t i = 0; i < pid::kNumEnvelopes; ++i)
+    {
+        const auto& ids = pid::envelope[i];
+        auto& target = envelopes[i];
+
+        target.mode           = bind (ids.mode);
+        target.delay          = bind (ids.delay);
+        target.attack         = bind (ids.attack);
+        target.hold           = bind (ids.hold);
+        target.decay          = bind (ids.decay);
+        target.sustain        = bind (ids.sustain);
+        target.release        = bind (ids.release);
+        target.attackCurve    = bind (ids.attackCurve);
+        target.decayCurve     = bind (ids.decayCurve);
+        target.releaseCurve   = bind (ids.releaseCurve);
+        target.velocityAmount = bind (ids.velocityAmount);
+    }
+
+    for (std::size_t i = 0; i < pid::kNumLfos; ++i)
+    {
+        const auto& ids = pid::lfo[i];
+        auto& target = lfos[i];
+
+        target.shape        = bind (ids.shape);
+        target.syncEnabled  = bind (ids.syncEnabled);
+        target.rateHz       = bind (ids.rateHz);
+        target.rateDivision = bind (ids.rateDivision);
+        target.mode         = bind (ids.mode);
+        target.phase        = bind (ids.phase);
+        target.smooth       = bind (ids.smooth);
+        target.gridDivision = bind (ids.gridDivision);
+        target.bipolar      = bind (ids.bipolar);
+    }
+
+    for (std::size_t i = 0; i < pid::kNumModSlots; ++i)
+    {
+        const auto& ids = pid::modSlot[i];
+        auto& target = modSlots[i];
+
+        target.enabled   = bind (ids.enabled);
+        target.source    = bind (ids.source);
+        target.depth     = bind (ids.depth);
+        target.curve     = bind (ids.curve);
+        target.auxSource = bind (ids.auxSource);
+        target.auxAmount = bind (ids.auxAmount);
+        target.bipolar   = bind (ids.bipolar);
+    }
+
+    for (std::size_t i = 0; i < pid::kNumMacros; ++i)
+        macros[i] = bind (pid::macro[i]);
 
     filterRouting = bind (pid::filterRouting);
     analogDrift = bind (pid::analogDrift);
@@ -259,6 +311,67 @@ void SettingsReader::read (dsp::VoiceSettings& settings) const noexcept
         target.combFeedback = readValue (source.combFeedback);
         target.combDamping = readValue (source.combDamping);
     }
+
+    for (std::size_t i = 0; i < pid::kNumEnvelopes; ++i)
+    {
+        const auto& source = envelopes[i];
+        auto& target = settings.envelopes[i];
+
+        target.mode = readChoice<choices::EnvelopeMode> (source.mode);
+        target.delaySeconds = readValue (source.delay);
+        target.attackSeconds = readValue (source.attack);
+        target.holdSeconds = readValue (source.hold);
+        target.decaySeconds = readValue (source.decay);
+        target.sustain = readValue (source.sustain);
+        target.releaseSeconds = readValue (source.release);
+        target.attackCurve = readValue (source.attackCurve);
+        target.decayCurve = readValue (source.decayCurve);
+        target.releaseCurve = readValue (source.releaseCurve);
+        target.velocityAmount = readValue (source.velocityAmount);
+    }
+
+    for (std::size_t i = 0; i < pid::kNumLfos; ++i)
+    {
+        const auto& source = lfos[i];
+        auto& target = settings.lfos[i];
+
+        target.shape = readChoice<choices::LfoShape> (source.shape);
+        target.mode = readChoice<choices::LfoMode> (source.mode);
+        target.syncEnabled = readBool (source.syncEnabled);
+        target.division = readChoice<choices::LfoRateDivision> (source.rateDivision);
+        target.rateHz = readValue (source.rateHz);
+        target.phaseOffset = readValue (source.phase);
+        target.smoothing = readValue (source.smooth);
+        target.grid = readChoice<choices::GridDivision> (source.gridDivision);
+        target.bipolar = readBool (source.bipolar);
+    }
+
+    // The curves and the slot destinations are not host parameters: they come
+    // from the ValueTree through the bridge. One published snapshot per block,
+    // read here rather than per voice, so every voice sees the same shape.
+    const auto& modSnapshot = modStateBridge.getSnapshot();
+
+    settings.lfoCurves = modSnapshot.curves;
+
+    for (std::size_t i = 0; i < pid::kNumModSlots; ++i)
+    {
+        const auto& source = modSlots[i];
+
+        dsp::ModMatrix::Slot slot {};
+        slot.enabled = readBool (source.enabled);
+        slot.source = readChoice<choices::ModSource> (source.source);
+        slot.destination = modSnapshot.destinations[i];
+        slot.depth = readValue (source.depth);
+        slot.curve = readChoice<choices::ModCurve> (source.curve);
+        slot.auxSource = readChoice<choices::ModSource> (source.auxSource);
+        slot.auxAmount = readValue (source.auxAmount);
+        slot.bipolar = readBool (source.bipolar);
+
+        settings.modMatrix.setSlot (i, slot);
+    }
+
+    for (std::size_t i = 0; i < pid::kNumMacros; ++i)
+        settings.macros[i] = readValue (macros[i]);
 
     settings.filterRouting = readChoice<choices::FilterRouting> (filterRouting);
     settings.analogDrift = readValue (analogDrift);

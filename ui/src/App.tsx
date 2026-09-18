@@ -4,6 +4,7 @@ import { Dropdown } from './components/Dropdown';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { FxTab } from './tabs/FxTab';
+import { ModTab } from './tabs/ModTab';
 import { OscTab } from './tabs/OscTab';
 import { PlaceholderTab } from './tabs/PlaceholderTab';
 import { OVERSAMPLING, POLY_MODE } from './bridge/choices';
@@ -118,23 +119,7 @@ export function App() {
       <main className="gn-body">
         {tab === 'OSC' && <OscTab />}
 
-        {tab === 'MOD' && (
-          <PlaceholderTab
-            title="Modulation"
-            phase="Phase 3"
-            summary="The drawable tempo-synced LFO and the 16-slot mod matrix. Triplet rates are first-class entries interleaved with the straight ones, not a mode behind a toggle — the 1/3 and 1/6 grids are what this genre is built on, so reaching a triplet rate must cost exactly as much as reaching a straight one."
-            items={[
-              'Breakpoint LFO editor with per-segment curve handles',
-              'Tempo sync from 8 bars to 1/64, with triplet and dotted rates',
-              'Grid snapping including 1/12 and 1/24, drawn distinctly',
-              'Host transport lock, so the wobble lands on the beat',
-              '4 envelopes with per-segment curves, ADSR and DAHDSR',
-              '16 mod slots with a secondary amount modulator each',
-              '4 macros, with macro 1 mapped to GROWL',
-              'Live playhead sweeping in sync with the host',
-            ]}
-          />
-        )}
+        {tab === 'MOD' && <ModTab />}
 
         {tab === 'FX' && <FxTab />}
 

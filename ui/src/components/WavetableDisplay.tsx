@@ -7,6 +7,7 @@ import {
   synthesiseInterpolated,
 } from '../bridge/wavetableData';
 import { applyWarp, warpBandwidthExpansion } from '../bridge/warp';
+import { useModulationRef } from '../bridge/useModulation';
 import './WavetableDisplay.css';
 
 export interface WavetableDisplayProps {
@@ -18,6 +19,13 @@ export interface WavetableDisplayProps {
   warpAmount: number;
   /** 2D single-frame view instead of the receding stack. */
   flat?: boolean;
+  /** Which oscillator this display belongs to.
+      When set, the drawn position follows the ENGINE's modulated table
+      position rather than the knob, so the waveform moves on its own while an
+      LFO is running. That is the whole point of a wavetable display in a
+      modulation synth: what is drawn should be the frame being played, not
+      the frame the user last dragged to. */
+  oscIndex?: 0 | 1;
 }
 
 /** Frames drawn behind and in front of the active one in the stacked view. */
@@ -50,8 +58,14 @@ export function WavetableDisplay({
   warpMode,
   warpAmount,
   flat,
+  oscIndex,
 }: WavetableDisplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // A ref, not React state: the frames arrive at 60 Hz, and re-rendering the
+  // whole oscillator panel sixty times a second is exactly what makes a
+  // webview UI feel heavy inside a DAW. The draw loop reads it directly.
+  const modulation = useModulationRef();
 
   // Animation state lives in refs so the render loop is not restarted by a
   // React re-render, which would make the motion stutter.
@@ -116,7 +130,21 @@ export function WavetableDisplay({
       // Ease the drawn position towards the parameter. A first-order filter
       // rather than a fixed duration, so a small nudge settles instantly and
       // a big jump still travels visibly.
-      drawn.current.position += (state.position - drawn.current.position) * 0.18;
+      // The engine's own modulated position when there is one, so the display
+      // shows the frame being PLAYED rather than the frame the knob is at.
+      const live =
+        oscIndex !== undefined && modulation.current.playing
+          ? modulation.current.tablePositions[oscIndex]
+          : undefined;
+
+      const targetPosition = live !== undefined ? live : state.position;
+
+      // A live value already moves at 60 Hz, so it only needs enough smoothing
+      // to hide the frame quantisation; a knob value can jump a long way at
+      // once and needs the slower ease so it animates rather than teleporting.
+      const ease = live !== undefined ? 0.5 : 0.18;
+
+      drawn.current.position += (targetPosition - drawn.current.position) * ease;
 
       const frames = getTableFrames(state.tableIndex);
 
@@ -207,7 +235,9 @@ export function WavetableDisplay({
       ctx.globalAlpha = 0.65;
       ctx.fillStyle = dim;
       ctx.font = '9px ui-monospace, monospace';
-      ctx.fillText(`${Math.round(state.position * 100)}%`, 6, height - 6);
+      // The DRAWN position, so the readout agrees with the line that is
+      // actually lit while modulation is moving it.
+      ctx.fillText(`${Math.round(drawn.current.position * 100)}%`, 6, height - 6);
       ctx.globalAlpha = 1;
     };
 
@@ -217,7 +247,7 @@ export function WavetableDisplay({
       running = false;
       cancelAnimationFrame(frameHandle);
     };
-  }, []);
+  }, [modulation, oscIndex]);
 
   return <canvas ref={canvasRef} className="gn-wavetable" />;
 }

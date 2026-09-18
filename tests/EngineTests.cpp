@@ -6,6 +6,7 @@
 #include "params/ParameterIDs.h"
 
 #include <cmath>
+#include <utility>
 #include <vector>
 
 using namespace gnarl;
@@ -885,4 +886,137 @@ TEST_CASE ("OTT crossover frequencies are clamped sanely", "[engine][ott]")
 
     CHECK (result.allFinite);
     CHECK (result.peak < 100.0f);
+}
+
+TEST_CASE ("The same note renders identically at any block size", "[engine]")
+{
+    /*  BLOCK-SIZE INVARIANCE. A host may hand over 64 samples or 512, and the
+        two must produce the same audio: the block boundary is the host's
+        bookkeeping, not part of the instrument.
+
+        This is not a style point. The property was BROKEN, and the failure is
+        the kind that no unit test on any single component can see: the voice
+        ran ONE filter instance over the whole left channel and then over the
+        whole right, so the two channels interleaved into a single filter's
+        state. What came out was therefore a function of the block layout -
+        the same note in 32-sample chunks and in 256-sample chunks differed by
+        5x through the formant filter - and every component test still passed,
+        because every component was individually correct.
+
+        Both sizes here are multiples of the 32-sample modulation chunk, so
+        the modulation sequence is identical and the comparison can be exact.
+    */
+    const auto renderAtBlockSize = [] (int blockSize)
+    {
+        GnarlProcessor processor;
+        processor.setPlayConfigDetails (0, 2, kSampleRate, blockSize);
+        processor.prepareToPlay (kSampleRate, blockSize);
+
+        // The formant filter, because five band-passes at high Q are the most
+        // sensitive thing in the engine to a corrupted filter state - and are
+        // what made the original bug visible.
+        setParameter (processor, pid::filter[0].type,
+                      static_cast<float> (choices::FilterType::formant));
+        setParameter (processor, pid::filter[0].resonance, 0.8f);
+
+        juce::AudioBuffer<float> buffer (2, blockSize);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 36, 1.0f), 0);
+
+        constexpr int kTotalSamples = 8192;
+
+        std::vector<float> left;
+        std::vector<float> right;
+        left.reserve (static_cast<std::size_t> (kTotalSamples));
+        right.reserve (static_cast<std::size_t> (kTotalSamples));
+
+        while (static_cast<int> (left.size()) < kTotalSamples)
+        {
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+            midi.clear();
+
+            for (int i = 0; i < blockSize && static_cast<int> (left.size()) < kTotalSamples; ++i)
+            {
+                left.push_back (buffer.getSample (0, i));
+                right.push_back (buffer.getSample (1, i));
+            }
+        }
+
+        return std::pair { left, right };
+    };
+
+    const auto [smallLeft, smallRight] = renderAtBlockSize (64);
+    const auto [largeLeft, largeRight] = renderAtBlockSize (512);
+
+    REQUIRE (smallLeft.size() == largeLeft.size());
+
+    auto worstDifference = 0.0f;
+    auto peak = 0.0f;
+
+    for (std::size_t i = 0; i < smallLeft.size(); ++i)
+    {
+        worstDifference = juce::jmax (worstDifference,
+                                      std::abs (smallLeft[i] - largeLeft[i]),
+                                      std::abs (smallRight[i] - largeRight[i]));
+        peak = juce::jmax (peak, std::abs (largeLeft[i]), std::abs (largeRight[i]));
+    }
+
+    INFO ("worst sample difference " << worstDifference << ", peak " << peak);
+
+    // The render has to be audible, or "identical" would be trivially true of
+    // two silences.
+    REQUIRE (peak > 0.001f);
+
+    // Not exactly zero: the two runs sum their busses in the same order but
+    // the compiler is free to vectorise differently at different lengths, so a
+    // few ULPs are allowed. 1e-6 is about -120 dB, far below anything audible
+    // and far above float noise.
+    CHECK (worstDifference < 1.0e-6f);
+}
+
+TEST_CASE ("A centred patch is identical in both channels", "[engine]")
+{
+    // The other face of the same bug: with everything panned centre, left and
+    // right must be the same signal. They were not, because one filter
+    // instance was shared between them.
+    auto processor = makePreparedProcessor();
+
+    setParameter (*processor, pid::filter[0].type,
+                  static_cast<float> (choices::FilterType::formant));
+    setParameter (*processor, pid::filter[0].resonance, 0.8f);
+
+    // Unison off and pan centred, so there is nothing that SHOULD differ
+    // between the channels.
+    setParameter (*processor, pid::osc[0].unisonVoices, 1.0f);
+    setParameter (*processor, pid::osc[0].pan, 0.0f);
+    setParameter (*processor, pid::analogDrift, 0.0f);
+
+    juce::AudioBuffer<float> buffer (2, kBlockSize);
+    juce::MidiBuffer midi;
+    midi.addEvent (juce::MidiMessage::noteOn (1, 36, 1.0f), 0);
+
+    auto worstDifference = 0.0f;
+    auto peak = 0.0f;
+
+    for (int block = 0; block < 16; ++block)
+    {
+        buffer.clear();
+        processor->processBlock (buffer, midi);
+        midi.clear();
+
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            const auto left = buffer.getSample (0, i);
+            const auto right = buffer.getSample (1, i);
+
+            worstDifference = juce::jmax (worstDifference, std::abs (left - right));
+            peak = juce::jmax (peak, std::abs (left));
+        }
+    }
+
+    INFO ("worst L/R difference " << worstDifference << ", peak " << peak);
+
+    REQUIRE (peak > 0.001f);
+    CHECK (worstDifference < 1.0e-6f);
 }

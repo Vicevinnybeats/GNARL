@@ -8,12 +8,6 @@ namespace gnarl::dsp
 
 namespace
 {
-    /** Placeholder amplitude envelope times, until Env 1 lands in Phase 3.
-        Short attack so a note is immediate; release long enough that stopping
-        a note is a fade rather than a cut. */
-    constexpr double kPlaceholderAttackSeconds  = 0.005;
-    constexpr double kPlaceholderReleaseSeconds = 0.080;
-
     /** Below this level a releasing voice is inaudible, so it is freed for
         reuse. -80 dB, chosen because it is below the noise floor of any
         24-bit render. */
@@ -47,8 +41,15 @@ void Voice::prepare (double maximumSampleRate, int maximumBlockSize)
 
     // The highest rate, because the comb filter allocates its delay line from
     // it and must not resize when the oversampling factor changes.
-    for (auto& filter : filters)
-        filter.prepare (maximumSampleRate);
+    for (auto& slot : filters)
+        for (auto& filter : slot)
+            filter.prepare (maximumSampleRate);
+
+    for (auto& envelope : envelopes)
+        envelope.prepare (maximumSampleRate);
+
+    for (auto& lfo : lfos)
+        lfo.prepare (maximumSampleRate);
 
     setSampleRate (maximumSampleRate);
     reset();
@@ -72,21 +73,29 @@ void Voice::setSampleRate (double sampleRate) noexcept
     subOscillator.setSampleRate (sampleRateHz);
     noise.setSampleRate (sampleRateHz);
 
-    for (auto& filter : filters)
-        filter.setSampleRate (sampleRateHz);
+    for (auto& slot : filters)
+        for (auto& filter : slot)
+            filter.setSampleRate (sampleRateHz);
+
+    // setSampleRate, NOT prepare: prepare() resets, and this runs while notes
+    // are sounding because the oversampling factor is a live parameter.
+    // Resetting here silenced every held voice the moment the user touched
+    // the oversampling control.
+    for (auto& envelope : envelopes)
+        envelope.setSampleRate (sampleRateHz);
+
+    for (auto& lfo : lfos)
+        lfo.setSampleRate (sampleRateHz);
 
     // Smoothers keep their current values: this is a rate change, not a
     // reset, and it can happen while a note is sounding.
     const auto pitchValue = pitch.getCurrentValue();
-    const auto amplitudeValue = amplitude.getCurrentValue();
     const auto fadeValue = stealFade.getCurrentValue();
 
     pitch.reset (sampleRateHz, 0.0);
-    amplitude.reset (sampleRateHz, kPlaceholderAttackSeconds);
     stealFade.reset (sampleRateHz, ramp::stealFadeSeconds);
 
     pitch.setCurrentAndTargetValue (pitchValue);
-    amplitude.setCurrentAndTargetValue (amplitudeValue);
     stealFade.setCurrentAndTargetValue (fadeValue);
 }
 
@@ -112,7 +121,6 @@ void Voice::reset()
     state = State::idle;
 
     pitch.setCurrentAndTargetValue (static_cast<float> (currentNote));
-    amplitude.setCurrentAndTargetValue (0.0f);
     stealFade.setCurrentAndTargetValue (1.0f);
 
     queuedNote.reset();
@@ -124,8 +132,18 @@ void Voice::reset()
     subOscillator.reset();
     noise.reset();
 
-    for (auto& filter : filters)
-        filter.reset();
+    for (auto& slot : filters)
+        for (auto& filter : slot)
+            filter.reset();
+
+    for (auto& envelope : envelopes)
+        envelope.reset();
+
+    for (auto& lfo : lfos)
+        lfo.reset();
+
+    lastOffsets.clear();
+    sourceValues.clear();
 }
 
 float Voice::getUnisonRandom (int unisonIndex) const noexcept
@@ -136,7 +154,18 @@ float Voice::getUnisonRandom (int unisonIndex) const noexcept
 
 float Voice::getCurrentAmplitude() const noexcept
 {
-    return amplitude.getCurrentValue() * currentVelocity * stealFade.getCurrentValue();
+    // Env 1 is the amplitude envelope, so its level IS the voice's amplitude.
+    return envelopes[0].getLevel() * stealFade.getCurrentValue();
+}
+
+float Voice::getLfoValue (std::size_t index) const noexcept
+{
+    return lfos[juce::jmin (index, lfos.size() - 1)].getCurrentValue();
+}
+
+float Voice::getLfoPhase (std::size_t index) const noexcept
+{
+    return lfos[juce::jmin (index, lfos.size() - 1)].getCurrentPhase();
 }
 
 void Voice::updatePitchTarget (const NoteRequest& request, float glideTimeSeconds)
@@ -156,14 +185,6 @@ void Voice::updatePitchTarget (const NoteRequest& request, float glideTimeSecond
     }
 }
 
-void Voice::beginAmplitudeAttack()
-{
-    // Preserves the current level, so retriggering a voice that is still
-    // releasing ramps up from where it actually is rather than jumping to zero.
-    setRampPreservingValue (amplitude, sampleRateHz, kPlaceholderAttackSeconds);
-    amplitude.setTargetValue (1.0f);
-}
-
 void Voice::startNote (const NoteRequest& request, float glideTimeSeconds)
 {
     currentNote = request.noteNumber;
@@ -172,9 +193,8 @@ void Voice::startNote (const NoteRequest& request, float glideTimeSeconds)
 
     updatePitchTarget (request, glideTimeSeconds);
 
-    // Starts from wherever the envelope currently is, not from zero, so
-    // retriggering a still-sounding voice does not produce a gap.
-    beginAmplitudeAttack();
+    // Env 1's own attack starts from its current level, so retriggering a
+    // still-sounding voice does not produce a gap.
 
     // Oscillator phases are seeded from this voice's random stream, so unison
     // spread is stable for the note but differs between voices.
@@ -188,6 +208,14 @@ void Voice::startNote (const NoteRequest& request, float glideTimeSeconds)
                           static_cast<int> (unisonRandom.size()),
                           0.0f,
                           0.0f);
+
+    for (auto& envelope : envelopes)
+        envelope.noteOn (currentVelocity);
+
+    // Trigger and envelope mode LFOs restart here; free-run ones deliberately
+    // do not, which is the whole point of that mode.
+    for (auto& lfo : lfos)
+        lfo.noteOn();
 
     stealFade.setCurrentAndTargetValue (1.0f);
 
@@ -204,7 +232,9 @@ void Voice::changeNote (const NoteRequest& request, float glideTimeSeconds)
 
     if (state == State::releasing)
     {
-        beginAmplitudeAttack();
+        for (auto& envelope : envelopes)
+            envelope.noteOn (currentVelocity);
+
         state = State::active;
     }
 }
@@ -225,8 +255,8 @@ void Voice::stopNote (bool allowTailOff)
         return;
     }
 
-    setRampPreservingValue (amplitude, sampleRateHz, kPlaceholderReleaseSeconds);
-    amplitude.setTargetValue (0.0f);
+    for (auto& envelope : envelopes)
+        envelope.noteOff();
 
     state = State::releasing;
 }
@@ -312,11 +342,20 @@ void Voice::renderFilters (juce::AudioBuffer<float>& destination,
     const auto filter1Enabled = settings.filterEnabled[0];
     const auto filter2Enabled = settings.filterEnabled[1];
 
+    // The MODULATED settings, not `settings.filters`. Reading the base values
+    // here silently threw away every filter modulation - and a filter wobble
+    // is the single most-used modulation in this genre, so the bug was the
+    // whole feature missing rather than a detail.
+    //
+    // Both channels' instances get the same settings; only their STATE is
+    // separate, which is the whole point.
     if (filter1Enabled)
-        filters[0].setSettings (settings.filters[0]);
+        for (auto& channelFilter : filters[0])
+            channelFilter.setSettings (modulatedFilters[0]);
 
     if (filter2Enabled)
-        filters[1].setSettings (settings.filters[1]);
+        for (auto& channelFilter : filters[1])
+            channelFilter.setSettings (modulatedFilters[1]);
 
     // SERIES means filter 2 takes filter 1's output, so a source sent only to
     // filter 2 still reaches it - the send levels choose where a source
@@ -330,8 +369,9 @@ void Voice::renderFilters (juce::AudioBuffer<float>& destination,
         const auto* directBus = scratch.direct.getReadPointer (channel);
         auto* out = destination.getWritePointer (channel, startSample);
 
-        auto& slot1 = filters[0];
-        auto& slot2 = filters[1];
+        // This channel's own filter instances.
+        auto& slot1 = filters[0][static_cast<std::size_t> (channel)];
+        auto& slot2 = filters[1][static_cast<std::size_t> (channel)];
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -362,7 +402,9 @@ void Voice::advanceSilently (int numSamples)
     if (state == State::idle || numSamples <= 0)
         return;
 
-    amplitude.skip (numSamples);
+    for (auto& envelope : envelopes)
+        envelope.process (numSamples);
+
     pitch.skip (numSamples);
 
     if (state == State::stealing)
@@ -379,7 +421,10 @@ void Voice::advanceSilently (int numSamples)
                 queuedGlideTime = 0.0f;
 
                 stealFade.setCurrentAndTargetValue (1.0f);
-                amplitude.setCurrentAndTargetValue (0.0f);
+
+                for (auto& envelope : envelopes)
+                    envelope.kill();
+
                 startNote (request, glide);
             }
             else
@@ -391,30 +436,70 @@ void Voice::advanceSilently (int numSamples)
         return;
     }
 
-    if (state == State::releasing && amplitude.getCurrentValue() <= kSilenceThreshold)
+    if (state == State::releasing && ! envelopes[0].isActive())
         reset();
 }
 
-void Voice::render (juce::AudioBuffer<float>& buffer,
-                    int startSample,
-                    int numSamples,
-                    const VoiceSettings& settings,
-                    VoiceScratch& scratch)
+void Voice::updateModulation (const VoiceSettings& settings, int numSamples) noexcept
 {
-    if (state == State::idle || numSamples <= 0)
-        return;
+    // Every source's value gathered once, so a slot lookup in the matrix is
+    // an array index rather than a switch over twenty cases.
+    sourceValues.clear();
 
-    if (numSamples > scratch.getCapacity())
+    for (std::size_t i = 0; i < pid::kNumEnvelopes; ++i)
     {
-        // The manager chunks to the scratch capacity, so this cannot normally
-        // happen. Advancing rather than rendering keeps the voice's lifecycle
-        // correct instead of stalling it.
-        advanceSilently (numSamples);
-        return;
+        envelopes[i].setSettings (settings.envelopes[i]);
+
+        const auto level = envelopes[i].process (numSamples);
+
+        sourceValues.set (static_cast<choices::ModSource> (
+            static_cast<int> (choices::ModSource::env1) + static_cast<int> (i)), level);
     }
 
-    // Pitch at the block's start and end, so the oscillators can interpolate
-    // across it rather than stepping once per block.
+    for (std::size_t i = 0; i < pid::kNumLfos; ++i)
+    {
+        lfos[i].setSettings (settings.lfos[i]);
+        lfos[i].setCurve (settings.lfoCurves[i]);
+
+        const auto value = lfos[i].process (numSamples, settings.transport);
+
+        sourceValues.set (static_cast<choices::ModSource> (
+            static_cast<int> (choices::ModSource::lfo1) + static_cast<int> (i)), value);
+    }
+
+    // Note-rate sources: constant for the life of the note, but still written
+    // every chunk because that costs nothing and removes a class of
+    // stale-state bug.
+    sourceValues.set (choices::ModSource::velocity, currentVelocity);
+    sourceValues.set (choices::ModSource::noteNumber,
+                      juce::jlimit (0.0f, 1.0f, static_cast<float> (currentNote) / 127.0f));
+    sourceValues.set (choices::ModSource::noteOnRandom, driftAmount * 0.5f + 0.5f);
+    sourceValues.set (choices::ModSource::unisonVoiceIndex, unisonRandom[0] * 0.5f + 0.5f);
+
+    sourceValues.set (choices::ModSource::modWheel, settings.modWheel);
+    sourceValues.set (choices::ModSource::pitchBend, settings.pitchBend);
+    sourceValues.set (choices::ModSource::aftertouch, settings.aftertouch);
+
+    for (std::size_t i = 0; i < pid::kNumMacros; ++i)
+        sourceValues.set (static_cast<choices::ModSource> (
+            static_cast<int> (choices::ModSource::macro1) + static_cast<int> (i)),
+            settings.macros[i]);
+
+    lastOffsets.clear();
+    settings.modMatrix.apply (sourceValues, lastOffsets);
+
+    applyModulation (settings, lastOffsets,
+                     modulatedOscillators, modulatedSub, modulatedNoise, modulatedFilters);
+}
+
+void Voice::renderChunk (juce::AudioBuffer<float>& buffer,
+                         int startSample,
+                         int numSamples,
+                         const VoiceSettings& settings,
+                         VoiceScratch& scratch) noexcept
+{
+    // Pitch at the chunk's start and end, so the oscillators interpolate
+    // across it rather than stepping once per chunk.
     const auto startPitch = pitch.getCurrentValue();
     pitch.skip (numSamples);
     const auto endPitch = pitch.getCurrentValue();
@@ -428,9 +513,9 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
 
     // --- Oscillator 2 first ------------------------------------------------
     // Rendered before oscillator 1 because oscillator 1's FM and ring mod
-    // warps read it as their modulator. Doing it the other way round would
-    // make those modes read the previous block's audio.
-    const auto& osc2State = settings.oscillators[1];
+    // warps read it as their modulator. The other order would make those
+    // modes read the previous chunk's audio.
+    const auto& osc2State = modulatedOscillators[1];
     auto modulatorReady = false;
 
     if (osc2State.enabled && osc2State.table != nullptr && ! osc2State.sends.isSilent())
@@ -449,7 +534,6 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
                            getFrequencyHz (endPitch, offset),
                            osc2State.settings);
 
-        // Mono sum, since FM takes a single modulating signal.
         auto* modulator = scratch.modulator.getWritePointer (0);
         const auto* left = scratch.source.getReadPointer (0);
         const auto* right = scratch.source.getReadPointer (1);
@@ -463,7 +547,7 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
     }
 
     // --- Oscillator 1 ------------------------------------------------------
-    const auto& osc1State = settings.oscillators[0];
+    const auto& osc1State = modulatedOscillators[0];
 
     if (osc1State.enabled && osc1State.table != nullptr && ! osc1State.sends.isSilent())
     {
@@ -486,62 +570,93 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
     }
 
     // --- Sub ---------------------------------------------------------------
-    if (settings.sub.enabled && settings.sub.table != nullptr
-        && ! settings.sub.sends.isSilent())
+    if (modulatedSub.enabled && modulatedSub.table != nullptr
+        && ! modulatedSub.sends.isSilent())
     {
         scratch.source.clear (0, numSamples);
 
-        subOscillator.setTable (settings.sub.table);
+        subOscillator.setTable (modulatedSub.table);
 
-        const auto offset = settings.sub.pitchOffsetSemitones;
+        const auto offset = modulatedSub.pitchOffsetSemitones;
 
         subOscillator.render (scratch.source.getWritePointer (0),
                               scratch.source.getWritePointer (1),
                               numSamples,
                               getFrequencyHz (startPitch, offset),
                               getFrequencyHz (endPitch, offset),
-                              settings.sub.settings);
+                              modulatedSub.settings);
 
-        addSourceToBusses (settings.sub.sends, scratch, numSamples);
+        addSourceToBusses (modulatedSub.sends, scratch, numSamples);
     }
 
     // --- Noise -------------------------------------------------------------
-    if (settings.noise.enabled && ! settings.noise.sends.isSilent())
+    if (modulatedNoise.enabled && ! modulatedNoise.sends.isSilent())
     {
         scratch.source.clear (0, numSamples);
-        renderNoise (scratch, numSamples, settings.noise);
-        addSourceToBusses (settings.noise.sends, scratch, numSamples);
+        renderNoise (scratch, numSamples, modulatedNoise);
+        addSourceToBusses (modulatedNoise.sends, scratch, numSamples);
     }
 
-    // --- Filters and output ------------------------------------------------
-    // Rendered into the scratch direct bus, then scaled by the voice's
-    // amplitude on the way out, so the envelope applies to everything
-    // including the filters' own resonance tails.
+    // --- Filters -----------------------------------------------------------
     scratch.source.clear (0, numSamples);
     renderFilters (scratch.source, 0, numSamples, settings, scratch);
 
+    // --- Amplitude ---------------------------------------------------------
+    // Env 1 scaled by the steal fade. Both are evaluated per chunk rather than
+    // per sample, and the chunk is short enough (0.67 ms) that a fast attack
+    // is not audibly stepped.
+    const auto gain = envelopes[0].getLevel() * stealFade.getCurrentValue();
+    stealFade.skip (numSamples);
+    const auto endGain = envelopes[0].getLevel() * stealFade.getCurrentValue();
+
     const auto channels = juce::jmin (2, buffer.getNumChannels());
+    const auto lastSample = juce::jmax (1, numSamples - 1);
 
     for (int channel = 0; channel < channels; ++channel)
     {
         const auto* source = scratch.source.getReadPointer (channel);
         auto* destination = buffer.getWritePointer (channel, startSample);
 
-        // The envelope and steal fade are advanced once per channel loop, so
-        // read them from a copy rather than consuming them twice.
-        auto envelope = amplitude;
-        auto fade = stealFade;
-
+        // Ramped across the chunk, so a chunk boundary is never a step in
+        // level even when the envelope is moving fast.
         for (int i = 0; i < numSamples; ++i)
         {
-            const auto gain = envelope.getNextValue() * currentVelocity * fade.getNextValue();
-            destination[i] += source[i] * gain;
+            const auto t = static_cast<float> (i) / static_cast<float> (lastSample);
+            destination[i] += source[i] * (gain + (endGain - gain) * t);
         }
     }
+}
 
-    // Now advance the real smoothers once, by the block length.
-    amplitude.skip (numSamples);
-    stealFade.skip (numSamples);
+void Voice::render (juce::AudioBuffer<float>& buffer,
+                    int startSample,
+                    int numSamples,
+                    const VoiceSettings& settings,
+                    VoiceScratch& scratch)
+{
+    if (state == State::idle || numSamples <= 0)
+        return;
+
+    if (numSamples > scratch.getCapacity())
+    {
+        // The manager chunks to the scratch capacity, so this cannot normally
+        // happen. Advancing rather than rendering keeps the lifecycle correct
+        // instead of stalling it.
+        advanceSilently (numSamples);
+        return;
+    }
+
+    // MODULATION CHUNKS. Each chunk re-evaluates every envelope and LFO and
+    // re-applies the matrix, which is what makes a wobble continuous rather
+    // than stepped once per block.
+    for (int offset = 0; offset < numSamples;)
+    {
+        const auto chunk = juce::jmin (kModulationChunkSamples, numSamples - offset);
+
+        updateModulation (settings, chunk);
+        renderChunk (buffer, startSample + offset, chunk, settings, scratch);
+
+        offset += chunk;
+    }
 
     if (state == State::stealing && ! stealFade.isSmoothing())
     {
@@ -553,7 +668,10 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
             queuedGlideTime = 0.0f;
 
             stealFade.setCurrentAndTargetValue (1.0f);
-            amplitude.setCurrentAndTargetValue (0.0f);
+
+            for (auto& envelope : envelopes)
+                envelope.kill();
+
             startNote (request, glide);
         }
         else
@@ -561,8 +679,7 @@ void Voice::render (juce::AudioBuffer<float>& buffer,
             reset();
         }
     }
-    else if (state == State::releasing
-             && amplitude.getCurrentValue() <= kSilenceThreshold)
+    else if (state == State::releasing && ! envelopes[0].isActive())
     {
         reset();
     }
