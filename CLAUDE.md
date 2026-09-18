@@ -214,6 +214,39 @@ A nonlinear curve has no single gain, so this is a level match at one
 amplitude by construction; the residual at other levels is the compression the
 user asked for.
 
+**A single tone is the wrong signal for measuring the level of a multi-tap
+effect.** The hyper's voices are taps spread over 3 ms; at 220 Hz one cycle is
+4.5 ms, so the taps land two thirds of a cycle apart and partly CANCEL.
+Measured that way the level moved 7 dB with the voice count, and chasing it
+produced three different normalisation models, none of which could be right —
+the quantity being measured was a comb null, not a level. Broadband noise is
+what the question means, because averaged across frequency the nulls and peaks
+are both present, which is what a listener hears. With the taps' base delays
+always fanned out (not scaled by detune, which made the coherence itself
+setting-dependent) root *n* then holds to within 4 dB across two to eight
+voices.
+
+**And the number of notches, not their depth, is what a phaser's stage count
+controls.** Probing eight frequencies said twelve stages notch *less* deeply
+than two (11.6 dB against 17.4) — true, and not a bug: more stages means more
+notches, each narrower, and sparse probes miss narrow ones. The claim that
+holds is arithmetic: an N-stage all-pass chain sweeps its phase from 0 to
+−Nπ and cancels against the dry path at every odd multiple of π, so there are
+**N/2** notches. Counting them needs the whole spectrum, so `FxModulationTests`
+takes the impulse response and counts local minima — measured exactly N/2 at
+2, 4, 8 and 12 stages.
+
+**A mid/side round trip is not bit-exact.** `(L+R)/2 + (L−R)/2` loses a unit in
+the last place, so `FxDimension` turned fully down still altered every sample,
+forever. Anything built in mid/side needs an early-out at zero rather than a
+multiply by zero — with fourteen effects in a chain most patches do not use,
+"off" has to mean untouched. Relatedly, the obvious widener (give each channel
+an inverted delayed copy of the other) does *nothing* to a mono input: both
+channels get the same copy subtracted and the outputs come out identical. The
+effect has to be built where width lives — mid passed through, a delayed copy
+of it added to the side with opposite signs — which also makes the mono sum
+exactly the dry mid.
+
 **A TPT filter's idle state converges on a rounding fixed point, not on
 zero.** The FX EQ's state settles at exactly `-2e-37` after silence and stays
 there, unchanged over ten million further samples. That value is a NORMAL
