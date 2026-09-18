@@ -214,6 +214,18 @@ A nonlinear curve has no single gain, so this is a level match at one
 amplitude by construction; the residual at other levels is the compression the
 user asked for.
 
+**A TPT filter's idle state converges on a rounding fixed point, not on
+zero.** The FX EQ's state settles at exactly `-2e-37` after silence and stays
+there, unchanged over ten million further samples. That value is a NORMAL
+float, so there is no denormal to flush and `ScopedNoDenormals` never fires on
+it — which is the good news, since it means no per-sample state-snapping is
+needed in the hot path. The consequence worth remembering is the other one: an
+idle effect **cannot** be detected by its output reaching exactly zero,
+because it never does. `FxEqTests` measures the class of the idle tail rather
+than asserting exact silence, which is the assertion that was actually true.
+Note also that the suite has no denormal check for any other DSP unit, despite
+§8 below claiming every unit gets one.
+
 **`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
 building several differently-sized frames from one harmonic series gives each a
 different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip
