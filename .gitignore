@@ -16,6 +16,12 @@ ui/dist/
 # GENERATED: synced from the JUCE checkout by ui/scripts/sync-juce-frontend.mjs
 ui/src/juce/
 
+# Screenshots and recordings from tools/screenshot_ui.mjs and
+# tools/record_ui_motion.mjs. Regenerable from the built bundle, and large -
+# the point of them is to be LOOKED at, not to be kept.
+.screenshots/
+*.webm
+
 # IDE / OS
 .vscode/
 .idea/
