@@ -30,7 +30,7 @@ TEST_CASE ("Every embedded UI file resolves", "[webui]")
     // Must match GNARL_UI_FILES in cmake/WebUI.cmake and the output names in
     // ui/vite.config.ts.
     const char* paths[] = { "/index.html", "/assets/index.js", "/assets/index.css",
-                            "/assets/backdrop.png" };
+                            "/assets/backdrop.webp" };
 
     for (const auto* path : paths)
     {
@@ -112,11 +112,11 @@ TEST_CASE ("The artwork slot resolves as an image", "[webui]")
         falls back to its gradient without complaining anywhere. That is
         exactly the silent failure these tests exist for.
     */
-    auto resource = WebUIResourceProvider::get ("/assets/backdrop.png");
+    auto resource = WebUIResourceProvider::get ("/assets/backdrop.webp");
 
     REQUIRE (resource.has_value());
     CHECK (resource->data.size() > 0);
-    CHECK (resource->mimeType.toStdString() == "image/png");
+    CHECK (resource->mimeType.toStdString() == "image/webp");
 }
 
 TEST_CASE ("The image MIME types cover the formats artwork may ship as",

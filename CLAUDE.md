@@ -379,16 +379,29 @@ in the binary like any other asset — no file IO at runtime, nothing to go
 missing on a customer's machine. It is **one composited layer that never
 animates**, which is why it is affordable where glow is not.
 
-The slot (`ui/public/assets/backdrop.png`) ships a **1×1 transparent
-placeholder**, and `ui/src/bridge/artwork.ts` detects that and leaves the CSS
-variable unset — the app then draws its procedural gradient, which is a
-finished look on its own. That matters because the artwork is commissioned
-separately from the code and the plugin has to be shippable in between.
+The slot is `ui/public/assets/backdrop.webp` — **WebP, not PNG**: the artwork
+is a smooth colour field, which PNG stores losslessly at ~2 MB and WebP stores
+at 78 KB with no visible difference through the scrim and blur it is drawn
+under. It ships in every install. With no artwork present the slot resolves to
+a placeholder (a 1×1 image, or an empty file from the CMake stub) and
+`ui/src/bridge/artwork.ts` detects either and leaves the CSS variable unset, so
+the app draws its procedural gradient instead — a finished look on its own,
+which matters because the art is commissioned separately from the code.
 
 The art always sits under a scrim. **Readability on a dense synth is not
-negotiable**: it sets a mood, it does not compete with a 10px label. If a
-candidate image needs the scrim turned up to stay legible, the image is wrong,
-not the scrim.
+negotiable**: it sets a mood, it does not compete with a 10px label.
+
+**How bright the artwork may be is MEASURED, not judged by eye.** Screenshot
+the UI, take the modal colour of a patch where labels sit (the glyphs are a
+minority of pixels, so the mode is the background) and compute the WCAG
+contrast ratio. `--gn-text-faint` is the binding constraint — it carries the
+value readouts, and knob values are always visible here — and **4.5:1 against
+the BRIGHTEST corner** is the bar, because that is where it fails first and it
+is not where the eye goes. That measurement is what set the shipped numbers:
+faint text measured 3.27:1 with the artwork in, moved to `#a591c2` for 4.75:1,
+and `--gn-artwork-opacity` then went to 0.62 — as far as it goes before the
+readouts drop back under. Brightening the art is not free, and the smallest
+text on screen pays for it.
 
 See [`docs/artwork-brief.md`](docs/artwork-brief.md) for the size and
 composition constraints, the generation prompts, and the legal position on

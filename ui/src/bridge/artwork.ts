@@ -9,15 +9,15 @@ import { getBackendResourceAddress } from '../juce/index.js';
  * WebUIResourceProvider like any other asset, so there is no file IO at
  * runtime and nothing to go missing on a customer's machine.
  *
- * A build with no artwork is not a broken build. The slot ships a 1x1
- * transparent placeholder so the fixed resource list always resolves, and this
- * module detects that and leaves the CSS variable at `none` - the app then
- * draws its procedural gradient, which is a finished look on its own. That
- * matters because the artwork is commissioned separately from the code and the
- * plugin has to be shippable in between.
+ * A build with no artwork is not a broken build. The slot resolves to a
+ * placeholder - a 1x1 image, or an empty file from the CMake stub - and this
+ * module detects either and leaves the CSS variable at `none`, so the app
+ * draws its procedural gradient instead. That is a finished look on its own,
+ * which matters because the artwork is commissioned separately from the code
+ * and the plugin has to be shippable in between.
  */
 
-const ARTWORK_PATH = 'assets/backdrop.png';
+const ARTWORK_PATH = 'assets/backdrop.webp';
 
 /** Anything this small is the placeholder, not a picture. */
 const MINIMUM_USEFUL_DIMENSION = 8;

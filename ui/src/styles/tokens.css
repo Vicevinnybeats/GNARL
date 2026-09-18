@@ -150,7 +150,15 @@
 
   --gn-text: #f4f0ff;
   --gn-text-dim: #b8a8dc;
-  --gn-text-faint: #8574b0;
+
+  /* MEASURED, not picked by eye. --gn-text-faint carries the small value
+     readouts, and knob values are always visible in this UI - so it has to
+     clear WCAG AA (4.5:1) against the BRIGHTEST part of the artwork, not the
+     average. Sampled against the worst corner of the shipped backdrop
+     (rgb 52,32,107), #8574b0 measured 3.27:1 and this measures 4.75:1. Raising
+     the artwork's opacity pushes that background brighter, so re-measure
+     rather than re-eyeball if it changes. */
+  --gn-text-faint: #a591c2;
 
   /* Wider and softer than the other themes' glow: the point here is bloom
      rather than a hard neon edge. Still only on things that are ACTIVE. */
@@ -158,13 +166,17 @@
   --gn-glow-accent-soft: 0 0 26px color-mix(in srgb, var(--gn-accent) 30%, transparent);
   --gn-glow-edge: rgba(255, 255, 255, 0.07);
 
-  --gn-artwork-opacity: 0.5;
+  /* As much artwork as the contrast budget allows. At 0.62 the dim labels
+     measure 5.6:1 and the faint readouts 4.6:1 against the brightest corner;
+     going much past this is what starts costing readability rather than
+     adding mood. */
+  --gn-artwork-opacity: 0.62;
   --gn-artwork-blur: 1px;
 
   /* Lighter than the default scrim, because Dream's own surfaces are lighter
      and the artwork is most of the point of this theme. */
   --gn-artwork-scrim:
-    linear-gradient(180deg, rgba(18, 9, 42, 0.58) 0%, rgba(18, 9, 42, 0.84) 100%);
+    linear-gradient(180deg, rgba(18, 9, 42, 0.5) 0%, rgba(18, 9, 42, 0.8) 100%);
 
   /* Softer geometry, matching the reference. */
   --gn-radius: 8px;

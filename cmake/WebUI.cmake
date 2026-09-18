@@ -15,16 +15,22 @@ set(GNARL_UI_DIST  "${GNARL_UI_DIR}/dist")
 
 # Keep this list in sync with ui/vite.config.ts rollupOptions.output.
 #
-# backdrop.png is the instrument's background ARTWORK, copied through from
+# backdrop.webp is the instrument's background ARTWORK, copied through from
 # ui/public/assets/ by Vite. It is in this list unconditionally, and the slot
-# ships a 1x1 transparent placeholder, so a build with no artwork commissioned
-# yet still configures - the UI detects the placeholder and falls back to its
-# procedural gradient. See docs/artwork-brief.md.
+# falls back to a placeholder, so a build with no artwork commissioned yet
+# still configures - the UI detects it and falls back to its procedural
+# gradient. See docs/artwork-brief.md.
+#
+# WebP, not PNG: the artwork is a soft colour field, which PNG stores
+# losslessly at around 2 MB and WebP stores at 78 KB with no visible
+# difference under the scrim and blur it is drawn through. It is embedded in
+# every install, so 2 MB of bytes nobody can see is 2 MB too many. Every
+# browser engine we target (WebView2, WKWebView, WebKitGTK) decodes WebP.
 set(GNARL_UI_FILES
     "index.html"
     "assets/index.js"
     "assets/index.css"
-    "assets/backdrop.png")
+    "assets/backdrop.webp")
 
 function(gnarl_find_npm out_var)
     find_program(GNARL_NPM_EXECUTABLE NAMES npm npm.cmd)
@@ -37,9 +43,11 @@ function(gnarl_stub_ui)
     file(MAKE_DIRECTORY "${GNARL_UI_DIST}/assets")
     foreach(f IN LISTS GNARL_UI_FILES)
         if (NOT EXISTS "${GNARL_UI_DIST}/${f}")
-            if (f MATCHES "\\.png$")
-                # A 1x1 transparent PNG, so the resource resolves and the UI's
-                # placeholder check leaves the gradient in place.
+            if (f MATCHES "\\.(png|webp|jpg|jpeg|avif)$")
+                # An empty file, so the resource resolves and the UI's
+                # placeholder check leaves the gradient in place. An
+                # undecodable image fires the Image onerror path, which is the
+                # same fallback.
                 file(WRITE "${GNARL_UI_DIST}/${f}" "")
             elseif (f STREQUAL "index.html")
                 file(WRITE "${GNARL_UI_DIST}/${f}"
