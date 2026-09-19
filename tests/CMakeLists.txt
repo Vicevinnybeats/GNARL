@@ -13,6 +13,7 @@ add_executable(GnarlTests
     FxEqTests.cpp
     FxModulationTests.cpp
     FxRackTests.cpp
+    LicenseTests.cpp
     FxReverbLimiterTests.cpp
     FxDelayTests.cpp
     FxFilterTests.cpp

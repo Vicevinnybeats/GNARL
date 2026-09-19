@@ -73,6 +73,10 @@ target_sources(GNARL PRIVATE
     source/params/ParameterRanges.h
     source/params/SettingsReader.cpp
     source/params/SettingsReader.h
+    source/license/LicenseManager.cpp
+    source/license/LicenseManager.h
+    source/license/LicenseState.cpp
+    source/license/LicenseState.h
     source/preset/FactoryBank.cpp
     source/preset/FactoryBank.h
     source/preset/PresetFormat.cpp
