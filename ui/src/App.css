@@ -217,7 +217,19 @@
   align-items: stretch;
   border: var(--gn-hairline) solid var(--gn-border-strong);
   border-radius: var(--gn-radius-sm);
+  /*  overflow:hidden stays, because it is what clips the button group's
+      rounded corners - which is also why the browser popover CANNOT be
+      positioned against this element: an absolutely positioned child of an
+      overflow:hidden containing block is clipped by it. The popover hangs off
+      .gn-preset-group instead. */
   overflow: hidden;
+}
+
+/*  The positioning context for the preset browser. A wrapper rather than
+    .gn-preset itself, for the reason directly above. */
+.gn-preset-group {
+  position: relative;
+  display: flex;
 }
 
 .gn-preset__arrow,
@@ -345,4 +357,18 @@
 .gn-statusbar__meta {
   color: var(--gn-text-faint);
   white-space: nowrap;
+}
+
+/* Edited since it was loaded or saved. */
+.gn-preset__dirty {
+  color: var(--gn-accent);
+  margin-left: 2px;
+}
+
+/*  A SEPARATE mark from the asterisk, because "edited" and "still loading its
+    wavetables" are different states - showing the dirty mark for both would
+    say the patch had been changed when it is merely not finished arriving. */
+.gn-preset__loading {
+  color: var(--gn-text-faint);
+  margin-left: 2px;
 }

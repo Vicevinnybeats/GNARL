@@ -144,6 +144,22 @@ await page.click('.gn-settings__button');
 await page.mouse.move(600, 700);
 await page.waitForTimeout(200);
 
+/*  The preset browser, open. It hangs off the header like the settings
+    popover does, which is exactly the arrangement that went wrong once
+    already - a stacking context nobody declared put the settings panel behind
+    the tab, and this one also has to escape an overflow:hidden ancestor. Both
+    are invisible in code review and obvious here. */
+await page.click('.gn-preset__name');
+await page.waitForTimeout(350);
+await shoot('preset-browser');
+
+await page.click('.gn-browser__row:has-text("Dream Pad")');
+await page.waitForTimeout(250);
+await shoot('preset-browser-selected');
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+
 for (const slot of ['EQ 1', 'Delay', 'Reverb']) {
   await page.click(`.gn-fx-chain__name:text-is("${slot}")`);
   await page.waitForTimeout(150);

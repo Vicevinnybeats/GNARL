@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
+import { PresetBrowser } from './components/PresetBrowser';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { FxTab } from './tabs/FxTab';
@@ -15,6 +16,7 @@ import { useArtwork } from './bridge/artwork';
 import { useParameter } from './bridge/useParameter';
 import { useChoiceParameter } from './bridge/useDiscreteParameter';
 import { THEMES, updateSettings, useSettings } from './settings';
+import { getPresetStatus, type PresetStatus } from './bridge/presets';
 import './App.css';
 
 const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
@@ -26,6 +28,8 @@ export function App() {
   const [tab, setTab] = useState<Tab>('OSC');
   const [status, setStatus] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [preset, setPreset] = useState<PresetStatus | null>(null);
 
   /*  The theme lives in the settings store rather than in component state,
       because it has to survive the plugin window closing - and because it now
@@ -50,6 +54,25 @@ export function App() {
    * Hovering any control writes a one-line description here. This is how a
    * dense synth stays learnable without hiding controls behind menus.
    */
+  /*  Re-read after anything that changes the patch. POLLED only while tables
+      are still generating, not continuously: an idle editor should cost no
+      bridge traffic at all, which is the same rule the modulation frames
+      follow. */
+  const refreshPreset = useCallback(() => {
+    void getPresetStatus().then(setPreset);
+  }, []);
+
+  useEffect(() => {
+    refreshPreset();
+  }, [refreshPreset]);
+
+  useEffect(() => {
+    if (preset?.loadingTables !== true) return undefined;
+
+    const timer = window.setInterval(refreshPreset, 120);
+    return () => window.clearInterval(timer);
+  }, [preset?.loadingTables, refreshPreset]);
+
   const describe = useCallback((text: string) => () => setStatus(text), []);
   const clearStatus = useCallback(() => setStatus(''), []);
 
@@ -58,16 +81,36 @@ export function App() {
       <header className="gn-header">
         <div className="gn-logo">GNARL</div>
 
-        <div className="gn-preset">
+        <div className="gn-preset-group">
+          <div className="gn-preset">
           <button className="gn-preset__arrow" type="button" aria-label="Previous preset">
             ‹
           </button>
-          <button className="gn-preset__name" type="button">
-            Init
+          <button
+            className="gn-preset__name"
+            type="button"
+            aria-expanded={browserOpen}
+            onClick={() => setBrowserOpen((open) => !open)}
+            title={preset?.description || 'Browse presets'}
+          >
+            {preset?.name ?? 'Init'}
+            {/* An asterisk for edited, and a separate mark for a patch whose
+                wavetables are still arriving - those are different states and
+                showing one for both would say the patch is dirty when it is
+                merely not finished loading. */}
+            {preset?.modified && <span className="gn-preset__dirty">*</span>}
+            {preset?.loadingTables && <span className="gn-preset__loading">…</span>}
           </button>
           <button className="gn-preset__arrow" type="button" aria-label="Next preset">
             ›
           </button>
+          </div>
+
+          <PresetBrowser
+            open={browserOpen}
+            onClose={() => setBrowserOpen(false)}
+            onPatchChanged={refreshPreset}
+          />
         </div>
 
         <nav className="gn-tabs" role="tablist">

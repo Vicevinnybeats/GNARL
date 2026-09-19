@@ -305,6 +305,24 @@ voices → mix → filters → FX → output. `renderVoices` chunks internally, 
 host handing over more samples than it declared in `prepareToPlay` cannot
 overrun the mix buffer or force an allocation on the audio thread.
 
+**Two message-side threads is still a data race.** `WavetableLibrary::getTable`
+was a plain check-then-act, which was fine while only the message thread
+generated tables. Phase 5 added a background loader so a preset change does
+not freeze the window, and then *both* threads could see a null, build the
+table, and assign over each other's `unique_ptr`. Worse,
+`getTableIfLoaded` is documented real-time safe and read that same owning
+pointer — reading a `std::unique_ptr` another thread is assigning is undefined
+behaviour however harmless it looks. Generation now takes a lock (message and
+background only, **never** audio) and the audio thread reads a separate array
+of atomics published with release ordering after the table is complete. It
+segfaulted rendering the factory bank, intermittently, and **never once under
+a debugger** — which is what a data race looks like.
+
+That also forced a non-generating publish path: a patch change publishes what
+is already built and asks the loader for the rest, because calling the
+generating version would block on the very lock the loader holds while doing
+that work — reintroducing the stall the loader exists to remove.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.
@@ -439,6 +457,14 @@ whenever you add one.
   with every new one, and would silently miss the next one added. Motion goes
   to `0ms` rather than `transition: none`, so a transition that is in flight
   when the setting changes lands on its target instead of snapping back.
+- **`overflow: hidden` clips an absolutely positioned descendant when it is
+  also the containing block.** The preset browser hangs off the header's
+  preset group, which sets `overflow: hidden` to clip its buttons' rounded
+  corners — so making that element `position: relative` to anchor the popover
+  would have clipped the popover instead. The positioning context is a
+  separate `.gn-preset-group` wrapper. Same family as the stacking-context
+  trap below: a popover in a header has two different ancestors that can eat
+  it, and neither is visible in code review.
 - **A stacking context nobody declared put the settings popover behind the
   tab.** Dream gives `.gn-header` a `backdrop-filter`, and `backdrop-filter`
   **creates a stacking context** — so the popover's `z-index: 40` was trapped
@@ -695,7 +721,7 @@ Consequences of the figure above:
 | 6c | UI: MOD tab — LFO editor, envelopes, matrix, macros | **done** |
 | 3 | LFO engine, envelopes, mod matrix, macros | **done** |
 | 4 | FX chain (14 instances, reorderable) + FX tab | **done** |
-| 5 | Preset system (`.gnarl`), browser, morph, randomize | not started |
+| 5 | Preset system (`.gnarl`), browser, morph, randomize | **done** |
 | 6 | Full UI | not started |
 | 7 | Backend, licensing, subscription | not started |
 | 8 | AI features | not started |

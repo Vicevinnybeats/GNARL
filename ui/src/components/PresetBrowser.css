@@ -1,0 +1,303 @@
+/*  Anchored under the preset name in the header, like the settings popover is
+    under the gear. It opens where it was asked for rather than in the middle
+    of the window. */
+.gn-browser {
+  position: absolute;
+  top: calc(100% + var(--gn-space-2));
+  left: 0;
+  z-index: 40;
+
+  width: 620px;
+  max-width: calc(100vw - var(--gn-space-4));
+
+  background: var(--gn-panel-gradient);
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius);
+  padding: var(--gn-space-2);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-2);
+
+  /* A shadow rather than a glow: this floats above the instrument, and an
+     accent glow would say "active", which a browser is not. */
+  box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.8);
+
+  animation: gn-browser-in var(--gn-motion) var(--gn-ease);
+}
+
+@keyframes gn-browser-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+:root[data-motion='off'] .gn-browser {
+  animation: none;
+}
+
+.gn-browser__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--gn-space-2);
+}
+
+.gn-browser__search,
+.gn-browser__category,
+.gn-browser__side input,
+.gn-browser__side select {
+  appearance: none;
+  background: var(--gn-panel-raised);
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  color: var(--gn-text);
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-value);
+  padding: 4px var(--gn-space-1);
+  min-width: 0;
+  transition:
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-browser__search:hover,
+.gn-browser__category:hover,
+.gn-browser__side input:hover,
+.gn-browser__side select:hover {
+  border-color: var(--gn-accent);
+  box-shadow: var(--gn-glow-hover-soft);
+}
+
+/*  A fixed height, not a proportion. The browser opens over a tab whose own
+    rows are sized to the pixel, and a panel that grows with the bank would
+    push past the window on a big one.
+
+    380 px, set by the SIDE column rather than by the list: save, randomise
+    and morph stack to about 360 px, and at 300 the morph controls were
+    scrolled out of sight - present, reachable, and invisible, which for a
+    feature nobody is looking for is the same as absent. The screenshot is
+    what showed it. */
+.gn-browser__body {
+  display: grid;
+  grid-template-columns: 1fr 248px;
+  gap: var(--gn-space-2);
+  height: 380px;
+  min-height: 0;
+}
+
+/*  The ONE scrolling region in the plugin, and it earns it: a bank is
+    unbounded in a way a tab's controls are not. */
+.gn-browser__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.gn-browser__row {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: var(--gn-space-1);
+  text-align: left;
+
+  background: var(--gn-panel-raised);
+  border: var(--gn-hairline) solid transparent;
+  border-radius: var(--gn-radius-sm);
+  color: var(--gn-text);
+  font-family: inherit;
+  font-size: var(--gn-size-value);
+  padding: 3px var(--gn-space-1);
+  cursor: pointer;
+
+  transition:
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease),
+    color var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-browser__row:hover {
+  border-color: var(--gn-border-strong);
+  box-shadow: var(--gn-glow-hover-soft);
+}
+
+/* Selection is STATE, so its glow survives the hover-glow setting. */
+.gn-browser__row[data-selected='true'] {
+  border-color: var(--gn-accent);
+  box-shadow: var(--gn-glow-accent-soft);
+}
+
+.gn-browser__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gn-browser__meta {
+  font-family: var(--gn-font-mono);
+  font-size: var(--gn-size-label);
+  color: var(--gn-text-faint);
+}
+
+/* A user preset is marked, not the factory ones: the bank is the common case
+   and marking every row in it is noise. */
+.gn-browser__row[data-factory='false'] .gn-browser__meta::after {
+  content: ' ·';
+  color: var(--gn-accent-2);
+}
+
+.gn-browser__mark {
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  color: var(--gn-accent-contrast);
+  background: var(--gn-accent);
+  border-radius: 2px;
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
+.gn-browser__empty {
+  margin: var(--gn-space-2);
+  color: var(--gn-text-faint);
+  font-size: var(--gn-size-value);
+}
+
+.gn-browser__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-2);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.gn-browser__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gn-space-1);
+  padding: var(--gn-space-1);
+  background: var(--gn-panel-raised);
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: var(--gn-radius-sm);
+}
+
+.gn-browser__section h3 {
+  margin: 0;
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: var(--gn-tracking-header);
+  text-transform: uppercase;
+  color: var(--gn-accent);
+  font-weight: 400;
+}
+
+.gn-browser__buttons {
+  display: flex;
+  gap: var(--gn-space-1);
+}
+
+.gn-browser__section button {
+  appearance: none;
+  flex: 1;
+  background: transparent;
+  border: var(--gn-hairline) solid var(--gn-border-strong);
+  border-radius: var(--gn-radius-sm);
+  color: var(--gn-text-dim);
+  font-family: var(--gn-font-display);
+  font-size: var(--gn-size-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px var(--gn-space-1);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    border-color var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-browser__section button:hover:not(:disabled) {
+  color: var(--gn-text);
+  border-color: var(--gn-accent);
+  box-shadow: var(--gn-glow-hover-soft);
+}
+
+.gn-browser__section button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.gn-browser__sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.gn-browser__chip {
+  flex: 0 0 auto !important;
+}
+
+/* Which sections a randomise will touch IS state, so it glows. */
+.gn-browser__chip[data-on='true'] {
+  color: var(--gn-accent) !important;
+  border-color: var(--gn-accent-dim) !important;
+  background: color-mix(in srgb, var(--gn-accent) 8%, transparent);
+}
+
+.gn-browser__slider {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--gn-space-1);
+  font-size: var(--gn-size-label);
+  color: var(--gn-text-dim);
+}
+
+.gn-browser__slider input {
+  appearance: none;
+  height: 3px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--gn-border-strong);
+  cursor: ew-resize;
+}
+
+.gn-browser__slider input::-webkit-slider-thumb {
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gn-accent);
+  cursor: ew-resize;
+}
+
+.gn-browser__slider input:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.gn-browser__value {
+  font-family: var(--gn-font-mono);
+  color: var(--gn-text-faint);
+  min-width: 34px;
+  text-align: right;
+}
+
+.gn-browser__note,
+.gn-browser__status {
+  margin: 0;
+  font-size: var(--gn-size-label);
+  line-height: 1.35;
+  color: var(--gn-text-faint);
+}
+
+.gn-browser__status {
+  color: var(--gn-accent);
+}
