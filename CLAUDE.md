@@ -32,7 +32,8 @@ gnarl/
 ├── backend/                   # Next.js on Vercel (Phase 7, not yet present)
 ├── cmake/                     # Dependencies.cmake, WebUI.cmake
 ├── tests/                     # Catch2 DSP + processor tests
-└── docs/                      # preset format, manual, release process
+└── docs/                      # preset format, manual, release process,
+                               # FX architecture, artwork + website briefs
 ```
 
 **Audio engine** — C++20, JUCE 8 (pinned to tag `8.0.4` via FetchContent),
