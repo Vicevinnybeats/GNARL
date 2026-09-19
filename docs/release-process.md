@@ -193,6 +193,13 @@ unsigned installer warns the customer anyway.
       `LicenseTests` asserts that a build *with* an endpoint never reports
       `unenforced`, so the suite catches the inverse, but nothing can catch
       a release configured without one except this line.
+- [ ] **The test licence key is deleted.** `GNARL-TEST-0000-0000-0000`
+      exists in the `licenses` table for end-to-end checks and is a working
+      key with two activations. See [`backend.md`](backend.md).
+- [ ] The activation endpoint is **rate limited**. It is public and
+      unauthenticated by design (the licence key is the credential), so
+      nothing but key entropy currently stands between it and a brute-force
+      attempt.
 - [ ] Activation endpoint live, and load-tested for a launch-day spike.
 - [ ] **Verify by pulling the network cable, not by reading the code**: audio
       keeps playing, preset saving disables, the banner appears, and the

@@ -43,8 +43,12 @@ CMake ≥ 3.22.
 by Vite to `ui/dist`, embedded with `juce_add_binary_data` and served from the
 binary by `WebUIResourceProvider`. Nothing is written to disk at runtime.
 
-**Backend** — separate Next.js app, Supabase (auth, presets, licenses), Stripe.
-All AI inference is server-side.
+**Backend** — Supabase (Postgres + edge functions) for licensing, Stripe for
+payment, and all AI inference server-side. The licence schema and the
+`activate` endpoint are deployed; see [`docs/backend.md`](docs/backend.md).
+The plugin holds **no Supabase credential** — a key inside a downloadable
+binary is a key shipped to everyone, so the licence key is the credential and
+the endpoint checks it.
 
 ---
 
@@ -873,7 +877,7 @@ Consequences of the figure above:
 | 4 | FX chain (14 instances, reorderable) + FX tab | **done** |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | **done** |
 | 6 | Full UI | not started |
-| 7 | Backend, licensing, subscription | **client done**, server blocked |
+| 7 | Backend, licensing, subscription | client + activation endpoint **done**; Stripe not started |
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
 | 10 | Marketing site (Three.js + GSAP sticky scroll) — see [`docs/website-brief.md`](docs/website-brief.md) | not started |
