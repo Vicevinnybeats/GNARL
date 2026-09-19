@@ -83,6 +83,57 @@ bool PresetManager::load (const juce::File& file)
     return apply (fromText (file.loadFileAsString()));
 }
 
+bool PresetManager::loadByIndex (int index)
+{
+    const auto tree = getTreeByIndex (index);
+
+    return tree.isValid() && apply (tree);
+}
+
+juce::ValueTree PresetManager::getTreeByIndex (int index) const
+{
+    const auto entries = list();
+
+    if (index < 0 || index >= static_cast<int> (entries.size()))
+        return {};
+
+    const auto& entry = entries[static_cast<std::size_t> (index)];
+
+    if (entry.isFactory)
+    {
+        // The factory rows come first and in the same order as the bank, which
+        // list() guarantees by sorting factory-first and stably.
+        for (std::size_t i = 0, seen = 0; i < factory.size(); ++i)
+        {
+            juce::ignoreUnused (seen);
+
+            if (readMetadata (factory[i]).name == entry.metadata.name)
+                return factory[i];
+        }
+
+        return {};
+    }
+
+    return fromText (entry.file.loadFileAsString());
+}
+
+bool PresetManager::remove (int index)
+{
+    const auto entries = list();
+
+    if (index < 0 || index >= static_cast<int> (entries.size()))
+        return false;
+
+    const auto& entry = entries[static_cast<std::size_t> (index)];
+
+    // The bank ships in the binary, so deleting a factory row would be a
+    // button that appears to work and does not.
+    if (entry.isFactory || ! entry.file.existsAsFile())
+        return false;
+
+    return entry.file.deleteFile();
+}
+
 std::vector<Entry> PresetManager::list() const
 {
     std::vector<Entry> entries;

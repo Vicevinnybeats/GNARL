@@ -12,6 +12,8 @@
     sample-accurate.
 */
 #include "PluginProcessor.h"
+#include "preset/FactoryBank.h"
+#include "preset/PresetManager.h"
 #include "params/ParameterChoices.h"
 #include "params/ParameterIDs.h"
 
@@ -133,15 +135,77 @@ namespace
     }
 }
 
+/*  Renders the factory bank.
+
+    THE FACTORY PATCHES ARE CONSTRUCTED FROM WHAT THE DSP DOES, not tuned by
+    ear - code cannot listen. This is how they get judged: every preset in the
+    bank rendered to a .wav, held for a couple of seconds, so a sound designer
+    can hear what the table in FactoryBank.cpp actually produces and move the
+    numbers. Without this the bank is a set of plausible-looking constants. */
+void renderFactoryBank (const juce::File& outputDirectory)
+{
+    GnarlProcessor builder;
+    builder.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
+    builder.prepareToPlay (kSampleRate, kBlockSize);
+
+    const auto bank = preset::FactoryBank::build (
+        builder.getValueTreeState(), builder.getValueTreeState().copyState());
+
+    const auto definitions = preset::FactoryBank::getDefinitions();
+
+    std::printf ("\nRendering the factory bank (%d presets)\n",
+                 static_cast<int> (bank.size()));
+
+    for (std::size_t i = 0; i < bank.size() && i < definitions.size(); ++i)
+    {
+        const auto name = juce::String (definitions[i].name);
+
+        std::printf ("  %s", name.toRawUTF8());
+
+        const auto file = outputDirectory.getChildFile (
+            "gnarl-bank-" + juce::String (static_cast<int> (i) + 1).paddedLeft ('0', 2)
+            + "-" + name.toLowerCase().replaceCharacter (' ', '-') + ".wav");
+
+        const auto tree = bank[i];
+
+        // Three seconds: long enough for the pad's 850 ms attack to arrive and
+        // for a delay or reverb tail to be audible after the note ends.
+        renderToFile (file, 3.0,
+            [&tree] (GnarlProcessor& p) { p.getPresets().apply (tree); },
+            [] (juce::MidiBuffer& midi, int blockIndex) { holdNote (midi, blockIndex, 36); },
+            [] (GnarlProcessor&, double) {});
+    }
+}
+
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
 
-    const auto outputDirectory = argc > 1
-        ? juce::File (juce::String (argv[1]))
-        : juce::File::getCurrentWorkingDirectory();
+    // --bank renders the factory presets instead of the demo clips. Separate
+    // because the demo clips automate parameters by hand from this file and
+    // the bank does not - a factory preset has to sound right without anything
+    // driving it.
+    auto bankOnly = false;
+    juce::File outputDirectory = juce::File::getCurrentWorkingDirectory();
+
+    for (int i = 1; i < argc; ++i)
+    {
+        const juce::String argument { argv[i] };
+
+        if (argument == "--bank")
+            bankOnly = true;
+        else
+            outputDirectory = juce::File (argument);
+    }
 
     outputDirectory.createDirectory();
+
+    if (bankOnly)
+    {
+        renderFactoryBank (outputDirectory);
+        std::printf ("Done.\n");
+        return 0;
+    }
 
     std::printf ("Rendering GNARL demo clips to %s\n",
                  outputDirectory.getFullPathName().toRawUTF8());
@@ -260,6 +324,8 @@ int main (int argc, char* argv[])
             setParameter (p, pid::filter[0].formantY, 1.0f - wobble);
             setParameter (p, pid::osc[0].grainPosJitter, wobble * 0.5f);
         });
+
+    renderFactoryBank (outputDirectory);
 
     std::printf ("Done.\n");
     return 0;

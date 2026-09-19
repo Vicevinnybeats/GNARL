@@ -440,11 +440,24 @@ const Wavetable& WavetableLibrary::getTable (int index)
     const auto clamped = static_cast<std::size_t> (
         juce::jlimit (0, kNumFactoryTables - 1, index));
 
+    /*  LOCKED, because two threads generate here: the message thread on
+        prepareToPlay, and the preset TableLoader's background thread on a
+        patch change. Without it the check-then-act below raced - both threads
+        saw a null, both built the table, and one assigned over the other's
+        unique_ptr while a third reader held the pointer it had just replaced.
+        That segfaulted intermittently while rendering the factory bank and
+        never once under a debugger, which is what a data race looks like. */
+    const juce::ScopedLock lock (generationLock);
+
     if (tables[clamped] == nullptr)
     {
         auto table = std::make_unique<Wavetable>();
         fillTable (static_cast<int> (clamped), *table);
         tables[clamped] = std::move (table);
+
+        // Published AFTER the table is complete, with release ordering: a
+        // reader that sees this pointer sees a finished table behind it.
+        published[clamped].store (tables[clamped].get(), std::memory_order_release);
     }
 
     return *tables[clamped];
@@ -455,7 +468,10 @@ const Wavetable* WavetableLibrary::getTableIfLoaded (int index) const noexcept
     if (index < 0 || index >= kNumFactoryTables)
         return nullptr;
 
-    return tables[static_cast<std::size_t> (index)].get();
+    // The atomic view, not the owning pointer: this is callable from the audio
+    // thread, and reading a unique_ptr another thread is assigning is
+    // undefined behaviour.
+    return published[static_cast<std::size_t> (index)].load (std::memory_order_acquire);
 }
 
 void WavetableLibrary::generateAll()

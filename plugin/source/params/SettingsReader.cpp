@@ -201,6 +201,24 @@ std::array<int, pid::kNumOscillators> SettingsReader::getSelectedTableIndices() 
     return indices;
 }
 
+void SettingsReader::publishLoadedTables()
+{
+    const auto indices = getSelectedTableIndices();
+
+    for (std::size_t i = 0; i < pid::kNumOscillators; ++i)
+    {
+        // Only when it exists. Publishing a null here would silence the
+        // oscillator for as long as the table took to build, which is the
+        // opposite of the point - the audio thread should keep playing what
+        // it has until the new table is ready.
+        if (const auto* table = library.getTableIfLoaded (indices[i]))
+            oscillatorTables[i].store (table);
+    }
+
+    if (const auto* sub = library.getTableIfLoaded (kBasicShapesTableIndex))
+        subTable.store (sub);
+}
+
 void SettingsReader::ensureTablesLoaded()
 {
     // MESSAGE THREAD. Generating a table takes tens of milliseconds, so this

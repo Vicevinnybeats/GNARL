@@ -6,6 +6,8 @@
 #include "dsp/LfoCurve.h"
 #include "dsp/Modulation.h"
 #include "params/ParameterChoices.h"
+#include "preset/PresetMorph.h"
+#include "preset/PresetRandomiser.h"
 #include "params/ParameterIDs.h"
 
 #include <cmath>
@@ -152,7 +154,28 @@ juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
                              { complete (handleSetFxOrder (args)); })
         .withNativeFunction ("gnarlMoveFxSlot",
                              [this] (const juce::Array<juce::var>& args, auto complete)
-                             { complete (handleMoveFxSlot (args)); });
+                             { complete (handleMoveFxSlot (args)); })
+        .withNativeFunction ("gnarlListPresets",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleListPresets (args)); })
+        .withNativeFunction ("gnarlLoadPreset",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleLoadPreset (args)); })
+        .withNativeFunction ("gnarlSavePreset",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleSavePreset (args)); })
+        .withNativeFunction ("gnarlDeletePreset",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleDeletePreset (args)); })
+        .withNativeFunction ("gnarlRandomise",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleRandomise (args)); })
+        .withNativeFunction ("gnarlMorphPresets",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleMorphPresets (args)); })
+        .withNativeFunction ("gnarlPresetStatus",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handlePresetStatus (args)); });
 
     for (auto& relay : sliderRelays)
         options = options.withOptionsFrom (*relay);
@@ -343,6 +366,171 @@ juce::var WebUIEditor::handleMoveFxSlot (const juce::Array<juce::var>& args)
 
     return juce::var (processor.getFxOrder().move (static_cast<std::size_t> (from),
                                                   static_cast<std::size_t> (to)));
+}
+
+juce::var WebUIEditor::handleListPresets (const juce::Array<juce::var>&)
+{
+    auto rows = juce::Array<juce::var>();
+
+    auto index = 0;
+
+    for (const auto& entry : processor.getPresets().list())
+    {
+        auto* row = new juce::DynamicObject();
+
+        row->setProperty ("index", index++);
+        row->setProperty ("name", entry.metadata.name);
+        row->setProperty ("author", entry.metadata.author);
+        row->setProperty ("category", entry.metadata.category);
+        row->setProperty ("description", entry.metadata.description);
+        row->setProperty ("tags", entry.metadata.tags.joinIntoString (","));
+        row->setProperty ("factory", entry.isFactory);
+
+        rows.add (juce::var (row));
+    }
+
+    auto* result = new juce::DynamicObject();
+    result->setProperty ("presets", rows);
+
+    // The categories travel with the list so the browser's filter cannot
+    // offer one the format does not know.
+    auto categoryNames = juce::Array<juce::var>();
+
+    for (const auto& category : preset::categories)
+        categoryNames.add (category);
+
+    result->setProperty ("categories", categoryNames);
+
+    return juce::var (result);
+}
+
+juce::var WebUIEditor::handleLoadPreset (const juce::Array<juce::var>& args)
+{
+    if (args.isEmpty())
+        return juce::var (false);
+
+    return juce::var (processor.getPresets().loadByIndex (static_cast<int> (args[0])));
+}
+
+juce::var WebUIEditor::handleSavePreset (const juce::Array<juce::var>& args)
+{
+    if (args.isEmpty())
+        return juce::var (false);
+
+    const auto* fields = args[0].getDynamicObject();
+
+    if (fields == nullptr)
+        return juce::var (false);
+
+    const auto text = [fields] (const char* key)
+    {
+        return fields->getProperty (key).toString();
+    };
+
+    preset::Metadata metadata;
+    metadata.name = text ("name");
+    metadata.author = text ("author");
+    metadata.category = text ("category");
+    metadata.description = text ("description");
+    metadata.tags = juce::StringArray::fromTokens (text ("tags"), ",", "");
+    metadata.tags.trim();
+    metadata.tags.removeEmptyStrings();
+
+    // An unnamed preset would save as "Untitled" and be impossible to find
+    // again; refusing lets the UI say so instead.
+    if (metadata.name.trim().isEmpty())
+        return juce::var (false);
+
+    return juce::var (processor.getPresets().save (metadata).existsAsFile());
+}
+
+juce::var WebUIEditor::handleDeletePreset (const juce::Array<juce::var>& args)
+{
+    if (args.isEmpty())
+        return juce::var (false);
+
+    return juce::var (processor.getPresets().remove (static_cast<int> (args[0])));
+}
+
+juce::var WebUIEditor::handleRandomise (const juce::Array<juce::var>& args)
+{
+    preset::PresetRandomiser::Options options;
+
+    if (! args.isEmpty())
+    {
+        if (const auto* fields = args[0].getDynamicObject())
+        {
+            const auto flag = [fields] (const char* key, bool fallback)
+            {
+                return fields->hasProperty (key)
+                     ? static_cast<bool> (fields->getProperty (key))
+                     : fallback;
+            };
+
+            if (fields->hasProperty ("amount"))
+                options.amount = static_cast<float> (
+                    static_cast<double> (fields->getProperty ("amount")));
+
+            options.oscillators = flag ("oscillators", true);
+            options.filters = flag ("filters", true);
+            options.envelopes = flag ("envelopes", true);
+            options.lfos = flag ("lfos", true);
+            options.modMatrix = flag ("modMatrix", true);
+            options.fx = flag ("fx", true);
+        }
+    }
+
+    // Seeded from the clock rather than from a fixed value: a randomise that
+    // gives the same patch twice is not one.
+    juce::Random random (juce::Time::getHighResolutionTicks());
+
+    preset::PresetRandomiser::apply (processor.getValueTreeState(), options, random);
+
+    processor.getPresets().markModified();
+
+    return juce::var (true);
+}
+
+juce::var WebUIEditor::handleMorphPresets (const juce::Array<juce::var>& args)
+{
+    if (args.size() < 3)
+        return juce::var (false);
+
+    auto& presets = processor.getPresets();
+
+    const auto a = presets.getTreeByIndex (static_cast<int> (args[0]));
+    const auto b = presets.getTreeByIndex (static_cast<int> (args[1]));
+
+    const auto position = static_cast<float> (static_cast<double> (args[2]));
+
+    const auto morphed = preset::PresetMorph::apply (
+        processor.getValueTreeState(), a, b, position);
+
+    if (morphed)
+        presets.markModified();
+
+    return juce::var (morphed);
+}
+
+juce::var WebUIEditor::handlePresetStatus (const juce::Array<juce::var>&)
+{
+    const auto& presets = processor.getPresets();
+    const auto& metadata = presets.getCurrent();
+
+    auto* status = new juce::DynamicObject();
+
+    status->setProperty ("name", metadata.name);
+    status->setProperty ("author", metadata.author);
+    status->setProperty ("category", metadata.category);
+    status->setProperty ("description", metadata.description);
+    status->setProperty ("tags", metadata.tags.joinIntoString (","));
+    status->setProperty ("modified", presets.isModified());
+
+    // Whether wavetables the patch asked for are still arriving, so the UI can
+    // say the patch is not complete yet rather than pretending it is.
+    status->setProperty ("loadingTables", processor.isLoadingTables());
+
+    return juce::var (status);
 }
 
 void WebUIEditor::timerCallback()

@@ -41,6 +41,19 @@ public:
         thread. Called from prepareToPlay and after a state load. */
     void ensureTablesLoaded();
 
+    /** MESSAGE THREAD. Publishes the tables the parameters select that are
+        ALREADY built, and leaves the previously published pointer alone for
+        any that are not.
+
+        The difference from ensureTablesLoaded matters: that one GENERATES,
+        which means it blocks - on the work itself, and on the lock the preset
+        loader's background thread is holding while it does the same work. On
+        a preset change that is exactly the stall the background loader exists
+        to avoid. So a patch change publishes what exists and the loader
+        publishes the rest when it has built it; until then the audio thread
+        keeps playing the table it already had. */
+    void publishLoadedTables();
+
     /** Table indices the parameters currently select. */
     std::array<int, pid::kNumOscillators> getSelectedTableIndices() const noexcept;
 

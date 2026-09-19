@@ -3,9 +3,11 @@
 
 #include "PluginProcessor.h"
 #include "preset/PresetFormat.h"
+#include "preset/FactoryBank.h"
 #include "preset/PresetManager.h"
 
 #include <cmath>
+#include <set>
 #include <vector>
 
 using namespace gnarl;
@@ -509,4 +511,196 @@ TEST_CASE ("Loading a file that is not there fails quietly", "[preset]")
     CHECK_FALSE (processor->getPresets().load (
         juce::File::getSpecialLocation (juce::File::tempDirectory)
             .getChildFile ("gnarl-does-not-exist.gnarl")));
+}
+
+// ---------------------------------------------------------------------------
+// The factory bank
+// ---------------------------------------------------------------------------
+
+TEST_CASE ("Every factory setting names a parameter that exists", "[preset]")
+{
+    /*  THE FAILURE THIS CATCHES. A setting whose ID has a typo in it is
+        skipped silently by the builder - it cannot assert in a shipping
+        build - so the patch loads, sounds wrong in a way nobody can explain,
+        and nothing anywhere reports a problem. This is the only place that
+        looks. */
+    auto processor = preparedProcessor();
+    auto& state = processor->getValueTreeState();
+
+    for (const auto& definition : preset::FactoryBank::getDefinitions())
+    {
+        for (const auto& setting : definition.settings)
+        {
+            INFO ("preset \"" << definition.name << "\" sets " << setting.id);
+            CHECK (state.getParameter (setting.id) != nullptr);
+        }
+    }
+}
+
+TEST_CASE ("Every factory setting is inside its parameter's range", "[preset]")
+{
+    // A value outside the range is clamped on load, so the patch quietly
+    // becomes a different patch from the one the table describes.
+    auto processor = preparedProcessor();
+    auto& state = processor->getValueTreeState();
+
+    for (const auto& definition : preset::FactoryBank::getDefinitions())
+    {
+        for (const auto& setting : definition.settings)
+        {
+            auto* parameter = dynamic_cast<juce::RangedAudioParameter*> (
+                state.getParameter (setting.id));
+
+            REQUIRE (parameter != nullptr);
+
+            const auto range = parameter->getNormalisableRange();
+
+            INFO ("preset \"" << definition.name << "\" sets " << setting.id
+                  << " to " << setting.value << ", range is "
+                  << range.start << ".." << range.end);
+
+            CHECK (setting.value >= range.start);
+            CHECK (setting.value <= range.end);
+        }
+    }
+}
+
+TEST_CASE ("The factory bank has distinct names and valid categories",
+           "[preset]")
+{
+    std::set<juce::String> names;
+
+    for (const auto& definition : preset::FactoryBank::getDefinitions())
+    {
+        INFO ("preset \"" << definition.name << "\"");
+
+        // A duplicate name means two rows in the browser a user cannot tell
+        // apart, and two files that collide when either is re-saved.
+        CHECK (names.insert (definition.name).second);
+
+        CHECK (juce::String (definition.description).isNotEmpty());
+        CHECK (preset::categories.contains (definition.category));
+    }
+
+    CHECK (names.size() >= 8);
+}
+
+TEST_CASE ("A factory preset is a COMPLETE state", "[preset]")
+{
+    /*  THE BUG THIS PREVENTS, which would have been very hard to diagnose.
+        APVTS creates a node for a parameter missing from a tree it is given,
+        using the value that parameter CURRENTLY holds - so a partial factory
+        preset would inherit the previous patch's values for everything it did
+        not mention, and would sound different depending on what you loaded
+        before it. Tested by loading the same factory preset from two
+        different starting patches and comparing every parameter. */
+    auto processor = preparedProcessor();
+
+    const auto bank = preset::FactoryBank::build (
+        processor->getValueTreeState(), processor->getValueTreeState().copyState());
+
+    REQUIRE (bank.size() == static_cast<std::size_t> (preset::FactoryBank::getCount()));
+
+    const auto& target = bank.front();
+
+    // Starting point one: everything at its minimum.
+    auto fromLow = preparedProcessor();
+
+    for (auto* parameter : fromLow->getParameters())
+        parameter->setValueNotifyingHost (0.0f);
+
+    REQUIRE (fromLow->getPresets().apply (target));
+
+    // Starting point two: everything at its maximum.
+    auto fromHigh = preparedProcessor();
+
+    for (auto* parameter : fromHigh->getParameters())
+        parameter->setValueNotifyingHost (1.0f);
+
+    REQUIRE (fromHigh->getPresets().apply (target));
+
+    for (auto* parameter : fromLow->getParameters())
+    {
+        auto* withID = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter);
+        REQUIRE (withID != nullptr);
+
+        auto* low = fromLow->getValueTreeState().getRawParameterValue (withID->paramID);
+        auto* high = fromHigh->getValueTreeState().getRawParameterValue (withID->paramID);
+
+        REQUIRE (low != nullptr);
+        REQUIRE (high != nullptr);
+
+        INFO ("parameter " << withID->paramID);
+        CHECK (low->load() == high->load());
+    }
+}
+
+TEST_CASE ("Every factory preset makes finite sound", "[preset][audio]")
+{
+    /*  A bank is the first thing anybody hears. A patch in it that is silent,
+        or that NaNs, is worse than a bank with one fewer patch - and neither
+        is something the definitions table can show by being read. */
+    auto builder = preparedProcessor();
+
+    const auto bank = preset::FactoryBank::build (
+        builder->getValueTreeState(), builder->getValueTreeState().copyState());
+
+    const auto definitions = preset::FactoryBank::getDefinitions();
+
+    REQUIRE (bank.size() == definitions.size());
+
+    for (std::size_t i = 0; i < bank.size(); ++i)
+    {
+        auto processor = preparedProcessor();
+
+        INFO ("preset \"" << definitions[i].name << "\"");
+        REQUIRE (processor->getPresets().apply (bank[i]));
+
+        juce::AudioBuffer<float> buffer (2, 256);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 40, 1.0f), 0);
+
+        auto peak = 0.0f;
+
+        // Long enough for a slow attack to arrive: the pad's attack is 850 ms,
+        // so a short render would call it silent.
+        for (int block = 0; block < 260; ++block)
+        {
+            buffer.clear();
+            processor->processBlock (buffer, midi);
+            midi.clear();
+
+            for (int channel = 0; channel < 2; ++channel)
+                for (int i = 0; i < 256; ++i)
+                {
+                    const auto sample = buffer.getReadPointer (channel)[i];
+                    REQUIRE (std::isfinite (sample));
+                    peak = juce::jmax (peak, std::abs (sample));
+                }
+        }
+
+        INFO ("peaks at " << peak);
+        CHECK (peak > 1.0e-3f);
+    }
+}
+
+TEST_CASE ("The factory bank appears in the browser list", "[preset]")
+{
+    auto processor = preparedProcessor();
+
+    const auto entries = processor->getPresets().list();
+
+    REQUIRE (entries.size() >= static_cast<std::size_t> (preset::FactoryBank::getCount()));
+
+    // Factory first, so the bank is what somebody sees on opening the
+    // browser rather than having to scroll past their own patches.
+    CHECK (entries.front().isFactory);
+
+    auto factoryCount = 0;
+
+    for (const auto& entry : entries)
+        if (entry.isFactory)
+            ++factoryCount;
+
+    CHECK (factoryCount == preset::FactoryBank::getCount());
 }

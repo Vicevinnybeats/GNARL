@@ -66,6 +66,20 @@ public:
     /** Loads a file and applies it. False if it will not parse. */
     bool load (const juce::File& file);
 
+    /** Loads by position in `list()`, which is what the browser has: a row
+        index, covering the factory bank and the user's folder uniformly. The
+        UI must not have to care which side of that line a row is on. */
+    bool loadByIndex (int index);
+
+    /** The preset trees for two rows, for morphing between them. An invalid
+        tree for a row that does not exist. */
+    juce::ValueTree getTreeByIndex (int index) const;
+
+    /** Deletes a USER preset. Refuses a factory row: the bank ships in the
+        binary and an update would bring it back anyway, so "deleting" one
+        would be a button that appears to work and does not. */
+    bool remove (int index);
+
     /** Every preset the browser can show: the factory bank first, then the
         user's, each sorted by name. Re-read from disk on every call, because
         a producer who drops a file into the folder expects it to appear. */

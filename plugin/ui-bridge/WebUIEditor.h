@@ -61,6 +61,17 @@ private:
     juce::var handleSetFxOrder (const juce::Array<juce::var>& args);
     juce::var handleMoveFxSlot (const juce::Array<juce::var>& args);
 
+    /** The preset browser. Native functions rather than relays for the same
+        reason as the FX order: none of this is a host parameter. A preset's
+        NAME is not automatable, and a browser row is not a value. */
+    juce::var handleListPresets (const juce::Array<juce::var>& args);
+    juce::var handleLoadPreset (const juce::Array<juce::var>& args);
+    juce::var handleSavePreset (const juce::Array<juce::var>& args);
+    juce::var handleDeletePreset (const juce::Array<juce::var>& args);
+    juce::var handleRandomise (const juce::Array<juce::var>& args);
+    juce::var handleMorphPresets (const juce::Array<juce::var>& args);
+    juce::var handlePresetStatus (const juce::Array<juce::var>& args);
+
     GnarlProcessor& processor;
 
     // Relays must outlive the WebBrowserComponent they were registered with,

@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "preset/FactoryBank.h"
+
 #include <array>
 
 #include "params/ParameterChoices.h"
@@ -31,6 +33,18 @@ GnarlProcessor::GnarlProcessor()
 
     presetManager = std::make_unique<preset::PresetManager> (*this);
 
+    /*  THE DEFAULT STATE, CAPTURED HERE AND NOWHERE ELSE. The factory bank is
+        built by copying this tree and overriding a named set of parameters,
+        and it has to be the state before ANY editing: APVTS creates a node
+        for a parameter missing from a tree it is given, using whatever that
+        parameter currently holds, so a factory preset built from a later
+        snapshot would inherit the user's edits for everything it did not
+        mention - and would then sound different depending on what was loaded
+        before it. The constructor is the only point at which this is
+        guaranteed to be the defaults. */
+    presetManager->setFactoryPresets (
+        preset::FactoryBank::build (apvts, apvts.copyState()));
+
     tableLoader = std::make_unique<preset::TableLoader> (wavetableLibrary);
 
     // Publishing is the message thread's job, so the loader hands back here
@@ -39,7 +53,11 @@ GnarlProcessor::GnarlProcessor()
     {
         if (settingsReader != nullptr)
         {
-            settingsReader->ensureTablesLoaded();
+            // publish, not ensure: the loader has just built them, so there is
+            // nothing left to generate - and calling the generating version
+            // here would take the same lock the loader thread just released,
+            // for no work.
+            settingsReader->publishLoadedTables();
             settingsReader->read (voiceSettings);
         }
     });
@@ -711,6 +729,11 @@ void GnarlProcessor::applyPresetState (const juce::ValueTree& state)
         not it publishes as soon as the loader says it exists. */
     if (tableLoader != nullptr)
     {
+        // Whatever is already built is published immediately, so a patch that
+        // reuses a table the user has already heard is instant; the rest
+        // follows from the loader's thread.
+        settingsReader->publishLoadedTables();
+
         const auto indices = settingsReader->getSelectedTableIndices();
 
         tableLoader->request ({ indices.begin(), indices.end() });
