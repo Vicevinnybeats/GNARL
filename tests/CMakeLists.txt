@@ -116,6 +116,20 @@ if (GNARL_BUILD_DEMO_RENDERER)
     add_executable(GnarlDumpDefaults ${CMAKE_SOURCE_DIR}/tools/dump_parameter_defaults.cpp)
     target_link_libraries(GnarlDumpDefaults PRIVATE GNARL)
 
+    # Reference vectors for the TypeScript mirrors - see
+    # tools/dump_reference_vectors.cpp and ui/scripts/check-reference.mjs.
+    add_executable(GnarlDumpReference ${CMAKE_SOURCE_DIR}/tools/dump_reference_vectors.cpp)
+    target_link_libraries(GnarlDumpReference PRIVATE GNARL)
+
+    if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
+        target_link_libraries(GnarlDumpReference PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
+        juce_link_with_embedded_linux_subprocess(GnarlDumpReference)
+    endif()
+
+    if (WIN32 AND TARGET juce::juce_webview2)
+        target_link_libraries(GnarlDumpReference PRIVATE juce::juce_webview2)
+    endif()
+
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux" OR CMAKE_SYSTEM_NAME MATCHES ".*BSD")
         target_link_libraries(GnarlDumpDefaults PRIVATE juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS)
         juce_link_with_embedded_linux_subprocess(GnarlDumpDefaults)

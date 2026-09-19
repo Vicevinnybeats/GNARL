@@ -517,10 +517,42 @@ whenever you add one.
   `cmake -B build -DGNARL_BUILD_DEMO_RENDERER=ON && cmake --build build
   --target GnarlDumpDefaults && ./build/tests/GnarlDumpDefaults
   ui/src/bridge/parameterDefaults.json`.
-- `ui/src/bridge/useParameter.ts` formats values in TypeScript, which
-  **duplicates the C++ formatters** and has already disagreed with them once.
-  Phase 6 should relay the C++ string over the bridge so there is one
-  formatter.
+- **Duplicated TypeScript is checked against C++ by `npm run check-reference`,
+  and it runs on every build.** Two modules mirror engine logic on purpose —
+  `bridge/formatters.ts` (the formatters in `ParameterRanges.h`) and
+  `bridge/warp.ts` (a port of `WarpProcessor.h`) — because the UI must show
+  what the engine does and the engine's copy is on the audio thread. Asking
+  the plugin to format each value would be a bridge round trip per frame per
+  knob.
+
+  `tools/dump_reference_vectors.cpp` writes `ui/tests/referenceVectors.json`:
+  every parameter at 21 points, every warp mode at 33 phases × 5 amounts.
+  Regenerate it in the same commit as any change to either C++ side.
+
+  **warp.ts claimed in its own header to be checked this way and was not** —
+  no dumper, no reference file, no test, the same shape of false claim as §8's
+  denormal check. Building the check immediately found real drift: the port
+  had `remap` sharing a case with `phaseDistortion` at a bandwidth expansion
+  of 4 where C++ gives **3**, and that number picks the mip level the
+  wavetable display draws from — so the display was band-limiting remap
+  differently from the engine and drawing a shape brighter than the one that
+  plays.
+
+  Two things the check taught about comparing across the boundary: the mirror
+  must round to **float** at every step (`Math.fround`), because JUCE does
+  this arithmetic in float and several formatters branch on an exact
+  threshold — the envelope attack's midpoint is exactly 10 ms, where float and
+  double fall on opposite sides of `value < 0.01f`. And a **phase must be
+  compared circularly**: 0.9999999 and 0 are a ten-millionth apart, not almost
+  a whole cycle, and comparing them linearly reports a difference of 1.0 for
+  two values naming the same point.
+
+  The formatter is **inferred** from the text C++ produced, not named — there
+  is no way to ask a `juce::AudioProcessorParameter` which function it was
+  given. That is safe only because the check verifies all 430 parameters at
+  every sampled point. It caught the first inference immediately: `grain_size`
+  runs to 500 and is formatted in *milliseconds*, so a rule of "max ≥ 1 means
+  seconds" read 500 ms as 500 seconds.
 
 ### The background artwork
 

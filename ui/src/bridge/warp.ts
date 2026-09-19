@@ -118,8 +118,16 @@ export function warpBandwidthExpansion(mode: number, amount: number): number {
     case WARP_QUANTIZE:
       return 1 + a * 12;
     case WARP_PHASE_DISTORTION:
-    case WARP_REMAP:
       return 1 + a * 4;
+
+    /*  NOT the same as phase distortion, though this port had them sharing a
+        case. C++ gives remap 3 rather than 4, and the number picks the
+        wavetable mip level the display draws from - so the display was
+        band-limiting remap differently from the engine and drawing a shape
+        brighter than the one that plays. Found by check-reference.mjs, which
+        is what this file's header comment always claimed existed. */
+    case WARP_REMAP:
+      return 1 + a * 3;
     case WARP_FM:
       return 1 + a * 8;
     case WARP_RING_MOD:

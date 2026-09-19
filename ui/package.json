@@ -7,13 +7,14 @@
     "dev": "vite",
     "predev": "node scripts/sync-juce-frontend.mjs",
     "build": "tsc --noEmit && vite build",
-    "prebuild": "node scripts/sync-juce-frontend.mjs",
+    "prebuild": "node scripts/sync-juce-frontend.mjs && node scripts/check-reference.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "pretypecheck": "node scripts/sync-juce-frontend.mjs",
     "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
     "sync-juce": "node scripts/sync-juce-frontend.mjs",
-    "postinstall": "node scripts/sync-juce-frontend.mjs"
+    "postinstall": "node scripts/sync-juce-frontend.mjs",
+    "check-reference": "node scripts/check-reference.mjs"
   },
   "dependencies": {
     "react": "^19.3.0",
