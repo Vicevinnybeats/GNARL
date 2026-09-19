@@ -1,0 +1,23 @@
+name = "gnarl-licence"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Required by @cloudflare/vitest-pool-workers, which runs the tests inside
+# workerd. The Worker itself uses no Node APIs; this is the test harness's
+# requirement, and it costs nothing at runtime.
+compatibility_flags = ["nodejs_compat"]
+
+# D1 is SQLite at the edge. The licensing workload is a handful of reads per
+# customer per day, which is several orders of magnitude inside the free
+# tier - the database was never the hard part here.
+#
+# Created and populated already; `database_id` is an identifier, not a
+# secret, and committing it is normal. To rebuild it from scratch:
+#   npx wrangler d1 create gnarl && npm run schema:remote
+[[d1_databases]]
+binding = "DB"
+database_name = "gnarl"
+database_id = "09a68a96-d266-48de-aac5-cb87fc8ad7ad"
+
+[observability]
+enabled = true

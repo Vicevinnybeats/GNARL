@@ -194,8 +194,12 @@ unsigned installer warns the customer anyway.
       `unenforced`, so the suite catches the inverse, but nothing can catch
       a release configured without one except this line.
 - [ ] **The test licence key is deleted.** `GNARL-TEST-0000-0000-0000`
-      exists in the `licenses` table for end-to-end checks and is a working
-      key with two activations. See [`backend.md`](backend.md).
+      exists in the D1 `licenses` table for end-to-end checks and is a
+      working key with two activations. See
+      [`../backend/README.md`](../backend/README.md).
+- [ ] **The Supabase `GNARL` project is deleted** and
+      `Vicevinnybeats's Project` is unpaused. Two live copies of the licence
+      policy is one more than can be kept in step.
 - [ ] The activation endpoint is **rate limited**. It is public and
       unauthenticated by design (the licence key is the credential), so
       nothing but key entropy currently stands between it and a brute-force

@@ -29,7 +29,7 @@ gnarl/
 │   ├── src/components/        # knobs, LFO editor, spectrum, mod matrix
 │   ├── src/juce/              # GENERATED — JUCE's JS frontend, do not edit
 │   └── dist/                  # built, embedded into the binary
-├── backend/                   # Next.js on Vercel (Phase 7, not yet present)
+├── backend/                   # Cloudflare Worker + D1 — licence activation
 ├── cmake/                     # Dependencies.cmake, WebUI.cmake
 ├── tests/                     # Catch2 DSP + processor tests
 └── docs/                      # preset format, manual, release process,
@@ -43,12 +43,12 @@ CMake ≥ 3.22.
 by Vite to `ui/dist`, embedded with `juce_add_binary_data` and served from the
 binary by `WebUIResourceProvider`. Nothing is written to disk at runtime.
 
-**Backend** — Supabase (Postgres + edge functions) for licensing, Stripe for
-payment, and all AI inference server-side. The licence schema and the
-`activate` endpoint are deployed; see [`docs/backend.md`](docs/backend.md).
-The plugin holds **no Supabase credential** — a key inside a downloadable
-binary is a key shipped to everyone, so the licence key is the credential and
-the endpoint checks it.
+**Backend** — a **Cloudflare Worker + D1** for licence activation
+([`backend/`](backend/)), Stripe for payment, AI inference server-side. The
+plugin holds **no credential for it** — a key inside a downloadable binary is
+a key shipped to everyone, so the licence key is the credential and the
+endpoint checks it. See [`docs/backend.md`](docs/backend.md) for why not
+Supabase.
 
 ---
 
