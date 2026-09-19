@@ -77,6 +77,22 @@ WebUIEditor::WebUIEditor (GnarlProcessor& p)
 
     startTimerHz (kModulationFrameHz);
 
+    /*  A plugin window left open for a month has to notice. `refreshGrace`
+        recomputes against the clock without contacting anything, so opening
+        the editor cannot cost a network round trip. */
+    processor.getLicense().refreshGrace();
+
+    /*  Pushed on change rather than polled: the licence changes about once
+        an hour at most, and a poll would be traffic for nothing. The
+        listener is cleared in the destructor - it captures `this`, and the
+        manager outlives the editor. */
+    processor.getLicense().setListener ([this] (const license::State&)
+    {
+        if (webView != nullptr)
+            webView->emitEventIfBrowserIsVisible ("gnarlLicense",
+                                                  handleLicenseStatus ({}));
+    });
+
     setResizable (true, true);
     setResizeLimits (kMinWidth, kMinHeight, kMaxWidth, kMaxHeight);
     getConstrainer()->setFixedAspectRatio ((double) kDefaultWidth / (double) kDefaultHeight);
@@ -88,6 +104,14 @@ WebUIEditor::~WebUIEditor()
     // Before the web view goes away: a timer callback that reached a
     // half-destroyed view would be a crash on editor close.
     stopTimer();
+
+    /*  Same reasoning, and the one that is easier to miss: the licence
+        listener captures `this` and the manager belongs to the PROCESSOR, so
+        it outlives every editor. A check completing after the window closed
+        would otherwise call into a destroyed object - and it would do it
+        rarely, on a background thread's schedule, which is the worst kind of
+        crash to chase. */
+    processor.getLicense().setListener (nullptr);
 }
 
 void WebUIEditor::attachSliderParameter (const juce::String& parameterID)
@@ -175,7 +199,10 @@ juce::WebBrowserComponent::Options WebUIEditor::makeWebOptions()
                              { complete (handleMorphPresets (args)); })
         .withNativeFunction ("gnarlPresetStatus",
                              [this] (const juce::Array<juce::var>& args, auto complete)
-                             { complete (handlePresetStatus (args)); });
+                             { complete (handlePresetStatus (args)); })
+        .withNativeFunction ("gnarlLicenseStatus",
+                             [this] (const juce::Array<juce::var>& args, auto complete)
+                             { complete (handleLicenseStatus (args)); });
 
     for (auto& relay : sliderRelays)
         options = options.withOptionsFrom (*relay);
@@ -414,6 +441,17 @@ juce::var WebUIEditor::handleLoadPreset (const juce::Array<juce::var>& args)
 
 juce::var WebUIEditor::handleSavePreset (const juce::Array<juce::var>& args)
 {
+    /*  THE GATE, and the only one that touches the engine. Enforced here
+        rather than only by hiding the button, because a disabled control is
+        a suggestion and this is the feature the licence actually buys.
+
+        Note what this does NOT do: it does not stop a note, mute a voice, or
+        change a sample. The patch the customer is working on is untouched
+        and keeps playing - they simply cannot write it to disk. That is the
+        whole penalty (CLAUDE.md section 9). */
+    if (! processor.getLicense().getState().featuresAllowed())
+        return juce::var (false);
+
     if (args.isEmpty())
         return juce::var (false);
 
@@ -529,6 +567,43 @@ juce::var WebUIEditor::handlePresetStatus (const juce::Array<juce::var>&)
     // Whether wavetables the patch asked for are still arriving, so the UI can
     // say the patch is not complete yet rather than pretending it is.
     status->setProperty ("loadingTables", processor.isLoadingTables());
+
+    return juce::var (status);
+}
+
+juce::var WebUIEditor::handleLicenseStatus (const juce::Array<juce::var>&)
+{
+    const auto state = processor.getLicense().getState();
+
+    auto* status = new juce::DynamicObject();
+
+    /*  The status travels as a NAME, not as the enum's number. An index would
+        be a second frozen ordering to maintain - exactly the argument for
+        mod destinations being ID strings rather than list positions - and
+        appending `unenforced` to the enum would have silently renamed
+        whatever the UI had at that index. */
+    status->setProperty ("status", [&]() -> const char*
+    {
+        switch (state.status)
+        {
+            case license::Status::licensed:   return "licensed";
+            case license::Status::offline:    return "offline";
+            case license::Status::expired:    return "expired";
+            case license::Status::invalid:    return "invalid";
+            case license::Status::unenforced: return "unenforced";
+            case license::Status::unlicensed:
+            default:                          return "unlicensed";
+        }
+    }());
+
+    status->setProperty ("message", state.message);
+    status->setProperty ("graceDaysRemaining", state.graceDaysRemaining);
+    status->setProperty ("featuresAllowed", state.featuresAllowed());
+    status->setProperty ("shouldWarn", state.shouldWarn());
+
+    // Reported so the UI can state it rather than assume it. It is a
+    // compile-time true; if it ever is not, the banner should say so.
+    status->setProperty ("audioAllowed", license::State::audioAllowed());
 
     return juce::var (status);
 }

@@ -152,6 +152,19 @@ void LicenseManager::applyReply (Reply reply)
     state.message = describe (state);
 }
 
+void LicenseManager::setUnenforced()
+{
+    {
+        const juce::ScopedLock lock (stateLock);
+
+        state.status = Status::unenforced;
+        state.graceDaysRemaining = 0;
+        state.message = describe (state);
+    }
+
+    publish();
+}
+
 void LicenseManager::refreshGrace()
 {
     {
@@ -160,6 +173,9 @@ void LicenseManager::refreshGrace()
         // Only the offline states move with the clock. A rejected licence does
         // not become valid by waiting, and a valid one does not expire until
         // the next check says so.
+        // `unenforced` is not a licence state and does not move with the
+        // clock; neither does a rejection, and a valid licence does not
+        // expire until a check says so.
         if (state.status != Status::offline && state.status != Status::expired)
             return;
     }

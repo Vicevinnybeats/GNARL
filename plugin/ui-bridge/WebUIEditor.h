@@ -72,6 +72,11 @@ private:
     juce::var handleMorphPresets (const juce::Array<juce::var>& args);
     juce::var handlePresetStatus (const juce::Array<juce::var>& args);
 
+    /** The licence, for the banner and the feature gates. Read on demand and
+        pushed on change - not polled, because it changes about once an hour
+        at most. */
+    juce::var handleLicenseStatus (const juce::Array<juce::var>& args);
+
     GnarlProcessor& processor;
 
     // Relays must outlive the WebBrowserComponent they were registered with,

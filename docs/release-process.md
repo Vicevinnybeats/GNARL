@@ -151,6 +151,13 @@ unsigned installer warns the customer anyway.
 
 ## 8. Licence server readiness — **BLOCKED on Phase 7**
 
+- [ ] **`GNARL_LICENCE_ENDPOINT` is set at configure time.** Empty is the
+      default and it turns enforcement OFF — the plugin reports
+      `Status::unenforced` and its banner reads "Development build". A
+      release build with this unset is a release build that never checks.
+      `LicenseTests` asserts that a build *with* an endpoint never reports
+      `unenforced`, so the suite catches the inverse, but nothing can catch
+      a release configured without one except this line.
 - [ ] Activation endpoint live, and load-tested for a launch-day spike.
 - [ ] **Verify by pulling the network cable, not by reading the code**: audio
       keeps playing, preset saving disables, the banner appears, and the

@@ -787,6 +787,23 @@ Consequences of the figure above:
   keeps playing; preset saving and AI features disable and a banner appears.
   Offline grace period is 30 days and is not negotiable — a producer in a
   studio with no wifi must not be locked out mid-take.
+- **`Status::unenforced` is not a licence state.** A build with no
+  `GNARL_LICENCE_ENDPOINT` configured does not check, and reports that rather
+  than reporting `licensed` — which would be a lie — or `unlicensed`, which
+  would disable preset saving in a build nobody can activate and prove
+  nothing by it. Features stay on and the banner reads "Development build".
+  Setting the endpoint at configure time is the single change that makes a
+  build enforce, and `docs/release-process.md` has a checklist item for it.
+- The status crosses the bridge as a **name**, not as the enum's index. An
+  index would be a second frozen ordering to maintain — the same argument
+  that makes mod destinations parameter-ID strings — and appending
+  `unenforced` would have silently renamed whatever the UI had at that
+  number.
+- **The banner lives in the status bar row, not in one of its own.** The tab
+  layout's vertical budget is exact (§6), and a notice that can be up for
+  thirty days must not cost the panels 24 px; an overlay would cover controls
+  instead. It takes the help text's slot while it is up, because a hover hint
+  is not the licence.
 - License verification runs on a background thread with a timeout. It never
   touches the audio thread and never blocks the UI.
 
@@ -807,7 +824,7 @@ Consequences of the figure above:
 | 4 | FX chain (14 instances, reorderable) + FX tab | **done** |
 | 5 | Preset system (`.gnarl`), browser, morph, randomize | **done** |
 | 6 | Full UI | not started |
-| 7 | Backend, licensing, subscription | not started |
+| 7 | Backend, licensing, subscription | **client done**, server blocked |
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
 | 10 | Marketing site (Three.js + GSAP sticky scroll) — see [`docs/website-brief.md`](docs/website-brief.md) | not started |

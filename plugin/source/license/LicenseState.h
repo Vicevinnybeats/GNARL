@@ -45,7 +45,25 @@ enum class Status
     expired,
 
     /** The server answered and said no. */
-    invalid
+    invalid,
+
+    /*  ------------------------------------------------------------------
+        NOT A LICENCE STATE. A build with no activation endpoint configured
+        does not CHECK, and this is what "did not check" looks like.
+
+        It exists so that an unconfigured build cannot quietly report
+        `licensed`. Disabling preset saving in a build nobody can activate
+        would make the plugin untestable and prove nothing, so features stay
+        on - but the banner says which build this is, and nothing anywhere
+        can mistake this for a verified licence.
+
+        Appended LAST because these are compared by name in the UI and, more
+        importantly, because appending is the only safe way to change an
+        enumeration something might one day serialise.
+
+        `GNARL_LICENCE_ENDPOINT` is what turns enforcement on; the release
+        checklist has an item for it. */
+    unenforced
 };
 
 /** How many days offline before the grace period ends. NOT NEGOTIABLE (§9). */
@@ -78,7 +96,9 @@ struct State
     /** Saving presets and the AI features are the only things gated. */
     bool featuresAllowed() const noexcept
     {
-        return status == Status::licensed || status == Status::offline;
+        return status == Status::licensed
+            || status == Status::offline
+            || status == Status::unenforced;
     }
 
     /** True when the banner should be up. */

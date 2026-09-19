@@ -1,0 +1,64 @@
+/*  Sits inside the 22 px status-bar row, so it costs the tabs nothing. */
+.gn-license {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 6px;
+  height: 16px;
+  border: var(--gn-hairline) solid var(--gn-border);
+  border-radius: 2px;
+  background: var(--gn-panel);
+  font-size: 10px;
+  color: var(--gn-text);
+}
+
+/*  Colour carries urgency, and only where there is any. `offline` is not a
+    problem - the licence is valid and the machine is offline - so it reads
+    as information; a warning there would train people to ignore the banner.
+    `unenforced` is dashed on purpose: a development build that says nothing
+    is a development build that gets shipped. */
+.gn-license[data-status='offline'] {
+  color: var(--gn-text-dim);
+}
+
+.gn-license[data-status='expired'],
+.gn-license[data-status='invalid'],
+.gn-license[data-status='unlicensed'] {
+  border-color: var(--gn-accent);
+}
+
+.gn-license[data-status='unenforced'] {
+  border-style: dashed;
+  color: var(--gn-text-dim);
+}
+
+.gn-license__text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gn-license__close {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--gn-text-faint);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--gn-motion-fast) var(--gn-ease),
+    background var(--gn-motion-fast) var(--gn-ease),
+    box-shadow var(--gn-motion-fast) var(--gn-ease);
+}
+
+.gn-license__close:hover {
+  color: var(--gn-text);
+  background: var(--gn-panel-raised);
+  box-shadow: var(--gn-glow-hover-soft);
+}

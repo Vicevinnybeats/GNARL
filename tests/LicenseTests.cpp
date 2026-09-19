@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 
+#include "PluginProcessor.h"
 #include "license/LicenseManager.h"
 
 #include <atomic>
@@ -333,4 +334,94 @@ TEST_CASE ("Overlapping checks do not pile up", "[license]")
 
     INFO ("the verifier was called " << calls.load() << " times for ten requests");
     CHECK (calls.load() < 10);
+}
+
+TEST_CASE ("An unconfigured build does not check, and says so", "[license]")
+{
+    /*  `unenforced` is NOT a licence state. It is what a build with no
+        activation endpoint reports, and it exists so that such a build
+        cannot quietly claim to be `licensed`.
+
+        Features stay on, because disabling preset saving in a build nobody
+        can activate would make the plugin untestable and prove nothing. The
+        banner is what carries the difference - and `shouldWarn` is true, so
+        there is always one. */
+    Harness harness;
+
+    harness.manager.setUnenforced();
+
+    CHECK (harness.latest.status == Status::unenforced);
+    CHECK (harness.latest.featuresAllowed());
+    CHECK (harness.latest.audioAllowed());
+
+    // Conspicuous on purpose. A development build that says nothing is a
+    // development build that gets shipped.
+    CHECK (harness.latest.shouldWarn());
+    CHECK (harness.latest.message.containsIgnoreCase ("development build"));
+}
+
+TEST_CASE ("Waiting does not turn an unconfigured build into a licence", "[license]")
+{
+    /*  `refreshGrace` walks the clock forward for the OFFLINE states. An
+        unenforced build is not one of them and must not be dragged into the
+        grace machinery - the grace period is thirty days of a real licence,
+        not thirty days of not having checked. */
+    Harness harness;
+
+    harness.manager.setUnenforced();
+
+    harness.now = harness.now + juce::RelativeTime::days (400);
+    harness.manager.refreshGrace();
+
+    CHECK (harness.latest.status == Status::unenforced);
+    CHECK (harness.latest.featuresAllowed());
+}
+
+TEST_CASE ("A real check overrides an unenforced build", "[license]")
+{
+    // Order must not matter: configuring an endpoint and getting an answer
+    // decides, whatever the build reported before it.
+    Harness harness;
+
+    harness.manager.setUnenforced();
+    REQUIRE (harness.latest.status == Status::unenforced);
+
+    harness.answer (LicenseManager::Reply::rejected);
+    REQUIRE (harness.check (2));
+
+    CHECK (harness.latest.status == Status::invalid);
+    CHECK_FALSE (harness.latest.featuresAllowed());
+
+    // And audio still plays, which is the point of the whole design.
+    CHECK (harness.latest.audioAllowed());
+}
+
+TEST_CASE ("The processor reports a licence without being asked to", "[license]")
+{
+    /*  Integration: the manager is wired into the plugin, not merely
+        present. A policy that is correct and connected to nothing is the
+        failure this whole file would otherwise miss - the same shape as a
+        synth whose every unit test passes and which makes no sound.
+
+        This build has no `GNARL_LICENCE_ENDPOINT`, so the expected answer is
+        `unenforced`: features on, banner up, nothing pretending to be a
+        verified licence. A build WITH an endpoint must never land here, and
+        the assertion below is written so that it fails loudly if one does. */
+    GnarlProcessor processor;
+
+    const auto state = processor.getLicense().getState();
+
+    if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
+    {
+        CHECK (state.status == Status::unenforced);
+        CHECK (state.featuresAllowed());
+        CHECK (state.shouldWarn());
+    }
+    else
+    {
+        CHECK (state.status != Status::unenforced);
+    }
+
+    // Whatever the build, and whatever the answer.
+    CHECK (state.audioAllowed());
 }

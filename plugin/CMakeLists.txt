@@ -96,7 +96,19 @@ target_sources(GNARL PRIVATE
 # PUBLIC so the test target, which links this shared-code target, sees them.
 target_include_directories(GNARL PUBLIC source ui-bridge)
 
+# The activation endpoint. EMPTY BY DEFAULT, and that is what turns licence
+# enforcement OFF: with no server to ask (Phase 7 is not built yet), the
+# plugin reports `Status::unenforced` and says so in its banner rather than
+# quietly claiming to be licensed or disabling preset saving in a build
+# nobody can activate.
+#
+# Setting it is what makes a build enforce, and the release checklist in
+# docs/release-process.md has an item for it.
+set(GNARL_LICENCE_ENDPOINT "" CACHE STRING
+    "Activation endpoint URL. Empty means licence checking is not enforced.")
+
 target_compile_definitions(GNARL PUBLIC
+    GNARL_LICENCE_ENDPOINT="${GNARL_LICENCE_ENDPOINT}"
     JUCE_WEB_BROWSER=1              # the entire UI is a WebBrowserComponent
     # Static linking, so the shipped VST3 has no WebView2Loader.dll sitting
     # next to it for a user to lose. Implies JUCE_USE_WIN_WEBVIEW2=1.

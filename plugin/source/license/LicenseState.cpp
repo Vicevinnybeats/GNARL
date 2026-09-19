@@ -29,6 +29,11 @@ juce::String describe (const State& state)
             return "This licence could not be verified. Audio still works; "
                    "preset saving and the AI features are disabled.";
 
+        case Status::unenforced:
+            /*  Deliberately conspicuous. A development build saying nothing
+                is a development build that gets shipped. */
+            return "Development build - licence checking is not configured.";
+
         case Status::unlicensed:
         default:
             return "Unlicensed - audio works, preset saving and the AI "

@@ -68,6 +68,16 @@ public:
 
     void setClock (Clock clock);
 
+    /** MESSAGE THREAD. Declares that this build does not check at all - see
+        `Status::unenforced`. Publishes immediately, so the banner is right
+        from the first frame rather than after a check that will never come.
+
+        Separate from `setVerifier` on purpose: "there is no server to ask"
+        is a property of the BUILD, and making it a verifier that returns
+        some stand-in reply would put a fake licence decision in the same
+        place real ones live. */
+    void setUnenforced();
+
     /** MESSAGE THREAD. Called when the state changes, for the banner. */
     void setListener (std::function<void (const State&)> listener);
 

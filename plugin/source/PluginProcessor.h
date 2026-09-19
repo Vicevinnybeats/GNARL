@@ -10,6 +10,7 @@
 #include "params/FxOrderBridge.h"
 #include "params/ModStateBridge.h"
 #include "preset/PresetManager.h"
+#include "license/LicenseManager.h"
 #include "preset/TableLoader.h"
 #include "params/SettingsReader.h"
 
@@ -152,6 +153,15 @@ public:
 
     /** MESSAGE THREAD. */
     MeterSnapshot getMeterSnapshot() const noexcept;
+
+    /** The licence, for the banner and the feature gates.
+
+        NOT on the audio thread, ever. `processBlock` does not read this and
+        never will - `State::audioAllowed()` is a compile-time `true` so that
+        anyone looking for the path that silences the plugin finds the
+        promise instead of a bug. */
+    license::LicenseManager& getLicense() noexcept { return licensing; }
+    const license::LicenseManager& getLicense() const noexcept { return licensing; }
 
 private:
     /** Shared by the float and double processBlock overloads. */
@@ -358,6 +368,12 @@ private:
         the log runs once per UI frame on the message thread instead of once
         per block on the audio thread. */
     std::array<std::atomic<float>, 2> outputPeak { { { 0.0f }, { 0.0f } } };
+
+    /*  Declared BEFORE the members whose destruction could outlive a
+        callback it makes - it joins its worker and cancels its pending
+        AsyncUpdater in its own destructor, and members are destroyed in
+        reverse declaration order. */
+    license::LicenseManager licensing;
 
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;

@@ -5,6 +5,8 @@ import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
+import { LicenseBanner } from './components/LicenseBanner';
+import { useLicense } from './bridge/license';
 import { METER_FLOOR_DB, meterPosition, type ModulationFrame } from './bridge/modulationFrame';
 import { FxTab } from './tabs/FxTab';
 import { ModTab } from './tabs/ModTab';
@@ -40,6 +42,17 @@ export function App() {
 
   const [tab, setTab] = useState<Tab>('OSC');
   const [status, setStatus] = useState('');
+
+  const license = useLicense();
+
+  // Keyed by the MESSAGE, not by a boolean: dismissing "24 days left" should
+  // not also dismiss "the grace period has run out".
+  const [dismissedNotice, setDismissedNotice] = useState('');
+
+  const licenseNotice =
+    license !== null && license.shouldWarn && license.message !== dismissedNotice
+      ? license
+      : null;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [browserOpen, setBrowserOpen] = useState(false);
   const [preset, setPreset] = useState<PresetStatus | null>(null);
@@ -237,7 +250,16 @@ export function App() {
       </main>
 
       <footer className="gn-statusbar">
-        <span className="gn-statusbar__text">{status}</span>
+        {/*  The licence notice takes the status bar's text slot while it is
+             up. The help text is a hover hint and the licence is the state
+             of the product, so when only one of them fits, it is not the
+             hint. Dismissing gives the hint its slot back; the notice
+             returns if the licence says something new. */}
+        {licenseNotice !== null ? (
+          <LicenseBanner state={licenseNotice} onDismiss={() => setDismissedNotice(licenseNotice.message)} />
+        ) : (
+          <span className="gn-statusbar__text">{status}</span>
+        )}
         <span className="gn-statusbar__meta">
           {info.isMock ? 'browser preview · no audio engine' : `v${info.pluginVersion} · ${info.platform}`}
         </span>

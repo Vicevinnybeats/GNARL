@@ -45,6 +45,31 @@ GnarlProcessor::GnarlProcessor()
     presetManager->setFactoryPresets (
         preset::FactoryBank::build (apvts, apvts.copyState()));
 
+    /*  LICENSING. Note what is NOT here: nothing in the audio path, and no
+        call that could block the constructor. The host instantiates plugins
+        on the message thread, often many at once while opening a project,
+        and a constructor that waited on a network round trip would show up
+        as a DAW that hangs on load.
+
+        `GNARL_LICENCE_ENDPOINT` empty means Phase 7's server does not exist
+        yet, so there is nothing to ask. The plugin then reports
+        `unenforced` - not `licensed`, which would be a lie, and not
+        `unlicensed`, which would disable preset saving in a build nobody
+        can activate and prove nothing by it. The banner says which build it
+        is. Configuring an endpoint is the single change that makes a build
+        enforce. */
+    if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
+    {
+        licensing.setVerifier ([] { return license::LicenseManager::Reply::unreachable; });
+        licensing.setUnenforced();
+    }
+    else
+    {
+        // Phase 7 replaces this with the real HTTPS call. It runs on the
+        // manager's background thread, under its own timeout.
+        licensing.verify();
+    }
+
     tableLoader = std::make_unique<preset::TableLoader> (wavetableLibrary);
 
     // Publishing is the message thread's job, so the loader hands back here
