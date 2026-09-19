@@ -275,8 +275,18 @@ needed in the hot path. The consequence worth remembering is the other one: an
 idle effect **cannot** be detected by its output reaching exactly zero,
 because it never does. `FxEqTests` measures the class of the idle tail rather
 than asserting exact silence, which is the assertion that was actually true.
-Note also that the suite has no denormal check for any other DSP unit, despite
-§8 below claiming every unit gets one.
+
+`tests/DenormalTests.cpp` now does this for every DSP unit that can idle — the
+four voice filters, all twelve voice filter types, the OTT, and every effect
+with decaying state. It asserts three things, and the two it does *not* assert
+are the interesting part: not "reaches zero" (a TPT filter's fixed point is
+normal, not zero), and not "below an absolute floor" (a delay at 0.85 feedback
+sits at ~1e-7 after five seconds, decaying perfectly — asserting 1e-20 would
+be asserting the feedback setting). What holds is: no sample in the subnormal
+range under `ScopedNoDenormals`, a tail that is **not increasing**, and a tail
+below −80 dB. "Not increasing" rather than "decreasing" because the FX filter
+reaches its fixed point before the measurement window opens and the phaser
+arrives at exactly zero — both correct, both failing a strict inequality.
 
 **`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
 building several differently-sized frames from one harmonic series gives each a
@@ -697,8 +707,12 @@ Consequences of the figure above:
   exercise the same build of the processor the plugin ships, with the real
   `JucePlugin_*` defines.
 - Every DSP unit gets: a finite-output test across all sample rates and block
-  sizes in `kSampleRates`/`kBlockSizes`, a denormal check, and a parameter
-  sweep asserting no NaN.
+  sizes in `kSampleRates`/`kBlockSizes`, a denormal check
+  (`tests/DenormalTests.cpp` — see §3 for what it does and does not assert),
+  and a parameter sweep asserting no NaN. This line claimed to be true for
+  some time while exactly one unit had a denormal check; if you add a DSP unit
+  that holds decaying state, add it to that file rather than letting the claim
+  drift again.
 - Nonlinear stages additionally get an aliasing measurement (assert below
   −60 dBFS at 4× oversampling) and a THD+N measurement.
 - **Use a Blackman-Harris window for any spectral assertion.** A Hann
