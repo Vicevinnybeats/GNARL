@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { IDLE_FRAME, type ModulationFrame } from './modulationFrame';
+import { IDLE_FRAME, METER_FLOOR_DB, type ModulationFrame } from './modulationFrame';
 import { getPluginInfo } from './pluginInfo';
 import { subscribeToPreviewFrames } from './previewEngine';
 
@@ -46,6 +46,12 @@ function parseFrame(payload: unknown): ModulationFrame | null {
     lfoPhases: numbers(record.lfoPhases, 4),
     tablePositions: numbers(record.tablePositions, 2),
     cutoffHz: numbers(record.cutoffHz, 2),
+    // Missing meters fall back to the FLOOR, not to `numbers`' zero: 0 dBFS
+    // is full scale, so the obvious default paints both needles pinned.
+    outputDb: Array.isArray(record.outputDb)
+      ? numbers(record.outputDb, 2)
+      : [METER_FLOOR_DB, METER_FLOOR_DB],
+    ottGainDb: numbers(record.ottGainDb, 3),
     voices: Number(record.voices) || 0,
     playing: record.playing === true,
   };

@@ -568,6 +568,30 @@ void WebUIEditor::timerCallback()
     root->setProperty ("voices", processor.getSoundingVoiceCount());
     root->setProperty ("playing", snapshot.hasVoice);
 
+    /*  Meters ride the same frame rather than getting a timer of their own.
+        One event per frame is one bridge crossing per frame; two would be
+        two, for a needle nobody can see move faster than this one anyway.
+
+        And they ride it in dB, which is also what makes the identical-frame
+        drop below keep working: the audio thread snaps its decaying peak to
+        exactly zero at -80 dBFS, so a silent plugin produces the same floored
+        reading every frame instead of an ever-smaller number that rounds
+        differently forever. */
+    const auto meters = processor.getMeterSnapshot();
+
+    auto outputDb = juce::Array<juce::var>();
+
+    for (const auto value : meters.outputDb)
+        outputDb.add (rounded (value));
+
+    auto ottGainDb = juce::Array<juce::var>();
+
+    for (const auto value : meters.ottGainDb)
+        ottGainDb.add (rounded (value));
+
+    root->setProperty ("outputDb", outputDb);
+    root->setProperty ("ottGainDb", ottGainDb);
+
     const juce::var frame (root);
 
     // Identical frames are dropped. An idle editor - no notes, nothing

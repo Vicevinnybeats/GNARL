@@ -123,6 +123,36 @@ public:
     /** MESSAGE THREAD. */
     ModulationSnapshot getModulationSnapshot() const noexcept;
 
+    /** Everything below this reads as silence. Also the bottom of the UI's
+        meter scale, so the two agree by construction rather than by two
+        people picking the same number twice. */
+    static constexpr float kMeterFloorDb = -60.0f;
+
+    /** What the output and gain-reduction meters draw.
+
+        Same message-thread-reads-while-audio-writes trade as the modulation
+        snapshot above: a stale meter frame is invisible, a lock in the render
+        path is not. */
+    struct MeterSnapshot
+    {
+        /** Post-master output, dBFS, per channel, floored at kMeterFloorDb. */
+        std::array<float, 2> outputDb { kMeterFloorDb, kMeterFloorDb };
+
+        /** The OTT's gain change PER BAND, in dB and signed: negative is
+            downward compression, positive the upward lift.
+
+            Per band rather than one combined figure, because the FX tab
+            draws one meter per band - and because the three routinely move
+            in opposite directions at once. Lifting the quiet top while
+            holding the loud low down is the whole point of an OTT, and any
+            average or sum of those reads "nothing is happening" at exactly
+            the moment the most is. */
+        std::array<float, dsp::OttCompressor::kNumBands> ottGainDb {};
+    };
+
+    /** MESSAGE THREAD. */
+    MeterSnapshot getMeterSnapshot() const noexcept;
+
 private:
     /** Shared by the float and double processBlock overloads. */
     template <typename SampleType>
@@ -141,6 +171,13 @@ private:
         patch - so this is checked every block rather than only in
         prepareToPlay. */
     void updateReportedLatency();
+
+    /** AUDIO THREAD. Folds this block's peak into the decaying meter state.
+        Templated for the same reason runFxRack is: the host may hand over
+        doubles. */
+    template <typename SampleType>
+    void updateOutputMeter (const juce::AudioBuffer<SampleType>& buffer,
+                            int numSamples) noexcept;
 
     /** Runs the FX rack over the output buffer.
 
@@ -278,6 +315,49 @@ private:
     float modWheelValue = 0.0f;
     float pitchBendValue = 0.5f;
     float aftertouchValue = 0.0f;
+
+    /*  METERING.
+
+        The audio thread holds a DECAYING peak rather than the last block's
+        peak, and that is the whole design. The UI samples at 60 Hz while the
+        host calls back at (48 kHz / 256) 187 Hz, so a "last block" meter
+        shows whichever two blocks in three the timer happened to land on -
+        the needle would then be a function of the BLOCK SIZE rather than of
+        the signal, which is the same mistake as the filter-per-channel and
+        shared-LFO bugs in CLAUDE.md section 3, just where it is merely ugly
+        instead of audible.
+
+        An exponential decay composes exactly (exp(-a)exp(-b) = exp(-(a+b))),
+        so the reading after a given number of seconds is the same however the
+        host chunks them. */
+
+    /** 20 dB per second, which is close to an IEC PPM's fallback and reads as
+        a meter rather than as a light switch. */
+    static constexpr float kMeterReleaseDbPerSecond = 20.0f;
+
+    /** Below this the peak snaps to exactly zero instead of approaching it
+        forever. Not a denormal guard - it is so that an idle editor produces
+        BYTE-IDENTICAL frames again and the emitter's identical-frame drop
+        keeps working. Without it a silent plugin pushes 60 messages a second
+        for as long as its window is open, chasing a number that never
+        arrives. Same shape as the TPT fixed point in section 3: decaying
+        state does not reach zero on its own. */
+    static constexpr float kMeterSilence = 1.0e-4f;   // -80 dBFS
+
+    /** Nepers of decay per SAMPLE, not per block.
+
+        Per block would have to use the block size prepareToPlay was given,
+        and a host is free to send shorter blocks than it declared - which
+        would make the fall time a function of the block layout, the very
+        thing the decaying peak exists to remove. One `std::exp` per block
+        over the block's actual length is exact and costs nothing next to
+        rendering it. */
+    float meterDecayPerSample = 0.0f;
+
+    /** Linear, not dB: the audio thread only takes a max and a multiply, and
+        the log runs once per UI frame on the message thread instead of once
+        per block on the audio thread. */
+    std::array<std::atomic<float>, 2> outputPeak { { { 0.0f }, { 0.0f } } };
 
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;

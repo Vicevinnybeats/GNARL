@@ -39,3 +39,16 @@
   bottom: 0;
   background: var(--gn-accent);
 }
+
+/* Two channels under one label, for the header's stereo output meter. The
+   label belongs to the pair rather than to either bar. */
+.gn-meter-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 56px;
+}
+
+.gn-meter-stack .gn-meter {
+  gap: 0;
+}

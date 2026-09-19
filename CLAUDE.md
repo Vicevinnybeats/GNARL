@@ -333,6 +333,43 @@ is already built and asks the loader for the rest, because calling the
 generating version would block on the very lock the loader holds while doing
 that work — reintroducing the stall the loader exists to remove.
 
+**A meter that holds the last block's peak is a meter that reads the block
+size.** The UI samples at 60 Hz; a host at 48 kHz / 256 calls back at 187 Hz.
+So "peak of the most recent block" shows whichever two blocks in three the
+timer happened to land on, and the needle becomes a function of the BLOCK
+LAYOUT rather than of the signal — the same family as the per-channel filter
+and the shared LFO above, in the one place where it is merely ugly instead of
+audible. The audio thread therefore holds a *decaying* peak, falling at
+20 dB/s, and an exponential composes exactly (`exp(-a)exp(-b) = exp(-(a+b))`)
+so the reading after a given number of seconds is the same however the host
+chunks them — **as long as the decay is raised to the block's ACTUAL length**.
+Computing it from the block size `prepareToPlay` was handed reintroduces the
+whole bug for a host that declares 512 and sends 64, which is what the first
+version did.
+
+And it snaps to exactly zero below −80 dBFS. Not a denormal guard (see the TPT
+fixed point above — decaying state does not reach zero on its own): it is so
+that a silent plugin produces byte-identical frames and `WebUIEditor`'s
+identical-frame drop keeps working. Without it an empty room costs 60 bridge
+messages a second for as long as the window is open.
+
+**Testing that needed three tries, and the first two passed.** Rendering a
+sustained note in two block sizes and comparing the readings passes with the
+bug deliberately put back, because a note that is still sounding makes the
+block's own peak larger than anything the decay did to the held value — a test
+of the note, not of the ballistics. The decay has to be measured **in
+isolation**, under bypass, from an identical starting level. Then the window
+has to be a whole number of *both* block sizes, or the render loop's own
+overshoot shows up as 0.05 dB of "difference". Only then is the residual the
+arithmetic itself: 8e-6 dB, from composing 93 float multiplications against
+744, which is why the assertion is a thousandth of a dB and **not** bit-exact
+as it first claimed. Reintroducing the bug moves it 23.7 dB. `MeterTests.cpp`.
+
+The gain-reduction meter is reported **per band**. An OTT lifts the quiet top
+while holding the loud low down, so the three bands routinely pull in opposite
+directions and any average or sum of them reads "nothing is happening" at
+exactly the moment the most is.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.

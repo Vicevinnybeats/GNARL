@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Knob } from '../components/Knob';
 import { Meter } from '../components/Meter';
+import { gainReductionPosition, type ModulationFrame } from '../bridge/modulationFrame';
+
+/*  One reader per band, built once. Inline arrows would give the meters a
+    new identity on every render and restart their animation loops. */
+const GAIN_REDUCTION_READERS: Array<(frame: ModulationFrame) => number> = [0, 1, 2].map(
+  (band) => (frame: ModulationFrame) => gainReductionPosition(frame.ottGainDb[band] ?? 0),
+);
 import { Panel, Row } from '../components/Panel';
 import { Toggle } from '../components/Toggle';
 import { OTT } from '../bridge/parameterIds';
@@ -41,6 +48,8 @@ function OttPanel() {
   const midDown = useParameter(OTT.midDownward);
   const highDown = useParameter(OTT.highDownward);
 
+  // Order matters: the index into this array is the band index the engine
+  // reports gain reduction under (OttCompressor's { low, mid, high }).
   const bands = [
     { name: 'Low', gain: lowGain, up: lowUp, down: lowDown },
     { name: 'Mid', gain: midGain, up: midUp, down: midDown },
@@ -72,10 +81,10 @@ function OttPanel() {
       </Row>
 
       <div className="gn-ott__bands">
-        {bands.map((band) => (
+        {bands.map((band, index) => (
           <div className="gn-ott__band" key={band.name}>
             <span className="gn-ott__band-name">{band.name}</span>
-            <Meter label="GR" value={0} bipolar />
+            <Meter label="GR" read={GAIN_REDUCTION_READERS[index]} bipolar />
             <Row gap="tight">
               <Knob label="Up" value={band.up.normalised} readout={band.up.text} onChange={band.up.setNormalised} onGestureStart={band.up.beginGesture} onGestureEnd={band.up.endGesture} size={34} />
               <Knob label="Down" value={band.down.normalised} readout={band.down.text} onChange={band.down.setNormalised} onGestureStart={band.down.beginGesture} onGestureEnd={band.down.endGesture} size={34} />

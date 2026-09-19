@@ -154,6 +154,23 @@ void GnarlProcessor::prepareToPlay (double sampleRate, int maximumExpectedSample
                           maximumExpectedSamplesPerBlock
                               * dsp::VoiceOversampler::kMaxRatio);
 
+    /*  Meter ballistics, as a per-sample rate; updateOutputMeter raises it
+        to the block's actual length.
+
+        prepareToPlay can be called mid-session, so the peaks are reset here
+        too - a rate change must not leave a needle parked. */
+    {
+        // dB per second into nepers per sample. 8.6859 dB is one neper of
+        // amplitude (20 / ln 10).
+        constexpr auto kDbPerNeper = 8.685889638f;
+
+        meterDecayPerSample = (kMeterReleaseDbPerSecond / kDbPerNeper)
+                            / static_cast<float> (juce::jmax (1.0, sampleRate));
+    }
+
+    for (auto& peak : outputPeak)
+        peak.store (0.0f, std::memory_order_relaxed);
+
     // Force the latency to be recomputed and reported.
     activeOversamplingFactor = dsp::VoiceOversampler::Factor::count;
     updateOversampling();
@@ -595,6 +612,12 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
     {
         buffer.clear();
         masterGain.snapToTarget();
+
+        // The meter still gets its block. Returning early without it would
+        // freeze the needle at whatever it read the instant bypass was
+        // pressed, and leave it there - a meter showing signal on a silent
+        // plugin, for as long as the window stays open.
+        updateOutputMeter (buffer, numSamples);
         return;
     }
 
@@ -643,6 +666,72 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
 
         buffer.applyGain (static_cast<SampleType> (gain));
     }
+
+    // AFTER the master gain, so the meter reads what actually leaves the
+    // plugin. A meter taken before the fader tells the user about a signal
+    // nobody can hear.
+    updateOutputMeter (buffer, numSamples);
+}
+
+template <typename SampleType>
+void GnarlProcessor::updateOutputMeter (const juce::AudioBuffer<SampleType>& buffer,
+                                        int numSamples) noexcept
+{
+    if (numSamples <= 0)
+        return;
+
+    const auto channels = buffer.getNumChannels();
+
+    /*  Over this block's ACTUAL length. An exponential composes exactly -
+        exp(-a)exp(-b) = exp(-(a+b)) - so the reading after a given number of
+        seconds is the same however the host chose to chunk them, which is
+        the whole property being bought here. */
+    const auto decay = std::exp (-meterDecayPerSample * static_cast<float> (numSamples));
+
+    for (std::size_t channel = 0; channel < outputPeak.size(); ++channel)
+    {
+        auto blockPeak = 0.0f;
+
+        // A mono host gets the one channel on both meters rather than a dead
+        // right needle.
+        const auto source = juce::jmin (static_cast<int> (channel), channels - 1);
+
+        if (source >= 0)
+        {
+            const auto* data = buffer.getReadPointer (source);
+
+            for (int i = 0; i < numSamples; ++i)
+                blockPeak = juce::jmax (blockPeak,
+                                        std::abs (static_cast<float> (data[i])));
+        }
+
+        // relaxed: nothing else is published alongside this, so there is no
+        // ordering for an acquire/release pair to establish. The meter is one
+        // independent float per channel.
+        const auto decayed = outputPeak[channel].load (std::memory_order_relaxed)
+                           * decay;
+
+        auto held = juce::jmax (blockPeak, decayed);
+
+        if (held < kMeterSilence)
+            held = 0.0f;
+
+        outputPeak[channel].store (held, std::memory_order_relaxed);
+    }
+}
+
+GnarlProcessor::MeterSnapshot GnarlProcessor::getMeterSnapshot() const noexcept
+{
+    MeterSnapshot snapshot;
+
+    for (std::size_t channel = 0; channel < outputPeak.size(); ++channel)
+        snapshot.outputDb[channel] = juce::Decibels::gainToDecibels (
+            outputPeak[channel].load (std::memory_order_relaxed), kMeterFloorDb);
+
+    for (int band = 0; band < dsp::OttCompressor::kNumBands; ++band)
+        snapshot.ottGainDb[static_cast<std::size_t> (band)] = ott.getBandGainDb (band);
+
+    return snapshot;
 }
 
 void GnarlProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)

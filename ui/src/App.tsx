@@ -5,6 +5,7 @@ import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
+import { METER_FLOOR_DB, meterPosition, type ModulationFrame } from './bridge/modulationFrame';
 import { FxTab } from './tabs/FxTab';
 import { ModTab } from './tabs/ModTab';
 import { OscTab } from './tabs/OscTab';
@@ -21,6 +22,18 @@ import './App.css';
 
 const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
 type Tab = (typeof TABS)[number];
+
+/*  Module scope on purpose. An arrow written inline in the JSX is a new
+    function on every render, and the meter keys its animation loop on that
+    identity - so the loop would be torn down and restarted every time
+    anything in the header changed. */
+// Defaulted to the FLOOR and not to zero: 0 dBFS is full scale, so the
+// obvious `?? 0` pins the needle whenever the array is short.
+const readOutputLeft = (frame: ModulationFrame) =>
+  meterPosition(frame.outputDb[0] ?? METER_FLOOR_DB);
+const readOutputRight = (frame: ModulationFrame) =>
+  meterPosition(frame.outputDb[1] ?? METER_FLOOR_DB);
+
 
 export function App() {
   const info = getPluginInfo();
@@ -148,7 +161,15 @@ export function App() {
             <Dropdown label="OS" value={oversampling.index} options={OVERSAMPLING} onChange={oversampling.setIndex} />
           </div>
 
-          <Meter label="Out" value={0.0} />
+          <div
+            className="gn-meter-stack"
+            onMouseEnter={describe('Output level, post-master, in dBFS. Falls at 20 dB per second so the needle reads as a level rather than as a flicker.')}
+            onMouseLeave={clearStatus}
+          >
+            <span className="gn-meter__label">Out</span>
+            <Meter read={readOutputLeft} />
+            <Meter read={readOutputRight} />
+          </div>
 
           <div
             onMouseEnter={describe('Master output level. Sits after OTT, so riding it does not change how hard the compressor works.')}

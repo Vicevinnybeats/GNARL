@@ -3,7 +3,7 @@ import { evaluateBuiltInShape, evaluateCurve, type CurvePoint } from '../dsp/lfo
 import { getFrequencyHz, getGridFraction } from '../dsp/syncRates';
 import { FILTER, LFO, MOD, OSC } from './parameterIds';
 import { fetchModState } from './modState';
-import type { ModulationFrame } from './modulationFrame';
+import { METER_FLOOR_DB, type ModulationFrame } from './modulationFrame';
 
 /**
  * A simulation of the engine's modulation, for the BROWSER PREVIEW ONLY.
@@ -185,6 +185,12 @@ function buildFrame(seconds: number): ModulationFrame {
     lfoPhases,
     tablePositions,
     cutoffHz,
+    // The preview has no engine, so there is no level to report. Parked at
+    // the floor rather than faked: a meter that moves without a signal
+    // behind it is the one thing a meter must never do, and a screenshot
+    // taken here would be showing a number nothing produced.
+    outputDb: [METER_FLOOR_DB, METER_FLOOR_DB],
+    ottGainDb: [0, 0, 0],
     voices: 0,
     playing: true,
   };
