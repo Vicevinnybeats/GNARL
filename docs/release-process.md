@@ -109,21 +109,56 @@ shipping platform:
 
 ## 5. Sign and notarise — **BLOCKED**
 
-Neither platform will let a customer run an unsigned plugin without a warning
-most people will not click through.
+### What is actually required, and what only buys a better first impression
 
-**macOS** — needs an Apple Developer Program membership ($99/yr), a
-*Developer ID Application* certificate and an app-specific password for
-notarisation. Then `codesign` every bundle, `notarytool submit --wait`, and
-`stapler staple`.
+These are different, and an earlier version of this file ran them together
+by saying EV "is required". It is not.
 
-**Windows** — needs an OV or EV code-signing certificate from a CA. EV is
-required to avoid a SmartScreen warning on a new publisher. Then `signtool`
-over the VST3 and the installer.
+**macOS — signing is required to RUN, notarisation to run without a fight.**
+On Apple Silicon all arm64 code must carry at least an ad-hoc signature or
+the loader refuses it, and ad-hoc signing is free. What costs $99/yr is the
+Apple Developer Program, which gets a *Developer ID Application* certificate
+and the ability to notarise.
 
-> **Needed from the project owner:** the Apple Developer membership and the
-> Windows certificate. Nothing else in this section can start without them,
-> and the Windows EV certificate in particular can take days to issue.
+Without notarisation, anything downloaded through a browser carries a
+quarantine flag and macOS blocks it. For a plugin that usually presents as
+the DAW simply not listing it — no dialog, no error, and a customer who
+concludes the product is broken. The workaround is asking them to run
+`xattr -dr com.apple.quarantine` in Terminal, which for a paid product is a
+refund generator.
+
+So: shippable without paying, at a real cost in support load and returns.
+
+**Windows — no certificate is required to run anything.** A certificate
+buys the absence of a SmartScreen warning.
+
+Note *where* that warning appears: SmartScreen gates executables the user
+launches, so the exposure is the **installer** and the **Standalone**. A
+VST3 loaded by a DAW is a DLL the host loads and is not itself
+SmartScreen-gated. Shipping the plugin as a plain ZIP the user unpacks into
+their VST3 folder therefore avoids most of the warning surface, at the cost
+of a worse install experience.
+
+Certificate options, cheapest first:
+
+| Option | Rough cost | What you get |
+|---|---|---|
+| Azure Trusted Signing | ~$10/month | Cloud signing, no hardware token. **Check eligibility first** — it began as organisations-only and has been opening to individuals; do not assume. |
+| OV certificate | ~$200/yr | Signs fine, but SmartScreen warns until download reputation accrues — weeks to months. |
+| EV certificate | ~$250–400/yr | Immediate SmartScreen reputation. The only thing EV actually buys over OV. |
+
+Since June 2023 **OV certificates also require FIPS 140-2 Level 2 hardware**,
+so "OV is the cheap one because there is no token" is out of date.
+
+> **Needed from the project owner:** a decision on platforms first, then the
+> certificates for whichever ships. Nothing else in this section can start
+> without them, and a traditional EV certificate in particular can take days
+> to issue.
+>
+> A **Windows-first release is a legitimate answer**, not a retreat: it drops
+> the Apple membership and AU entirely, and the genre's audience skews
+> heavily towards Windows and FL Studio. macOS then lands in a point release
+> once the plugin has earned the $99.
 
 ## 6. Installers — **BLOCKED on step 5**
 
