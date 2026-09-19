@@ -49,6 +49,44 @@ public:
         float value;
     };
 
+    /** One mod slot's destination.
+
+        SEPARATE FROM `Setting` BECAUSE A DESTINATION IS NOT A PARAMETER. A
+        host parameter is a number, and a number indexing a list of
+        destinations would silently repoint every saved preset the moment the
+        list changed - so destinations are parameter-ID strings living in the
+        ValueTree (CLAUDE.md section 4).
+
+        Which means a factory preset built only from `Setting`s has no
+        modulation at all, however many mod slots it enables. That was true
+        of this entire bank: every slot was enabled, given a depth, and left
+        pointing at `none`. `FactoryBankTests` now fails the build if it
+        happens again. */
+    struct Routing
+    {
+        int slot;
+        /** A parameter ID from ParameterIDs.h. */
+        const char* destination;
+    };
+
+    /** One point of a drawable LFO curve. Same fields as
+        `dsp::LfoCurve::Point`, kept as plain data so the table below reads
+        as a shape rather than as constructor calls. */
+    struct CurvePoint
+    {
+        float time;     // 0..1
+        float value;    // 0..1
+        float tension;  // -1..1, shaping the segment AFTER this point
+        bool step;      // hold until the next point, instead of interpolating
+    };
+
+    /** A whole drawn curve for one LFO. */
+    struct Curve
+    {
+        int lfo;
+        std::vector<CurvePoint> points;
+    };
+
     struct Definition
     {
         const char* name;
@@ -57,6 +95,10 @@ public:
         const char* description;
         const char* tags;
         std::vector<Setting> settings;
+        /** Empty for a patch with no modulation - which should be rare, and
+            is a deliberate choice rather than an oversight when it happens. */
+        std::vector<Routing> routings {};
+        std::vector<Curve> curves {};
     };
 
     /** The bank's definitions. Static data, no processor needed. */

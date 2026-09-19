@@ -1,6 +1,7 @@
 #include "FactoryBank.h"
 
 #include "../params/ParameterChoices.h"
+#include "../params/ModStateBridge.h"
 #include "../params/ParameterIDs.h"
 
 namespace gnarl::preset
@@ -27,6 +28,66 @@ namespace
     constexpr auto kDistTanh = static_cast<float> (choices::FxDistortionType::tanh);
     constexpr auto kDistBitcrush = static_cast<float> (choices::FxDistortionType::bitcrush);
     constexpr auto kDistFold = static_cast<float> (choices::FxDistortionType::fold);
+
+    constexpr auto kSourceLfo1 = static_cast<float> (choices::ModSource::lfo1);
+    constexpr auto kSourceLfo2 = static_cast<float> (choices::ModSource::lfo2);
+    constexpr auto kSourceEnv2 = static_cast<float> (choices::ModSource::env2);
+
+    constexpr auto kSixteenthTriplet =
+        static_cast<float> (choices::LfoRateDivision::sixteenthTriplet);
+    constexpr auto kEighth = static_cast<float> (choices::LfoRateDivision::eighth);
+
+    constexpr auto kFilterLowPass12 = static_cast<float> (choices::FilterType::lowPass12);
+    constexpr auto kDistHardClip = static_cast<float> (choices::FxDistortionType::hardClip);
+
+    /*  DRAWN CURVES, as shapes rather than as numbers.
+
+        THE RHYTHM OF A GROWL IS THE CURVE, NOT THE LFO'S RATE. The rate picks
+        how long one cycle lasts; what happens inside the cycle is drawn, and
+        that is where the genre lives. A sine at 1/8 triplet is a wobble; six
+        hard steps over the same cycle is a growl.
+
+        `step` holds the value until the next point instead of interpolating,
+        which is what makes the articulation bite rather than slide. */
+
+    /** Six hard steps over one cycle: the classic stuttered triplet
+        articulation. Alternating high and low, no glide between them. */
+    const std::vector<FactoryBank::CurvePoint> kSteppedSix {
+        { 0.000f, 1.00f, 0.0f, true },
+        { 0.167f, 0.25f, 0.0f, true },
+        { 0.333f, 0.85f, 0.0f, true },
+        { 0.500f, 0.10f, 0.0f, true },
+        { 0.667f, 0.70f, 0.0f, true },
+        { 0.833f, 0.35f, 0.0f, true },
+    };
+
+    /** A vowel sweep that opens fast and closes slowly - the "yoi". The
+        tension on the long segment is what stops it being a triangle. */
+    const std::vector<FactoryBank::CurvePoint> kVowelSweep {
+        { 0.00f, 0.15f,  0.0f, false },
+        { 0.12f, 1.00f, -0.6f, false },
+        { 0.55f, 0.35f,  0.4f, false },
+        { 0.80f, 0.55f,  0.0f, false },
+    };
+
+    /** Gated: full, then hard down to nothing, twice per cycle. Used on
+        level rather than on a filter, which is what makes the gap a GAP
+        instead of a muffle. */
+    const std::vector<FactoryBank::CurvePoint> kGate {
+        { 0.00f, 1.0f, 0.0f, true },
+        { 0.30f, 0.0f, 0.0f, true },
+        { 0.50f, 1.0f, 0.0f, true },
+        { 0.72f, 0.0f, 0.0f, true },
+    };
+
+    /** Three descending steps then a snap back - reads as a falling
+        inflection, the "wah-ah-ah" that answers a growl. */
+    const std::vector<FactoryBank::CurvePoint> kDescendingThree {
+        { 0.00f, 0.95f, 0.0f, true },
+        { 0.25f, 0.62f, 0.0f, true },
+        { 0.50f, 0.30f, 0.0f, true },
+        { 0.75f, 0.80f, 0.0f, false },
+    };
 }
 
 std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
@@ -65,6 +126,7 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::lfo[0].syncEnabled, 1.0f },
               { pid::lfo[0].rateDivision, kEighthTriplet },
               { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
               { pid::modSlot[0].depth, 0.8f },
               { pid::ott.enabled, 1.0f },
               { pid::ott.depth, 0.45f },
@@ -72,7 +134,10 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::fxDistortion[0].drive, 14.0f },
               { pid::fxDistortion[0].tone, 0.3f },
               { pid::fxLimiter.enabled, 1.0f },
-          } },
+          },
+          // Block-rate: the formant coefficients are recomputed per chunk.
+          { { 0, pid::filter[0].formantX } },
+          { { 0, kSteppedSix } } },
 
         /*  The other half of the growl vocabulary: the formant held still and
             the CUTOFF wobbling, at a straight sixteenth. Slower, wider, and
@@ -98,11 +163,15 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::lfo[0].syncEnabled, 1.0f },
               { pid::lfo[0].rateDivision, kSixteenth },
               { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
               { pid::modSlot[0].depth, 0.65f },
               { pid::ott.enabled, 1.0f },
               { pid::ott.depth, 0.3f },
               { pid::fxLimiter.enabled, 1.0f },
-          } },
+          },
+          // Block-rate. Cutoff, not formant - that is the whole difference
+          // between this patch and the one above it.
+          { { 0, pid::filter[0].cutoff } } },
 
         /*  A Reese: two oscillators detuned against each other through ONE
             filter, so the beating is in the source rather than in an effect.
@@ -303,6 +372,309 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::fxLimiter.enabled, 1.0f },
           } },
 
+        /*  ------------------------------------------------------------------
+            THE RIDDIM BANK.
+
+            The patches above exercise the architecture - one per feature,
+            roughly. These six are the genre, and they are built on one
+            observation: in riddim the rhythm lives in the DRAWN CURVE, not
+            in the LFO's rate. The rate says how long a cycle lasts. What
+            happens inside it - six hard steps, a gate, a falling
+            inflection - is what makes it a growl rather than a wobble, and
+            it is why the drawable LFO exists at all.
+
+            All six sit on a triplet or straight division at a tempo the host
+            provides, so they lock to the project rather than to a number
+            baked in here.
+
+            THE SUB SITS AT 0.45, AND THAT NUMBER WAS MEASURED.
+            These patches route the sub DIRECT so it skips the filter and the
+            low end holds through the movement - which is right, and which
+            also means the sub is the one voice the formant never touches. A
+            formant filter attenuates, so the sub is what the vowel movement
+            has to be heard over. Chasing that balance is what turned up the
+            real bug: the formant filter was losing 12.5 dB it should not
+            have been (see FormantFilter's kOutputScale), so the direct sub
+            arrived 27 dB above the oscillator and sweeping the vowel across
+            its whole range moved the patch by 1.4%. The growl was being
+            computed correctly and buried.
+
+            With the filter's loss compensated the balance is an ordinary
+            mixing decision again, and 0.45 leaves the movement clearly
+            audible over it - measured, not guessed. */
+
+        /*  The "yoi". Two LFOs on the two formant axes at different
+            divisions, so the vowel traces a path through the space instead
+            of sliding along one axis - which is the difference between a
+            voice and a filter sweep. X steps, Y glides. */
+        { "Yoi Growl", "Growl",
+          "Two LFOs on the two formant axes at different divisions, so the "
+          "vowel traces a path rather than sliding along one axis. X steps, "
+          "Y glides.",
+          "riddim,growl,formant,triplet,vowel",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 5.0f },
+              { pid::osc[0].tablePos, 0.45f },
+              { pid::osc[0].level, 0.9f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.08f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -1.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].cutoff, 780.0f },
+              { pid::filter[0].resonance, 0.5f },
+              { pid::filter[0].formantThroat, 0.35f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kEighthTriplet },
+              { pid::lfo[1].shape, kLfoCustom },
+              { pid::lfo[1].syncEnabled, 1.0f },
+              { pid::lfo[1].rateDivision, kQuarter },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.85f },
+              { pid::modSlot[1].enabled, 1.0f },
+              { pid::modSlot[1].source, kSourceLfo2 },
+              { pid::modSlot[1].depth, 0.6f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.5f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].drive, 16.0f },
+              { pid::fxDistortion[0].tone, 0.25f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          // Both block-rate.
+          { { 0, pid::filter[0].formantX },
+            { 1, pid::filter[0].formantY } },
+          { { 0, kSteppedSix },
+            { 1, kVowelSweep } } },
+
+        /*  THE GAP IS THE POINT. A gated level, not a gated filter: closing
+            a filter muffles, and riddim wants the sound to stop. The gate
+            runs on osc 1's level while the SUB stays out of it and routes
+            direct, so the low end holds through the holes - which is what
+            keeps a gated patch from sounding thin on a big system. */
+        { "Gap Chopper", "Growl",
+          "A gated LEVEL, not a gated filter - closing a filter muffles, and "
+          "this wants the sound to stop. The sub routes direct so the low "
+          "end holds through the holes.",
+          "riddim,gate,chop,stutter,triplet",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 3.0f },
+              { pid::osc[0].tablePos, 0.6f },
+              { pid::osc[0].level, 0.9f },
+              { pid::osc[0].unisonVoices, 3.0f },
+              { pid::osc[0].unisonDetune, 0.14f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -1.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterLowPass24 },
+              { pid::filter[0].cutoff, 2400.0f },
+              { pid::filter[0].resonance, 0.4f },
+              { pid::filter[0].drive, 0.4f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kEighth },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 1.0f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.55f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].type, kDistHardClip },
+              { pid::fxDistortion[0].drive, 12.0f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::osc[0].level } },
+          { { 0, kGate } } },
+
+        /*  Fast. A 1/16 triplet is 18 steps a bar, which is past where the
+            ear hears rhythm and into where it hears TIMBRE - the modulation
+            stops being a pattern and becomes a buzz with a pitch of its own.
+            That is the effect, and it is why the drive is lower here: there
+            is already plenty of harmonic content from the modulation. */
+        { "Chainsaw Riddim", "Growl",
+          "A 1/16 triplet is past where the ear hears rhythm and into where "
+          "it hears timbre - the modulation becomes a buzz with a pitch of "
+          "its own. Less drive, because the movement already makes harmonics.",
+          "riddim,fast,chainsaw,triplet,aggressive",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 7.0f },
+              { pid::osc[0].tablePos, 0.5f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 4.0f },
+              { pid::osc[0].unisonDetune, 0.18f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -2.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].cutoff, 1100.0f },
+              { pid::filter[0].resonance, 0.6f },
+              { pid::filter[0].formantY, 0.4f },
+              { pid::filter[0].formantThroat, 0.5f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kSixteenthTriplet },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.9f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.6f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].drive, 8.0f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].formantX } },
+          { { 0, kSteppedSix } } },
+
+        /*  The answer phrase. A falling inflection rather than a repeating
+            one, so it reads as a reply to a growl rather than as more of the
+            same - which is how a riddim drop is actually arranged. The last
+            step glides instead of stepping, which is the whole shape. */
+        { "Answer Wah", "Growl",
+          "A FALLING inflection rather than a repeating one, so it reads as "
+          "a reply to a growl rather than more of the same. The last step "
+          "glides instead of stepping - that is the whole shape.",
+          "riddim,wah,answer,phrase,formant",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 4.0f },
+              { pid::osc[0].tablePos, 0.3f },
+              { pid::osc[0].level, 0.88f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.1f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -1.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].cutoff, 850.0f },
+              { pid::filter[0].resonance, 0.55f },
+              { pid::filter[0].formantY, 0.65f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kQuarter },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.8f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.45f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].drive, 13.0f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].formantX } },
+          { { 0, kDescendingThree } } },
+
+        /*  Movement in the SOURCE rather than in the filter. The same
+            stepped curve on the table position, so each step is a different
+            waveform rather than the same waveform filtered differently -
+            which sounds like a different instrument per step instead of one
+            instrument being shaped. Worth having in the bank because it is
+            the thing a filter cannot do. */
+        { "Table Stepper", "Growl",
+          "The stepped curve on the TABLE POSITION, so each step is a "
+          "different waveform rather than the same one filtered differently. "
+          "This is the thing a filter cannot do.",
+          "riddim,wavetable,step,morph,triplet",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 6.0f },
+              { pid::osc[0].tablePos, 0.2f },
+              { pid::osc[0].level, 0.9f },
+              { pid::osc[0].unisonVoices, 3.0f },
+              { pid::osc[0].unisonDetune, 0.12f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -1.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterLowPass12 },
+              { pid::filter[0].cutoff, 5000.0f },
+              { pid::filter[0].resonance, 0.25f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kEighthTriplet },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.95f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.5f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].drive, 15.0f },
+              { pid::fxDistortion[0].tone, 0.35f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::osc[0].tablePos } },
+          { { 0, kSteppedSix } } },
+
+        /*  The one that does not repeat. Envelope 2 on the formant instead
+            of an LFO, so the movement happens ONCE per note and the rhythm
+            comes from how the notes are played rather than from a division.
+            A bank of nothing but synced LFOs writes the same bar over and
+            over; this is the patch that lets the player write the part. */
+        { "Note Growl", "Growl",
+          "Envelope 2 on the formant instead of an LFO, so the movement "
+          "happens once per note and the rhythm comes from how you play "
+          "rather than from a division.",
+          "riddim,envelope,played,formant,expressive",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].wavetable, 5.0f },
+              { pid::osc[0].tablePos, 0.4f },
+              { pid::osc[0].level, 0.9f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.09f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.45f },
+              { pid::sub.octave, -1.0f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].cutoff, 900.0f },
+              { pid::filter[0].resonance, 0.5f },
+              { pid::filter[0].formantY, 0.5f },
+              { pid::filter[0].mix, 1.0f },
+              // Fast in, slow out: the vowel opens on the attack and closes
+              // across the note, which is the shape a mouth actually makes.
+              { pid::envelope[1].attack, 0.004f },
+              { pid::envelope[1].decay, 0.35f },
+              { pid::envelope[1].sustain, 0.15f },
+              { pid::envelope[1].release, 0.2f },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceEnv2 },
+              { pid::modSlot[0].depth, 0.9f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.45f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].drive, 14.0f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          // No curve: an envelope is not an LFO and has no drawn shape.
+          { { 0, pid::filter[0].formantX } } },
+
         /*  The empty patch, and it earns its place: somebody who wants to
             build from nothing should not have to switch fourteen effects off
             first. Everything at its default except the limiter, which stays
@@ -361,6 +733,57 @@ std::vector<juce::ValueTree> FactoryBank::build (
 
             if (node.isValid())
                 node.setProperty ("value", setting.value, nullptr);
+        }
+
+        /*  THE MODULATION, which is not parameters and therefore not
+            covered by the loop above.
+
+            Written as a MODSTATE child matching what ModStateBridge parses,
+            rather than going through the bridge itself: `build` is static
+            and has only a tree, and a preset is a tree. The element and
+            property names are the bridge's - see params/ModStateBridge.cpp -
+            and ParameterMirrorTests would be the place to notice if they
+            ever diverge.
+
+            Skipped entirely for a patch with no routings and no curves, so
+            an unmodulated preset stays byte-identical to the default state
+            plus its overrides. */
+        if (! definition.routings.empty() || ! definition.curves.empty())
+        {
+            juce::ValueTree modState { params::ModStateBridge::getModStateType() };
+
+            for (const auto& routing : definition.routings)
+            {
+                juce::ValueTree slot { params::ModStateBridge::getSlotType() };
+                slot.setProperty ("index", routing.slot, nullptr);
+                slot.setProperty ("destination", juce::String (routing.destination), nullptr);
+                modState.appendChild (slot, nullptr);
+            }
+
+            for (const auto& curve : definition.curves)
+            {
+                juce::ValueTree curveTree { params::ModStateBridge::getCurveType() };
+                curveTree.setProperty ("index", curve.lfo, nullptr);
+
+                for (const auto& point : curve.points)
+                {
+                    juce::ValueTree pointTree { params::ModStateBridge::getPointType() };
+                    pointTree.setProperty ("time", point.time, nullptr);
+                    pointTree.setProperty ("value", point.value, nullptr);
+                    pointTree.setProperty ("tension", point.tension, nullptr);
+                    pointTree.setProperty ("shape", point.step ? 1 : 0, nullptr);
+                    curveTree.appendChild (pointTree, nullptr);
+                }
+
+                modState.appendChild (curveTree, nullptr);
+            }
+
+            // Replace rather than append: the default state may already
+            // carry one, and two MODSTATE children would leave which one
+            // wins up to iteration order.
+            tree.removeChild (tree.getChildWithName (params::ModStateBridge::getModStateType()),
+                              nullptr);
+            tree.appendChild (modState, nullptr);
         }
 
         Metadata metadata;

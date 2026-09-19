@@ -371,6 +371,55 @@ while holding the loud low down, so the three bands routinely pull in opposite
 directions and any average or sum of them reads "nothing is happening" at
 exactly the moment the most is.
 
+**A filter's insertion loss is a number to MEASURE, not to assert in a
+comment.** `FormantFilter::kOutputScale` was 2.2, commented "chosen so a
+full-scale saw stays near full scale". Measured on a band-limited 55 Hz saw
+it lost between 8.8 and 14.6 dB across the vowel space — about 12.5 dB in the
+middle — and the comment had nothing behind it. Same shape of false claim as
+`warp.ts`'s "checked against C++" and §8's denormal line.
+
+It was not cosmetic. The riddim factory patches route their sub **direct**,
+around the filter, so the sub arrived 27 dB above the oscillator it was meant
+to sit under, and sweeping the vowel across its entire range moved the
+patch's output by **1.4%**. The growl was being computed correctly and
+buried. At 9.3 the filter sits within ±4 dB of unity across the pad and the
+same sweep moves the patch by 6%.
+
+Like `FxDistortion`'s RMS match this is a level match at one condition by
+construction — a band-pass bank has no single gain — and the ±3 dB residual
+across the pad is the vowels genuinely differing in total formant energy
+rather than an error to chase.
+
+**A factory preset built only from parameter overrides has no modulation at
+all.** A mod slot's source is a parameter; its **destination is not** (§4),
+and neither are the drawn LFO curves. `FactoryBank::Definition` carried only
+`Setting`s, so every preset in the bank enabled a slot, gave it a depth, and
+left both ends pointing at `none`. "Triplet Growl" — the patch whose own
+comment calls it the one the product exists for — did not growl. Definitions
+now carry `routings` and `curves`, and `build` writes a `MODSTATE` child.
+
+**Three tests for that, and the interesting one is the third.** Checking the
+definitions catches an unrouted slot; checking the built tree catches a
+`MODSTATE` that never got written. Neither can catch a destination that is
+spelled correctly and resolves to nothing, so the third renders the patch
+twice — once as defined, once with its `MODSTATE` stripped — and asserts the
+audio differs.
+
+That one took two attempts **and the first passed with the bug reintroduced**.
+It held a note and asserted the RMS moved by more than a decibel over the
+LFO's cycle; it passed unmodulated, because the patch runs two unison voices
+detuned by eight cents and two detuned voices *beat*. It was a test of the
+unison. The differential version cannot be fooled that way — every parameter,
+envelope and unison voice is identical between the two renders — and a
+**control** rendering the same state twice measures exactly 0.0, which is
+what licenses attributing the difference to the modulation and nothing else.
+
+The threshold is 0.02 against a measured 0.06, set by the *separation* rather
+than by the measurement: the bug gives exactly zero, so any positive
+threshold works, and pinning it just under today's figure would make every
+future rebalance of that patch a test failure about something the test is not
+asking.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.

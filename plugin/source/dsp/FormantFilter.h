@@ -274,9 +274,28 @@ private:
         { 1.0f, 0.251f, 0.032f, 0.010f, 0.001f },   // U
     };
 
-    /** Compensates the summed band-pass gain so the pad is not a volume
-        control. Chosen so a full-scale saw stays near full scale. */
-    static constexpr float kOutputScale = 2.2f;
+    /*  Compensates the summed band-pass gain so the pad is not a volume
+        control - and the number is MEASURED, because the previous one said
+        in this comment that it kept "a full-scale saw near full scale" and
+        did not: at 2.2 the filter lost between 8.8 and 14.6 dB depending on
+        the vowel and the resonance, about 12.5 dB in the middle of that.
+
+        That is not a cosmetic amount. The factory riddim patches route their
+        sub DIRECT, around the filter, so the sub was arriving 27 dB above
+        the oscillator it was supposed to sit under - and sweeping the vowel
+        across its entire range moved the patch's output by 1.4%. The growl
+        was being computed correctly and buried.
+
+        A band-pass bank has no single gain, so like `FxDistortion`'s RMS
+        match this is a level match at ONE condition by construction: a
+        band-limited 55 Hz saw - the register these patches actually play -
+        averaged over the vowel space at resonance 0.5. The residual across
+        the pad is +/-3 dB, which is the vowels genuinely differing in total
+        formant energy rather than an error to chase.
+
+        `FormantFilterTests` measures the loss rather than asserting this
+        number, so the claim in this comment stays true or fails. */
+    static constexpr float kOutputScale = 9.3f;
 
     double sampleRateHz = 44100.0;
 
