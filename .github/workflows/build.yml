@@ -243,9 +243,13 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
 
-          # No standalone: the VST3 and the AU are what get installed, and
-          # a loose GNARL.exe beside them is the file somebody double-clicks
-          # by mistake when they meant to load the plugin.
+          # The standalone IS included, in a folder of its own. It was
+          # dropped once on the grounds that a loose GNARL.exe beside the
+          # plugin is the file somebody double-clicks by mistake - true, and
+          # it is also the only way to hear the thing without a DAW, which
+          # matters more while this is being tested. The subfolder is the
+          # fix for both: it cannot be mistaken for the plugin, and it is
+          # still there when you want it.
           for pattern in GNARL.vst3 GNARL.component; do
             found=$(find build -maxdepth 8 -name "$pattern" -not -path '*/artefacts/*/*/*' 2>/dev/null | head -n 1 || true)
 
@@ -255,9 +259,43 @@ jobs:
             fi
           done
 
+          # The standalone, one level down so it is never the first thing
+          # in the folder. The folder is created only if the binary is
+          # actually there: INSTALL.txt points at it, so an empty one reads
+          # as a broken download rather than as a format that did not
+          # build; an empty folder is worse than none.
+          #
+          # Written as an explicit `if` rather than `[ -n "$x" ] && break`,
+          # because this step runs under `set -e` and that list exits
+          # non-zero on the iterations where the test fails - which kills
+          # the step on the very path where nothing was found.
+          standalone=""
+          for pattern in GNARL.exe GNARL.app GNARL; do
+            if [ -z "$standalone" ]; then
+              standalone=$(find build -maxdepth 8 -path '*Standalone*' -name "$pattern" 2>/dev/null | head -n 1 || true)
+            fi
+          done
+
+          if [ -n "$standalone" ]; then
+            mkdir -p "artifacts/Standalone (no DAW needed)"
+            cp -R "$standalone" "artifacts/Standalone (no DAW needed)/"
+            echo "staged standalone $standalone"
+          else
+            echo "::warning::no Standalone build found - the artifact will have the plugin only"
+          fi
+
           cat > artifacts/INSTALL.txt <<'NOTE'
           GNARL
           =====
+
+          FASTEST WAY TO HEAR IT - no DAW, no install
+
+            Open "Standalone (no DAW needed)" and run GNARL.
+            Pick an audio device and a MIDI input, and play. Nothing is
+            installed and nothing is registered; close it and it is gone.
+
+            This is the quickest check that the build works at all. It is
+            NOT the plugin - a DAW cannot load it. For that, read on.
 
           WINDOWS - keep it wherever you like
 
