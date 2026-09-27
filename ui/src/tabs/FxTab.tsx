@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Knob } from '../components/Knob';
 import { Meter } from '../components/Meter';
+import { Spectrum } from '../components/Spectrum';
 import { gainReductionPosition, type ModulationFrame } from '../bridge/modulationFrame';
 
 /*  One reader per band, built once. Inline arrows would give the meters a
@@ -78,6 +79,15 @@ function OttPanel() {
           <Knob label="X-Low" value={xLow.normalised} readout={xLow.text} onChange={xLow.setNormalised} onGestureStart={xLow.beginGesture} onGestureEnd={xLow.endGesture} size={34} />
           <Knob label="X-High" value={xHigh.normalised} readout={xHigh.text} onChange={xHigh.setNormalised} onGestureStart={xHigh.beginGesture} onGestureEnd={xHigh.endGesture} size={34} />
         </Row>
+
+        {/*  The spectrum goes in the dead space to the RIGHT of the knob row,
+             not in a row of its own. The tab's vertical budget is exact
+             (§6) and an overflowing panel renders on top of its siblings -
+             which has bitten this interface three times. This costs no
+             height at all. */}
+        <div className="gn-ott__spectrum">
+          <Spectrum />
+        </div>
       </Row>
 
       <div className="gn-ott__bands">

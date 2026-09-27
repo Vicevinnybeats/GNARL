@@ -3,6 +3,7 @@
 #include "dsp/FxRack.h"
 #include "dsp/OttCompressor.h"
 #include "dsp/SmoothedParameter.h"
+#include "dsp/SpectrumAnalyser.h"
 #include "dsp/VoiceManager.h"
 #include "dsp/VoiceOversampler.h"
 #include "dsp/VoiceSettings.h"
@@ -153,6 +154,16 @@ public:
 
     /** MESSAGE THREAD. */
     MeterSnapshot getMeterSnapshot() const noexcept;
+
+    /** MESSAGE THREAD. The output spectrum, for the FX tab's display.
+
+        Non-const because reading a frame runs the FFT and uses the
+        analyser's own scratch buffers - which is exactly why it is not on
+        the audio thread. Returns false before any audio has been seen. */
+    bool readSpectrum (std::array<float, dsp::SpectrumAnalyser::kNumBins>& bins) noexcept
+    {
+        return spectrum.read (bins);
+    }
 
     /** The licence, for the banner and the feature gates.
 
@@ -368,6 +379,11 @@ private:
         the log runs once per UI frame on the message thread instead of once
         per block on the audio thread. */
     std::array<std::atomic<float>, 2> outputPeak { { { 0.0f }, { 0.0f } } };
+
+    /** The audio thread only ever COPIES into this. Everything an analyser
+        actually does - the window, the FFT, the logarithms - happens on the
+        message thread when the UI asks for a frame. */
+    dsp::SpectrumAnalyser spectrum;
 
     /*  Declared BEFORE the members whose destruction could outlive a
         callback it makes - it joins its worker and cancels its pending

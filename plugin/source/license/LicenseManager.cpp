@@ -165,6 +165,19 @@ void LicenseManager::setUnenforced()
     publish();
 }
 
+void LicenseManager::setPersonal()
+{
+    {
+        const juce::ScopedLock lock (stateLock);
+
+        state.status = Status::personal;
+        state.graceDaysRemaining = 0;
+        state.message = describe (state);
+    }
+
+    publish();
+}
+
 void LicenseManager::refreshGrace()
 {
     {

@@ -8,6 +8,9 @@ juce::String describe (const State& state)
     switch (state.status)
     {
         case Status::licensed:
+        case Status::personal:
+            // Nothing to say. A banner that is always up is a banner nobody
+            // reads, and a personal build has no licence to report on.
             return {};
 
         case Status::offline:

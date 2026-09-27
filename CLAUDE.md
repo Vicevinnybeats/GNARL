@@ -424,6 +424,36 @@ threshold works, and pinning it just under today's figure would make every
 future rebalance of that patch a test failure about something the test is not
 asking.
 
+**An analyser splits across the thread boundary, and the split is the
+design.** The audio thread does exactly one thing for the spectrum display —
+copy the mono sum into a ring buffer — because everything else an analyser
+does is forbidden there (§3): an FFT allocates its tables, a window costs a
+multiply per sample, and a display running at the audio thread's convenience
+would be a display whose frame rate is the block size. The window, the
+transform and the logarithms run on the **message thread** when the UI asks
+for a frame. The reader may catch a frame mid-overwrite; the worst case is
+one seam in a picture, thirty times a second, and a lock to prevent it would
+put the audio thread behind the UI.
+
+**And its bin mapping is logarithmic only where the FFT has the resolution
+for it.** Pitch is logarithmic, so the drawn bins follow a log curve — but at
+2048 points and 48 kHz each FFT bin is 23 Hz wide, and the bottom 128th of
+that curve asks for fractions of a bin. A dozen drawn bins land on FFT bin 1,
+and the monotonic pass then forces them apart one bin at a time. So the
+bottom of the display is **linear, 23 Hz per drawn bin**, and only becomes
+logarithmic above roughly 2 kHz. That is not a compromise to fix with
+different numbers; it is what a 2048-point transform can tell you.
+
+**The test for that caught its own first version.** It re-derived the mapping
+from the log formula and compared bin numbers, and failed by 27 bins — which
+was correct: it was asserting a shape the code deliberately does not follow.
+`SpectrumAnalyser::getBinRange` exists so a test can ask which FFT bins a
+drawn bin covers, and `SpectrumTests` checks that the peak's bin *contains*
+the tone's frequency. That tests the property that matters — the display
+points at the right place — without either copying the mapping or assuming
+one it never claimed. A monotonicity case sits beside it, because per-tone
+correctness at five sampled points would still pass on a mirrored display.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.
@@ -590,6 +620,13 @@ whenever you add one.
   three times: the oscillator's send row across the Sub and Noise panel
   headers twice, then the MOD tab's envelope panels straight across the mod
   matrix.
+- **A fourth instance of that, and the comment claimed otherwise.** The
+  spectrum was placed in the OTT panel's dead space with `flex: 1` and
+  `align-self: stretch`, commented "this costs no height at all" — and it ate
+  the whole panel, squeezing the three band panels out of existence
+  entirely. It has an explicit 104px height now, matching the knob row it
+  sits beside. Screenshot after any layout change; this was invisible in the
+  diff and unmissable in the picture.
 - **The structural half of that fix is `min-height: 0` on `.gn-panel`.** A
   grid or flex item's automatic minimum size is its *content* size, so a panel
   taller than its track grows past it — and the body's own `overflow: hidden`
@@ -852,6 +889,14 @@ Consequences of the figure above:
   that makes mod destinations parameter-ID strings — and appending
   `unenforced` would have silently renamed whatever the UI had at that
   number.
+- **`Status::personal` is a fifth not-a-licence state, and it differs from
+  `unenforced` in exactly one way: the banner.** `unenforced` means somebody
+  has not configured an endpoint yet and *should* nag, because a development
+  build that says nothing is one that gets shipped. `personal`
+  (`GNARL_PERSONAL_BUILD=ON`) means this build has no licensing by design —
+  somebody's own instrument, compiled for their own machine. A permanent
+  "Development build" notice there would be untrue, and a banner that is
+  always up is a banner nobody reads.
 - **The banner lives in the status bar row, not in one of its own.** The tab
   layout's vertical budget is exact (§6), and a notice that can be up for
   thirty days must not cost the panels 24 px; an overlay would cover controls

@@ -22,6 +22,11 @@ export interface ModulationFrame {
   /** The OTT's gain change per band, signed: negative is downward
       compression, positive the upward lift. */
   ottGainDb: number[];
+  /** The output spectrum, dBFS per drawn bin, floored at SPECTRUM_FLOOR_DB.
+
+      Arrives at 30 fps rather than 60 (§6) and is absent from frames in
+      between, so consumers keep the last one rather than blanking. */
+  spectrum: number[];
   voices: number;
   /** True when something is sounding. With nothing playing there are no
       per-voice values to read, and the UI idles rather than freezing on the
@@ -55,6 +60,12 @@ export function gainReductionPosition(db: number): number {
   return Math.min(1, Math.max(-1, db / GAIN_REDUCTION_RANGE_DB));
 }
 
+/** Number of drawn bins, matching `dsp::SpectrumAnalyser::kNumBins`. */
+export const SPECTRUM_BINS = 128;
+
+/** Bottom of the spectrum scale, matching `kFloorDb`. */
+export const SPECTRUM_FLOOR_DB = -90;
+
 export const IDLE_FRAME: ModulationFrame = {
   lfoValues: [0, 0, 0, 0],
   lfoPhases: [0, 0, 0, 0],
@@ -62,6 +73,7 @@ export const IDLE_FRAME: ModulationFrame = {
   cutoffHz: [0, 0],
   outputDb: [METER_FLOOR_DB, METER_FLOOR_DB],
   ottGainDb: [0, 0, 0],
+  spectrum: new Array<number>(SPECTRUM_BINS).fill(SPECTRUM_FLOOR_DB),
   voices: 0,
   playing: false,
 };

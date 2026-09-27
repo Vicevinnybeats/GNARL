@@ -109,8 +109,19 @@ target_include_directories(GNARL PUBLIC source ui-bridge)
 set(GNARL_LICENCE_ENDPOINT "" CACHE STRING
     "Activation endpoint URL. Empty means licence checking is not enforced.")
 
+# A build for the person who compiled it, with no licensing at all.
+#
+# Distinct from simply leaving the endpoint empty: that reports `unenforced`
+# and keeps a "Development build" banner up, which is right for a product
+# somebody forgot to configure and wrong for somebody's own instrument. This
+# says there is nothing to configure, and shows no banner.
+option(GNARL_PERSONAL_BUILD
+       "Build with no licensing at all - for your own machine, not for sale."
+       OFF)
+
 target_compile_definitions(GNARL PUBLIC
     GNARL_LICENCE_ENDPOINT="${GNARL_LICENCE_ENDPOINT}"
+    GNARL_PERSONAL_BUILD=$<BOOL:${GNARL_PERSONAL_BUILD}>
     JUCE_WEB_BROWSER=1              # the entire UI is a WebBrowserComponent
     # Static linking, so the shipped VST3 has no WebView2Loader.dll sitting
     # next to it for a user to lose. Implies JUCE_USE_WIN_WEBVIEW2=1.

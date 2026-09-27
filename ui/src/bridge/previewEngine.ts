@@ -3,7 +3,12 @@ import { evaluateBuiltInShape, evaluateCurve, type CurvePoint } from '../dsp/lfo
 import { getFrequencyHz, getGridFraction } from '../dsp/syncRates';
 import { FILTER, LFO, MOD, OSC } from './parameterIds';
 import { fetchModState } from './modState';
-import { METER_FLOOR_DB, type ModulationFrame } from './modulationFrame';
+import {
+  METER_FLOOR_DB,
+  SPECTRUM_BINS,
+  SPECTRUM_FLOOR_DB,
+  type ModulationFrame,
+} from './modulationFrame';
 
 /**
  * A simulation of the engine's modulation, for the BROWSER PREVIEW ONLY.
@@ -191,6 +196,10 @@ function buildFrame(seconds: number): ModulationFrame {
     // taken here would be showing a number nothing produced.
     outputDb: [METER_FLOOR_DB, METER_FLOOR_DB],
     ottGainDb: [0, 0, 0],
+    // No engine, so no spectrum. Flat at the floor rather than faked: a
+    // display that moves with nothing behind it is the one thing a
+    // visualiser must never do.
+    spectrum: new Array<number>(SPECTRUM_BINS).fill(SPECTRUM_FLOOR_DB),
     voices: 0,
     playing: true,
   };

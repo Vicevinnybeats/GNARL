@@ -411,17 +411,67 @@ TEST_CASE ("The processor reports a licence without being asked to", "[license]"
 
     const auto state = processor.getLicense().getState();
 
-    if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
+    if constexpr (GNARL_PERSONAL_BUILD)
     {
+        // No licence by design. Features on, and crucially no banner.
+        CHECK (state.status == Status::personal);
+        CHECK (state.featuresAllowed());
+        CHECK_FALSE (state.shouldWarn());
+    }
+    else if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
+    {
+        // Nobody configured an endpoint. Features on, and a banner that says
+        // so - which is the whole difference between this and `personal`.
         CHECK (state.status == Status::unenforced);
         CHECK (state.featuresAllowed());
         CHECK (state.shouldWarn());
     }
     else
     {
+        // A configured build must never land in either not-a-licence state.
         CHECK (state.status != Status::unenforced);
+        CHECK (state.status != Status::personal);
     }
 
     // Whatever the build, and whatever the answer.
     CHECK (state.audioAllowed());
+}
+
+TEST_CASE ("A personal build has no licence and nothing to say", "[license]")
+{
+    /*  `personal` and `unenforced` differ in exactly one way, and it is the
+        one the customer sees: whether the interface nags.
+
+        `unenforced` means somebody has not configured this yet, and it
+        SHOULD nag - a development build that says nothing is one that gets
+        shipped. `personal` means there is nothing to configure, because the
+        instrument belongs to whoever compiled it. A permanent "Development
+        build" notice there would be untrue, and a banner that is always up
+        is a banner nobody reads. */
+    Harness harness;
+
+    harness.manager.setPersonal();
+
+    CHECK (harness.latest.status == Status::personal);
+    CHECK (harness.latest.featuresAllowed());
+    CHECK (harness.latest.audioAllowed());
+
+    // The difference that matters.
+    CHECK_FALSE (harness.latest.shouldWarn());
+    CHECK (harness.latest.message.isEmpty());
+}
+
+TEST_CASE ("A personal build is not dragged into the grace machinery",
+           "[license]")
+{
+    Harness harness;
+
+    harness.manager.setPersonal();
+
+    harness.now = harness.now + juce::RelativeTime::days (900);
+    harness.manager.refreshGrace();
+
+    CHECK (harness.latest.status == Status::personal);
+    CHECK (harness.latest.featuresAllowed());
+    CHECK_FALSE (harness.latest.shouldWarn());
 }

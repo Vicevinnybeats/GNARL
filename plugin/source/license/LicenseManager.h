@@ -78,6 +78,13 @@ public:
         place real ones live. */
     void setUnenforced();
 
+    /** MESSAGE THREAD. Declares that this build has no licensing by design -
+        see `Status::personal`. Features on, no banner, nothing checked.
+
+        Distinct from `setUnenforced` because the two differ in exactly one
+        way that matters: whether the interface nags. */
+    void setPersonal();
+
     /** MESSAGE THREAD. Called when the state changes, for the banner. */
     void setListener (std::function<void (const State&)> listener);
 

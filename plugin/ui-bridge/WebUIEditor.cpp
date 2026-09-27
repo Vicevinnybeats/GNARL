@@ -659,6 +659,36 @@ void WebUIEditor::timerCallback()
     for (const auto value : meters.outputDb)
         outputDb.add (rounded (value));
 
+    /*  THE SPECTRUM, at 30 fps rather than 60.
+
+        §6 says visualiser data travels as binary ArrayBuffers at <= 30 fps.
+        The rate is the part that matters here: 128 bins of JSON sixty times
+        a second is real traffic, and a spectrum display does not read any
+        better at 60 than at 30 - it is a smear either way. Halving it halves
+        the cost for a picture nobody can tell apart.
+
+        Still JSON rather than binary: JUCE's event channel serialises var
+        to JSON, so a binary frame would have to go through the resource
+        provider as a separate fetch. 128 rounded numbers at 30 fps is small
+        enough that the extra machinery would cost more than it saves - and
+        the identical-frame drop below means an idle editor sends none. */
+    if (++spectrumDivider >= 2)
+    {
+        spectrumDivider = 0;
+
+        std::array<float, dsp::SpectrumAnalyser::kNumBins> spectrumBins {};
+
+        if (processor.readSpectrum (spectrumBins))
+        {
+            auto spectrum = juce::Array<juce::var>();
+
+            for (const auto value : spectrumBins)
+                spectrum.add (juce::var (std::round (value)));
+
+            root->setProperty ("spectrum", spectrum);
+        }
+    }
+
     auto ottGainDb = juce::Array<juce::var>();
 
     for (const auto value : meters.ottGainDb)

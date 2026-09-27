@@ -5,6 +5,7 @@
 #include "preset/FactoryBank.h"
 
 #include <array>
+#include <type_traits>
 
 #include "params/ParameterChoices.h"
 #include "params/ParameterIDs.h"
@@ -60,7 +61,14 @@ GnarlProcessor::GnarlProcessor()
         can activate and prove nothing by it. The banner says which build it
         is. Configuring an endpoint is the single change that makes a build
         enforce. */
-    if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
+    if constexpr (GNARL_PERSONAL_BUILD)
+    {
+        /*  Somebody's own instrument, built from source for their own
+            machine. There is no licence, nothing to check and nobody to sell
+            it to - so no verifier runs and no banner appears. */
+        licensing.setPersonal();
+    }
+    else if (juce::String (GNARL_LICENCE_ENDPOINT).isEmpty())
     {
         licensing.setVerifier ([] { return license::LicenseManager::Reply::unreachable; });
         licensing.setUnenforced();
@@ -708,6 +716,18 @@ void GnarlProcessor::processInternal (juce::AudioBuffer<SampleType>& buffer,
     // plugin. A meter taken before the fader tells the user about a signal
     // nobody can hear.
     updateOutputMeter (buffer, numSamples);
+
+    /*  Same point in the chain, same reason. Only for the float path: the
+        analyser stores float and a double host would need a conversion
+        buffer here, on the audio thread, for a picture. A host running in
+        double precision gets no spectrum rather than an allocation. */
+    if constexpr (std::is_same_v<SampleType, float>)
+    {
+        spectrum.pushBlock (buffer.getReadPointer (0),
+                            buffer.getNumChannels() > 1 ? buffer.getReadPointer (1)
+                                                        : nullptr,
+                            numSamples);
+    }
 }
 
 template <typename SampleType>

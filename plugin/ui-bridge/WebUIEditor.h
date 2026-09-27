@@ -77,6 +77,10 @@ private:
         at most. */
     juce::var handleLicenseStatus (const juce::Array<juce::var>& args);
 
+    /** Halves the spectrum's rate against the modulation frame's 60 Hz, per
+        §6's "<= 30 fps for visualiser data". */
+    int spectrumDivider = 0;
+
     GnarlProcessor& processor;
 
     // Relays must outlive the WebBrowserComponent they were registered with,

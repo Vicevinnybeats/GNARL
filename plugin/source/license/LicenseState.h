@@ -63,7 +63,24 @@ enum class Status
 
         `GNARL_LICENCE_ENDPOINT` is what turns enforcement on; the release
         checklist has an item for it. */
-    unenforced
+    unenforced,
+
+    /*  ALSO NOT A LICENCE STATE, and deliberately distinct from the one
+        above.
+
+        `unenforced` means "somebody has not configured this yet" and nags
+        about it, because a development build that says nothing is a
+        development build that gets shipped. `personal` means "this build has
+        no licensing BY DESIGN" - it is somebody's own instrument, built from
+        source for their own machine, and there is nobody to sell it to.
+
+        The difference is the banner. A permanent "Development build" notice
+        on an instrument somebody uses every day is wrong twice over: it is
+        not true, and a banner that is always up is a banner nobody reads
+        (§6's argument about the licensed state having nothing to say).
+
+        Set by `GNARL_PERSONAL_BUILD`. */
+    personal
 };
 
 /** How many days offline before the grace period ends. NOT NEGOTIABLE (§9). */
@@ -98,13 +115,17 @@ struct State
     {
         return status == Status::licensed
             || status == Status::offline
-            || status == Status::unenforced;
+            || status == Status::unenforced
+            || status == Status::personal;
     }
 
-    /** True when the banner should be up. */
+    /** True when the banner should be up.
+
+        `personal` joins `licensed` in having nothing to say. Everything else
+        does - including `unenforced`, which is the point of it. */
     bool shouldWarn() const noexcept
     {
-        return status != Status::licensed;
+        return status != Status::licensed && status != Status::personal;
     }
 };
 

@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { IDLE_FRAME, METER_FLOOR_DB, type ModulationFrame } from './modulationFrame';
+import {
+  IDLE_FRAME,
+  METER_FLOOR_DB,
+  SPECTRUM_BINS,
+  type ModulationFrame,
+} from './modulationFrame';
 import { getPluginInfo } from './pluginInfo';
 import { subscribeToPreviewFrames } from './previewEngine';
 
@@ -52,6 +57,12 @@ function parseFrame(payload: unknown): ModulationFrame | null {
       ? numbers(record.outputDb, 2)
       : [METER_FLOOR_DB, METER_FLOOR_DB],
     ottGainDb: numbers(record.ottGainDb, 3),
+    /*  The spectrum arrives on every OTHER frame, so an absent one means
+        "unchanged", not "silence". Carrying the previous frame's bins
+        forward is what stops the display strobing at 30 Hz. */
+    spectrum: Array.isArray(record.spectrum)
+      ? numbers(record.spectrum, SPECTRUM_BINS)
+      : latest.spectrum,
     voices: Number(record.voices) || 0,
     playing: record.playing === true,
   };

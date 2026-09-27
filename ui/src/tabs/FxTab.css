@@ -23,6 +23,24 @@
   gap: var(--gn-space-1);
 }
 
+.gn-ott__spectrum {
+  /*  EXPLICIT HEIGHT, not `align-self: stretch`, and the difference is the
+      whole panel.
+
+      Stretch made this fill the OTT panel top to bottom and squeezed the
+      three band panels below it out of existence - the §6 trap for the
+      fourth time, and the comment here previously claimed "this costs no
+      height at all" while doing exactly that. Row heights in a tab are
+      explicit, not flex proportions.
+
+      104px is the knob row's own height: the 56px Depth knob plus its label
+      and readout. So the spectrum sits beside the knobs rather than above
+      or below anything. */
+  flex: 1;
+  min-width: 0;
+  height: 104px;
+}
+
 .gn-ott__bands {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
