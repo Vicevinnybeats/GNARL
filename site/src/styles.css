@@ -1,0 +1,294 @@
+/*  The site's palette is the plugin's Dream theme: violet body, cyan
+    controls, and the same rule that they never swap roles - cyan is what
+    means "live", violet is the surface. */
+:root {
+  --bg: #08061a;
+  --bg-deep: #05040f;
+  --panel: #150c36;
+  --line: rgba(160, 130, 255, 0.16);
+  --line-hot: rgba(100, 230, 255, 0.5);
+
+  --text: #efeaff;
+  --text-dim: #b9aede;
+  --text-faint: #8878b4;
+  --accent: #64e6ff;
+  --accent-2: #a678ff;
+
+  --font: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+
+  --gutter: clamp(20px, 5vw, 92px);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: clamp(12px, 1.05vw, 14px);
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/*  THE CANVAS IS FIXED BEHIND EVERYTHING and never scrolls. The scene reads
+    the scroll position and moves the panel itself - letting the canvas
+    scroll instead would mean the zoom fighting the page. */
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  background:
+    radial-gradient(120% 90% at 18% 0%, #241155 0%, transparent 58%),
+    radial-gradient(100% 80% at 88% 22%, #0d2a58 0%, transparent 60%),
+    var(--bg-deep);
+}
+
+/* ---------------------------------------------------------------- nav -- */
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px var(--gutter);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  /* A stacking context of its own, so nothing in the page can land on top
+     of it - the trap that put the plugin's settings panel behind a tab. */
+  isolation: isolate;
+  backdrop-filter: blur(14px);
+  background: linear-gradient(to bottom, rgba(5, 4, 15, 0.82), transparent);
+}
+
+.nav__mark {
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav__links { display: flex; gap: 22px; margin-left: auto; }
+.nav__links a, .nav__cta {
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color 160ms var(--ease);
+}
+.nav__links a:hover, .nav__cta:hover { color: var(--accent); }
+
+.nav__cta {
+  margin-left: 22px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+}
+.nav__cta:hover { border-color: var(--line-hot); box-shadow: 0 0 18px -6px var(--accent); }
+
+@media (max-width: 860px) {
+  .nav__links { display: none; }
+  .nav { gap: 12px; }
+}
+
+/* ------------------------------------------------------------- panels -- */
+main { position: relative; z-index: 2; }
+
+/*  Each section is a full viewport. The scene's zoom is driven by how far
+    the page has scrolled through them, so their number and height ARE the
+    animation's timeline. */
+.panel {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 120px var(--gutter) 90px;
+}
+
+/*  On a phone the card is full width, so the scene has to be given a band
+    of its own or it is simply not visible - see kMobileBandCentre. The
+    section grows past one screen where the content needs it; a card
+    squeezed to fit under the instrument would be worse than a scroll. */
+@media (max-width: 860px) {
+  /*  .panel--download is named too, not because it differs, but because it
+      sets its own padding-top later in this file and would otherwise win on
+      source order and put the card straight back over the instrument. */
+  .panel,
+  .panel--download {
+    align-items: flex-start;
+    padding-top: 40svh;
+    padding-bottom: 64px;
+  }
+}
+
+/*  Content sits on one side and the panel occupies the other - which is the
+    whole reason the 3D panel slides aside on scroll rather than staying
+    centred. On a phone there is no "side", so the slab is full width and
+    the scene stays behind it. */
+.slab {
+  width: min(46ch, 100%);
+  padding: 26px 28px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: linear-gradient(160deg, rgba(21, 12, 54, 0.88), rgba(8, 6, 26, 0.82));
+  backdrop-filter: blur(10px);
+}
+
+.slab--hero { width: min(54ch, 100%); }
+.slab--wide { width: min(64ch, 100%); }
+
+.panel--hero { position: relative; }
+/*  Top-aligned because the FAQ list makes this the tallest card on the
+    page. Scoped to the wide layout: the phone rule above already top-aligns
+    every section and reserves the band the instrument sits in, and an
+    unscoped copy here wins on source order and puts the card back over
+    it - which is exactly what it did. */
+@media (min-width: 861px) {
+  .panel--download { align-items: flex-start; padding-top: 140px; }
+}
+
+/*  THE TEXT STAYS LEFT ON A WIDE SCREEN, all the way down. An earlier
+    version alternated the sides so the eye would move - and the 3D panel
+    parks on the RIGHT and stays there, so every alternated section put the
+    card directly on top of the instrument. Which side the words sit on is
+    not a free choice here: it is decided by where the panel goes. */
+
+/* --------------------------------------------------------------- type -- */
+.eyebrow {
+  margin: 0 0 18px;
+  font-size: 10px;
+  letter-spacing: 0.34em;
+  color: var(--accent);
+}
+
+.display {
+  margin: 0 0 20px;
+  font-size: clamp(56px, 12vw, 132px);
+  line-height: 0.88;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  text-shadow: 0 0 60px rgba(100, 230, 255, 0.28);
+}
+
+/*  pre-line, because the headings are broken by hand where the line should
+    turn and the decoder writes them back as text with newlines in it. */
+.heading {
+  white-space: pre-line;
+  margin: 0 0 18px;
+  /* Capped so the hand-placed line break is the only one: at 40px the
+     heading wrapped a second time inside a 46ch card and the two breaks
+     fought each other. */
+  font-size: clamp(20px, 2.1vw, 29px);
+  line-height: 1.12;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.index {
+  margin: 0 0 14px;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--accent-2);
+}
+
+.lede, .body { margin: 0 0 24px; color: var(--text-dim); }
+.lede { font-size: clamp(12px, 1.2vw, 15px); }
+
+.specs { margin: 0; padding: 0; list-style: none; }
+.specs li {
+  padding: 9px 0 9px 20px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--text-faint);
+  position: relative;
+}
+.specs li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--accent);
+  /* A lit square, echoing the lattice. */
+  box-shadow: 0 0 10px -2px var(--accent);
+}
+
+.row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+.button {
+  display: inline-block;
+  padding: 12px 22px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: rgba(100, 230, 255, 0.1);
+  color: var(--text);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-decoration: none;
+  transition: background 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+.button:hover { background: rgba(100, 230, 255, 0.2); box-shadow: 0 0 26px -8px var(--accent); }
+.button--ghost { border-color: var(--line); background: transparent; }
+.button--ghost:hover { border-color: var(--line-hot); }
+
+.scroll-hint {
+  position: absolute;
+  left: var(--gutter);
+  bottom: 34px;
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--text-faint);
+  animation: pulse 2.6s var(--ease) infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .scroll-hint { animation: none; } }
+
+/* ---------------------------------------------------------------- faq -- */
+.faq { margin-top: 34px; border-top: 1px solid var(--line); }
+
+details {
+  border-bottom: 1px solid var(--line);
+}
+summary {
+  padding: 15px 0;
+  cursor: pointer;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text);
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::after { content: ' +'; color: var(--accent); }
+details[open] summary::after { content: ' −'; }
+details p { margin: 0 0 18px; color: var(--text-faint); font-size: 11px; }
+code { color: var(--accent); }
+
+/* --------------------------------------------------------------- foot -- */
+.foot {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 26px var(--gutter) 40px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+  background: var(--bg-deep);
+}
+
+/*  Decoding text must not reflow the page while it lands, so a block that
+    is mid-decode keeps its box. */
+[data-decode] { min-height: 1em; }

@@ -243,7 +243,10 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts
 
-          for pattern in GNARL.vst3 GNARL.component GNARL.app GNARL.exe GNARL; do
+          # No standalone: the VST3 and the AU are what get installed, and
+          # a loose GNARL.exe beside them is the file somebody double-clicks
+          # by mistake when they meant to load the plugin.
+          for pattern in GNARL.vst3 GNARL.component; do
             found=$(find build -maxdepth 8 -name "$pattern" -not -path '*/artefacts/*/*/*' 2>/dev/null | head -n 1 || true)
 
             if [ -n "$found" ]; then
@@ -256,27 +259,40 @@ jobs:
           GNARL
           =====
 
-          WINDOWS
-            Copy GNARL.vst3 into:
-              C:\Program Files\Common Files\VST3\
+          WINDOWS - keep it wherever you like
 
-            FL Studio:  Options > Manage plugins > Find more plugins.
-                        GNARL then appears under Plugin database > Generators.
-            Ableton:    Preferences > Plug-Ins > turn VST3 on, then Rescan.
+            You do NOT have to put this in Program Files. Leave GNARL.vst3 in
+            your Downloads folder (or anywhere else) and point the DAW at it.
 
-            GNARL.exe is the standalone - it needs no DAW at all, and is the
-            quickest way to check the plugin runs before touching a project.
+            FL STUDIO
+              Options > Manage plugins
+              Under "Plugin search paths", click the folder icon and add:
+                  C:\Users\<you>\Downloads
+              Then click "Find more plugins".
+              GNARL appears under Plugin database > Generators > New.
+
+            ABLETON LIVE
+              Preferences > Plug-Ins
+              Turn "Use VST3 Plug-In Custom Folder" on, browse to the same
+              folder, then click Rescan.
+              GNARL appears in Browser > Plug-Ins.
+
+            Keeping it out of Program Files also means no admin prompt, and
+            replacing it with a newer build is just overwriting a file.
 
           macOS
             GNARL.vst3       -> ~/Library/Audio/Plug-Ins/VST3/
             GNARL.component  -> ~/Library/Audio/Plug-Ins/Components/   (AU)
 
-            Unsigned, so the first launch needs Finder > right-click > Open,
-            or the DAW will silently not list it.
+            macOS does not allow a custom VST3 folder the way Windows does,
+            so these two paths are fixed. Unsigned, so the first launch needs
+            Finder > right-click > Open or the DAW silently will not list it.
 
-          If the plugin window is blank on Windows, the machine is missing the
-          WebView2 runtime - it ships with Windows 11 and recent 10, and is a
-          free download from Microsoft otherwise.
+          IF THE PLUGIN WINDOW IS BLANK
+            The machine is missing the WebView2 runtime. It ships with
+            Windows 11 and recent 10, and is a free download from Microsoft
+            otherwise. The interface is a web view; without it there is
+            nothing to draw with.
           NOTE
 
           ls -la artifacts
