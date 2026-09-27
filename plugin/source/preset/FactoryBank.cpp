@@ -32,6 +32,28 @@ namespace
     constexpr auto kSourceLfo1 = static_cast<float> (choices::ModSource::lfo1);
     constexpr auto kSourceLfo2 = static_cast<float> (choices::ModSource::lfo2);
     constexpr auto kSourceEnv2 = static_cast<float> (choices::ModSource::env2);
+    constexpr auto kSourceEnv3 = static_cast<float> (choices::ModSource::env3);
+
+    /*  Table indices by name, so a patch reads as a shape rather than as a
+        number. The ORDER IS FROZEN (WavetableLibrary::kTableNames) for the
+        same reason a choice list is: a preset stores the index. */
+    constexpr auto kTableGrowlVowels = 1.0f;
+    constexpr auto kTableMetallicFm = 2.0f;
+    constexpr auto kTableHollowComb = 3.0f;
+    constexpr auto kTableFormantSweep = 7.0f;
+    constexpr auto kTableBitcrushSteps = 8.0f;
+    constexpr auto kTablePulseWidth = 9.0f;
+    constexpr auto kTableAdditiveStack = 10.0f;
+    constexpr auto kTableRingModBell = 11.0f;
+    constexpr auto kTableTalkBox = 13.0f;
+    constexpr auto kTableGlassHarmonics = 15.0f;
+    constexpr auto kTablePhaseDistortion = 16.0f;
+
+    constexpr auto kHalf = static_cast<float> (choices::LfoRateDivision::half);
+    constexpr auto kTwoBars = static_cast<float> (choices::LfoRateDivision::bars2);
+    constexpr auto kFourBars = static_cast<float> (choices::LfoRateDivision::bars4);
+
+    constexpr auto kDistTube = static_cast<float> (choices::FxDistortionType::tube);
 
     constexpr auto kSixteenthTriplet =
         static_cast<float> (choices::LfoRateDivision::sixteenthTriplet);
@@ -78,6 +100,23 @@ namespace
         { 0.30f, 0.0f, 0.0f, true },
         { 0.50f, 1.0f, 0.0f, true },
         { 0.72f, 0.0f, 0.0f, true },
+    };
+
+    /** One slow rise and fall across the cycle, eased at both ends. The
+        movement these patches are built on is a SWEEP, not an articulation -
+        nothing steps, and the tension is what keeps it off a triangle. */
+    const std::vector<FactoryBank::CurvePoint> kSlowSweep {
+        { 0.00f, 0.05f,  0.35f, false },
+        { 0.50f, 0.95f, -0.35f, false },
+    };
+
+    /** Two sweeps per cycle, offset - so two destinations driven from one
+        LFO do not arrive together and the movement reads as a pair of
+        things breathing rather than one. */
+    const std::vector<FactoryBank::CurvePoint> kOffsetSweep {
+        { 0.00f, 0.60f, -0.25f, false },
+        { 0.35f, 0.15f,  0.30f, false },
+        { 0.70f, 0.90f,  0.00f, false },
     };
 
     /** Three descending steps then a snap back - reads as a falling
@@ -675,6 +714,506 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
           // No curve: an envelope is not an LFO and has no drawn shape.
           { { 0, pid::filter[0].formantX } } },
 
+        /*  ------------------------------------------------------------------
+            THE GRAINTABLE PACK.
+
+            A different instrument from the riddim bank above, built around
+            the chain a Reason Combinator gets its character from: a
+            graintable oscillator, made vocal by a vocoder, then phased,
+            distorted and reverbed. GNARL has every one of those - graintable
+            mode, the formant filter (which IS the vocoder character here),
+            the phaser, the drive curves, the reverb - so the sound is
+            reachable without anything being imported.
+
+            AND NOTHING WAS. CLAUDE.md section 9 names Malstrom specifically:
+            only tables we generated. Every patch below plays one of the
+            twenty tables the plugin synthesises for itself. A Combinator
+            patch file would not have helped anyway - it references its
+            graintable by name and the audio lives in a soundbank - but the
+            rule is the reason, not the convenience.
+
+            WHAT MAKES THESE ONE FAMILY rather than ten unrelated patches:
+            the movement is a SWEEP, not an articulation. The riddim bank
+            steps hard six times a cycle; these breathe once every two or
+            four bars. Same engine, opposite gesture.
+
+            AND THE FIRST VERSION OF THIS PACK WAS INAUDIBLE, which is worth
+            recording because none of it was a bug. Measured against the
+            riddim bank's -23 to -31 dBFS, these arrived at -39 to -61, and
+            "Grain Choir" peaked at 0.003 - fifty decibels down.
+
+            Three costs stack, and each is legitimate on its own. Graintable
+            mode is about 5 dB under wavetable mode, because grains are
+            windowed. The formant filter costs another 8, which is its
+            documented residual (section 3). And GRAIN SIZE AND DENSITY MOVE
+            THE LEVEL BY 25 dB across their ranges - long grains at high
+            density are far quieter than moderate ones, which is the opposite
+            of what "more grains, more overlap" suggests. Every patch here
+            now stays inside roughly 20-60 ms and 14-26.
+
+            The last cost was the largest and the least obvious: these
+            patches deliberately have no drive stages, and the riddim bank
+            gets most of its level FROM its drive stages. A patch with no
+            nonlinearity anywhere has no gain staging either. A gentle OTT
+            does that job here without changing the character - which is also
+            what the Combinator this pack takes its shape from does. */
+
+        /*  The bones of the family: a pulse-width graintable swept slowly,
+            read by the formant filter so the sweep comes out vocal, then
+            phased. The grain size is the control that matters - at 40 ms the
+            grains overlap into a tone, and shortening them is what turns it
+            granular. */
+        { "Square Sweeper", "Texture",
+          "A pulse-width graintable swept slowly and read by the formant "
+          "filter, so the sweep comes out vocal rather than merely bright.",
+          "graintable,sweep,vocal,phaser,texture",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTablePulseWidth },
+              { pid::osc[0].tablePos, 0.2f },
+              { pid::osc[0].grainSize, 40.0f },
+              { pid::osc[0].grainDensity, 20.0f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.06f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].resonance, 0.4f },
+              { pid::filter[0].formantY, 0.45f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kTwoBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.75f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.3f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.5f },
+              { pid::fxPhaser.stages, 6.0f },
+              { pid::fxPhaser.feedback, 0.4f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.3f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          // Block-rate: the table position, so the sweep is in the SOURCE
+          // and the formant filter reads whatever arrives.
+          { { 0, pid::osc[0].tablePos } },
+          { { 0, kSlowSweep } } },
+
+        /*  The vocoder, taken literally. A talk-box table through the
+            formant filter with both vowel axes moving - which is what a
+            vocoder does that a filter sweep cannot: the two formants move
+            independently, so the sound says something rather than just
+            opening. */
+        { "Vocoder Bloom", "Pad",
+          "Both vowel axes moving independently, which is what a vocoder "
+          "does that a filter sweep cannot - the sound says something "
+          "rather than just opening.",
+          "vocoder,formant,pad,graintable,vocal",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableTalkBox },
+              { pid::osc[0].tablePos, 0.4f },
+              { pid::osc[0].grainSize, 45.0f },
+              { pid::osc[0].grainDensity, 24.0f },
+              { pid::osc[0].level, 0.8f },
+              { pid::osc[0].unisonVoices, 3.0f },
+              { pid::osc[0].unisonDetune, 0.1f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].resonance, 0.55f },
+              { pid::filter[0].formantThroat, 0.3f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kTwoBars },
+              { pid::lfo[1].shape, kLfoCustom },
+              { pid::lfo[1].syncEnabled, 1.0f },
+              { pid::lfo[1].rateDivision, kFourBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.8f },
+              { pid::modSlot[1].enabled, 1.0f },
+              { pid::modSlot[1].source, kSourceLfo2 },
+              { pid::modSlot[1].depth, 0.65f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.32f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.42f },
+              { pid::fxReverb.decay, 0.7f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].formantX },
+            { 1, pid::filter[0].formantY } },
+          { { 0, kSlowSweep },
+            { 1, kOffsetSweep } } },
+
+        /*  The scream. A pulse-width graintable driven hard through the tube
+            curve with the phaser after it - the order matters, because a
+            phaser BEFORE distortion has its notches filled back in by the
+            harmonics the drive generates. */
+        { "Screamer Lead", "Lead",
+          "Driven hard through the tube curve with the phaser AFTER it - a "
+          "phaser before distortion has its notches filled back in by the "
+          "harmonics the drive makes.",
+          "lead,scream,distortion,phaser,graintable",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTablePulseWidth },
+              { pid::osc[0].tablePos, 0.65f },
+              { pid::osc[0].grainSize, 25.0f },
+              { pid::osc[0].grainDensity, 24.0f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 4.0f },
+              { pid::osc[0].unisonDetune, 0.15f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterBandPass12 },
+              { pid::filter[0].cutoff, 1800.0f },
+              { pid::filter[0].resonance, 0.5f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kHalf },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.6f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].type, kDistTube },
+              { pid::fxDistortion[0].drive, 20.0f },
+              { pid::fxDistortion[0].tone, 0.4f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.55f },
+              { pid::fxPhaser.stages, 8.0f },
+              { pid::fxPhaser.rate, 0.3f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.18f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].cutoff } },
+          { { 0, kSlowSweep } } },
+
+        /*  Long grains, high density, no drive at all. The one in the pack
+            that proves the character is the GRAINTABLE and not the
+            distortion - take every nonlinear stage away and it still sounds
+            like this family. */
+        { "Grain Choir", "Pad",
+          "Long grains, high density, and no drive anywhere. Proves the "
+          "character is the graintable rather than the distortion.",
+          "pad,choir,graintable,clean,reverb",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableAdditiveStack },
+              { pid::osc[0].tablePos, 0.3f },
+              { pid::osc[0].grainSize, 55.0f },
+              { pid::osc[0].grainDensity, 25.0f },
+              { pid::osc[0].level, 1.0f },
+              { pid::osc[0].unisonVoices, 3.0f },
+              { pid::osc[0].unisonDetune, 0.13f },
+              { pid::osc[0].unisonSpread, 0.8f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].resonance, 0.3f },
+              { pid::filter[0].formantY, 0.7f },
+              { pid::filter[0].mix, 0.45f },
+              { pid::envelope[0].attack, 0.6f },
+              { pid::envelope[0].release, 1.4f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kFourBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.5f },
+              /*  OTT DOING ALL THE GAIN STAGING, at more depth than the
+                  others need. This is the quietest construction in the bank
+                  - graintable, through the formant filter, with no
+                  nonlinearity anywhere to add level - and it is the patch
+                  that found the whole problem. Upward compression is what
+                  lifts it without putting drive into a patch whose entire
+                  claim is that it has none.
+
+                  The formant mix sits at 0.45 rather than 1.0 for the same
+                  reason: the filter is the attenuator here, so letting some
+                  of the dry graintable past is level AND keeps the vowel
+                  audible as a colour rather than as the whole sound. */
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.75f },
+              { pid::ott.outputGain, 9.0f },
+              { pid::fxDimension.enabled, 1.0f },
+              { pid::fxDimension.width, 0.6f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.55f },
+              { pid::fxReverb.decay, 0.85f },
+              { pid::fxReverb.size, 0.8f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].formantX } },
+          { { 0, kSlowSweep } } },
+
+        /*  Short grains at low density: the gaps between them are audible,
+            which is the granular sound proper rather than a tone that
+            happens to be made of grains. */
+        { "Glass Drift", "Texture",
+          "Short grains at LOW density, so the gaps between them are "
+          "audible - granular proper, rather than a tone that happens to be "
+          "made of grains.",
+          "granular,glass,texture,sparse,phaser",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableGlassHarmonics },
+              { pid::osc[0].tablePos, 0.5f },
+              { pid::osc[0].grainSize, 22.0f },
+              { pid::osc[0].grainDensity, 14.0f },
+              { pid::osc[0].level, 0.8f },
+              { pid::osc[0].unisonVoices, 3.0f },
+              { pid::osc[0].unisonDetune, 0.25f },
+              { pid::osc[0].unisonSpread, 0.9f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterLowPass12 },
+              { pid::filter[0].cutoff, 6000.0f },
+              { pid::filter[0].resonance, 0.2f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::envelope[0].attack, 0.25f },
+              { pid::envelope[0].release, 1.8f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kFourBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.7f },
+              { pid::ott.enabled, 1.0f },
+              { pid::ott.depth, 0.35f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.45f },
+              { pid::fxPhaser.stages, 12.0f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.6f },
+              { pid::fxReverb.decay, 0.9f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::osc[0].grainSize } },
+          { { 0, kSlowSweep } } },
+
+        /*  The phaser doing the talking instead of the filter. Twelve stages
+            is six notches (see FxModulationTests), swept slowly - which on a
+            harmonically dense source reads as movement through the sound
+            rather than across it. */
+        { "Phase Talker", "Texture",
+          "The phaser doing the talking instead of the filter. Twelve "
+          "stages is six notches, swept slowly across a dense source.",
+          "phaser,texture,graintable,movement",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTablePhaseDistortion },
+              { pid::osc[0].tablePos, 0.55f },
+              { pid::osc[0].grainSize, 35.0f },
+              { pid::osc[0].grainDensity, 22.0f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.08f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterLowPass24 },
+              { pid::filter[0].cutoff, 4500.0f },
+              { pid::filter[0].resonance, 0.25f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kTwoBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.85f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.7f },
+              { pid::fxPhaser.stages, 12.0f },
+              { pid::fxPhaser.feedback, 0.55f },
+              { pid::fxPhaser.rate, 0.12f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.28f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::osc[0].tablePos } },
+          { { 0, kOffsetSweep } } },
+
+        /*  Bell-like, struck rather than swept - an envelope on the table
+            position instead of an LFO, so the timbre decays with the note
+            and repeating it does not sound identical every time. */
+        { "Metal Bloom", "Pluck",
+          "Struck rather than swept: an envelope on the table position, so "
+          "the timbre decays with the note instead of cycling.",
+          "bell,metallic,pluck,graintable,envelope",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableRingModBell },
+              { pid::osc[0].tablePos, 0.15f },
+              { pid::osc[0].grainSize, 20.0f },
+              { pid::osc[0].grainDensity, 26.0f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.05f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterBandPass12 },
+              { pid::filter[0].cutoff, 2200.0f },
+              { pid::filter[0].resonance, 0.45f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::envelope[0].attack, 0.002f },
+              { pid::envelope[0].decay, 0.9f },
+              { pid::envelope[0].sustain, 0.0f },
+              { pid::envelope[0].release, 0.7f },
+              { pid::envelope[2].attack, 0.002f },
+              { pid::envelope[2].decay, 0.5f },
+              { pid::envelope[2].sustain, 0.1f },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceEnv3 },
+              { pid::modSlot[0].depth, 0.8f },
+              { pid::fxDelay.enabled, 1.0f },
+              { pid::fxDelay.mix, 0.25f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.4f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          // No curve: an envelope has no drawn shape.
+          { { 0, pid::osc[0].tablePos } } },
+
+        /*  A comb filter tracking the note under a graintable, which is two
+            resonators fighting - the comb's and the grain rate's. Detuning
+            the grain density against the note is what makes it metallic
+            rather than merely filtered. */
+        { "Hollow Pulse", "Texture",
+          "A comb tracking the note under a graintable: two resonators, the "
+          "comb's and the grain rate's, deliberately not agreeing.",
+          "comb,hollow,graintable,resonant,texture",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableHollowComb },
+              { pid::osc[0].tablePos, 0.4f },
+              { pid::osc[0].grainSize, 18.0f },
+              { pid::osc[0].grainDensity, 24.0f },
+              { pid::osc[0].level, 0.8f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterComb },
+              { pid::filter[0].resonance, 0.6f },
+              { pid::filter[0].mix, 0.85f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kTwoBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.55f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.4f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.35f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::osc[0].grainDensity } },
+          { { 0, kOffsetSweep } } },
+
+        /*  The slowest thing in the bank: four bars for one pass of the
+            vowel. At that rate the formant stops reading as an effect and
+            starts reading as the patch simply being alive. */
+        { "Vowel Drift", "Pad",
+          "Four bars for one pass of the vowel. At that rate the formant "
+          "stops reading as an effect and starts reading as the patch being "
+          "alive.",
+          "pad,vowel,slow,formant,ambient",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableGrowlVowels },
+              { pid::osc[0].tablePos, 0.25f },
+              { pid::osc[0].grainSize, 50.0f },
+              { pid::osc[0].grainDensity, 24.0f },
+              { pid::osc[0].level, 0.75f },
+              { pid::osc[0].unisonVoices, 4.0f },
+              { pid::osc[0].unisonDetune, 0.14f },
+              { pid::osc[0].unisonSpread, 0.7f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::sub.enabled, 1.0f },
+              { pid::sub.level, 0.25f },
+              { pid::sub.sendDirect, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterFormant },
+              { pid::filter[0].resonance, 0.45f },
+              { pid::filter[0].formantThroat, 0.25f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::envelope[0].attack, 0.9f },
+              { pid::envelope[0].release, 2.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kFourBars },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.9f },
+              { pid::fxDimension.enabled, 1.0f },
+              { pid::fxDimension.width, 0.5f },
+              { pid::fxReverb.enabled, 1.0f },
+              { pid::fxReverb.mix, 0.5f },
+              { pid::fxReverb.decay, 0.8f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].formantX } },
+          { { 0, kSlowSweep } } },
+
+        /*  The retro-transformer flavour: bitcrush into tube drive, which is
+            a different dirt from the riddim bank's hard clip - quantisation
+            noise rather than folded harmonics. Deliberately the only patch
+            here with no reverb, so the grit has nothing to hide behind. */
+        { "Retro Grit", "FX",
+          "Bitcrush into tube drive - quantisation noise rather than folded "
+          "harmonics. No reverb, so the grit has nothing to hide behind.",
+          "retro,bitcrush,lofi,grit,graintable",
+          {
+              { pid::osc[0].enabled, 1.0f },
+              { pid::osc[0].mode, kGraintable },
+              { pid::osc[0].wavetable, kTableBitcrushSteps },
+              { pid::osc[0].tablePos, 0.6f },
+              { pid::osc[0].grainSize, 30.0f },
+              { pid::osc[0].grainDensity, 22.0f },
+              { pid::osc[0].level, 0.85f },
+              { pid::osc[0].unisonVoices, 2.0f },
+              { pid::osc[0].unisonDetune, 0.09f },
+              { pid::osc[0].sendFilter1, 1.0f },
+              { pid::filter[0].enabled, 1.0f },
+              { pid::filter[0].type, kFilterLowPass12 },
+              { pid::filter[0].cutoff, 3200.0f },
+              { pid::filter[0].resonance, 0.35f },
+              { pid::filter[0].mix, 1.0f },
+              { pid::lfo[0].shape, kLfoCustom },
+              { pid::lfo[0].syncEnabled, 1.0f },
+              { pid::lfo[0].rateDivision, kHalf },
+              { pid::modSlot[0].enabled, 1.0f },
+              { pid::modSlot[0].source, kSourceLfo1 },
+              { pid::modSlot[0].depth, 0.65f },
+              { pid::fxDistortion[0].enabled, 1.0f },
+              { pid::fxDistortion[0].type, kDistBitcrush },
+              { pid::fxDistortion[0].drive, 10.0f },
+              { pid::fxDistortion[1].enabled, 1.0f },
+              { pid::fxDistortion[1].type, kDistTube },
+              { pid::fxDistortion[1].drive, 14.0f },
+              { pid::fxPhaser.enabled, 1.0f },
+              { pid::fxPhaser.mix, 0.35f },
+              { pid::fxLimiter.enabled, 1.0f },
+          },
+          { { 0, pid::filter[0].cutoff } },
+          { { 0, kOffsetSweep } } },
+
         /*  The empty patch, and it earns its place: somebody who wants to
             build from nothing should not have to switch fourteen effects off
             first. Everything at its default except the limiter, which stays
@@ -689,6 +1228,21 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::fxLimiter.enabled, 1.0f },
           } },
     };
+}
+
+int FactoryBank::getAuditionNote (const juce::String& category)
+{
+    // A bass patch auditioned at C4 and a pad auditioned at C1 are both
+    // misleading, and the second is what the renderer used to do to the
+    // whole bank.
+    if (category == "Bass" || category == "Growl")
+        return 36;                          // C1 - where a riddim patch lives.
+
+    if (category == "Pluck" || category == "FX" || category == "Sequence")
+        return 48;                          // C2.
+
+    // Pads, leads, keys and textures: C4, where somebody would play them.
+    return 60;
 }
 
 int FactoryBank::getCount()

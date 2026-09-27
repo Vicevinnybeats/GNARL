@@ -287,3 +287,97 @@ TEST_CASE ("Removing a preset's routing changes what it sounds like", "[factory]
         about something the test is not asking. */
     CHECK (relative > 0.02);
 }
+
+TEST_CASE ("Every factory preset is audible somewhere in its range", "[factory]")
+{
+    /*  THE TEST THE GRAINTABLE PACK NEEDED, and its second version.
+
+        The pack's first draft was inaudible - "Grain Choir" peaked at 0.003,
+        fifty decibels under the rest of the bank - and nothing caught it,
+        because every parameter was set correctly and the patch round-tripped
+        and rendered without a NaN. It was simply quiet.
+
+        None of the causes was a bug. Graintable mode costs about 5 dB
+        against wavetable mode, the formant filter costs its documented
+        residual, grain size and density move the level by 25 dB across their
+        ranges, and a patch with no drive stages has no gain staging at all.
+        Each is legitimate; the four together are a silent preset.
+
+        AND THE FIRST VERSION OF THIS TEST DISAGREED WITH THE RENDERER, which
+        is what found the last piece. It held one note and passed; the
+        renderer reported the same patch at 0.008. The difference was the
+        NOTE - the test used 45, the renderer 36 - and a pad through the
+        formant filter at C1 has its harmonics below the formant frequencies,
+        so the filter removes almost everything. Neither measurement was
+        wrong; they were asking about different notes.
+
+        So the property is "audible SOMEWHERE in its range". A patch nobody
+        can hear at any pitch is broken. A bass patch inaudible at C5, or a
+        pad inaudible at C1, is just a patch being played where it does not
+        live - and asserting otherwise would make every pad in the bank fail
+        for being a pad. */
+    GnarlProcessor processor;
+
+    auto& apvts = processor.getValueTreeState();
+    const auto definitions = preset::FactoryBank::getDefinitions();
+    const auto bank = preset::FactoryBank::build (apvts, apvts.copyState());
+
+    const auto peakAtNote = [&bank] (std::size_t index, int note)
+    {
+        GnarlProcessor player;
+        player.applyPresetState (bank[index].getChildWithName ("GNARL"));
+        player.prepareToPlay (kSampleRate, kBlockSize);
+
+        juce::AudioBuffer<float> buffer (2, kBlockSize);
+        auto peak = 0.0f;
+
+        // Three seconds held: long enough for the slowest pad here - nearly
+        // a second of attack - to arrive, and for a four-bar LFO to move.
+        for (int block = 0; block < 560; ++block)
+        {
+            juce::MidiBuffer midi;
+
+            if (block == 0)
+                midi.addEvent (juce::MidiMessage::noteOn (1, note, 1.0f), 0);
+
+            buffer.clear();
+            player.processBlock (buffer, midi);
+
+            for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+                peak = juce::jmax (peak, buffer.getMagnitude (channel, 0, kBlockSize));
+        }
+
+        return peak;
+    };
+
+    for (std::size_t i = 0; i < definitions.size(); ++i)
+    {
+        // C1, C2, C3, C4 - the span anybody would try before concluding a
+        // preset is broken.
+        /*  THE NOTE THE RENDERER USES, from the shared mapping - not the
+            best of several. An earlier version took the best across four
+            notes and passed while the shipped audition was inaudible, which
+            is a test agreeing with itself rather than with the product. */
+        const auto note = preset::FactoryBank::getAuditionNote (
+            juce::String (definitions[i].category));
+
+        const auto peak = peakAtNote (i, note);
+
+        INFO ("preset: " << definitions[i].name << " at its audition note " << note);
+
+        // Nothing may clip. Every patch here has the limiter on, so this is
+        // really asking whether the limiter is doing all the work.
+        CHECK (peak <= 1.0f);
+
+        const auto peakDb = juce::Decibels::gainToDecibels (peak, -120.0f);
+
+        INFO ("peaks at " << peakDb << " dBFS");
+
+        /*  -30 dBFS at the note it is meant to be played at. Quiet enough
+            that a deliberately restrained patch passes, loud enough that
+            nobody auditioning the bank reaches for the gain wondering if it
+            is broken. Not a mix decision - taste is not testable - but 40 dB
+            under the bank is not taste either. */
+        CHECK (peakDb > -30.0f);
+    }
+}

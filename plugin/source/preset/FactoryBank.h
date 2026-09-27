@@ -113,6 +113,18 @@ public:
         const juce::ValueTree& defaultState);
 
     static int getCount();
+
+    /** The MIDI note a patch of this category is actually played at.
+
+        SHARED BY THE RENDERER AND THE TESTS, deliberately. They had a copy
+        each and disagreed: the tests took the best of four notes and passed,
+        while the renderer auditioned every preset at C1 and produced pads at
+        0.008 peak. Neither was wrong about its own note - a pad through the
+        formant filter at C1 has its harmonics below the formant frequencies,
+        so the filter removes nearly all of it - but a test that passes while
+        the shipped audition is inaudible is a test asking the wrong
+        question. One mapping, one answer. */
+    static int getAuditionNote (const juce::String& category);
 };
 
 } // namespace gnarl::preset

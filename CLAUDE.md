@@ -454,6 +454,33 @@ points at the right place — without either copying the mapping or assuming
 one it never claimed. A monotonicity case sits beside it, because per-tone
 correctness at five sampled points would still pass on a mirrored display.
 
+**A preset can be built entirely from correct parts and still be
+inaudible.** The graintable pack's first draft arrived 40 dB under the riddim
+bank — "Grain Choir" peaked at **0.003** — and nothing caught it, because
+every parameter was set correctly, it round-tripped, and it rendered without
+a NaN. None of the causes was a bug either. Graintable mode costs ~5 dB
+against wavetable mode (grains are windowed); the formant filter costs its
+documented residual; **grain size and density move the level by 25 dB across
+their ranges**, with long grains at high density far *quieter* than moderate
+ones; and a patch with no drive stages has no gain staging, while the riddim
+bank gets most of its level from drive it deliberately does not have. Four
+legitimate costs stack into silence.
+
+**And the test and the renderer disagreed about it, which found the last
+piece.** The test held one note and passed; the renderer reported the same
+patch at 0.008. The difference was the *note* — 45 against 36 — and a pad
+through the formant filter at C1 has its harmonics below the formant
+frequencies, so the filter removes nearly all of it. Neither measurement was
+wrong; they were asking about different notes. `FactoryBank::getAuditionNote`
+is now the single mapping both use, because a test that passes while the
+shipped audition is inaudible is a test agreeing with itself rather than with
+the product. An intermediate version that took the best of four notes passed
+for exactly that reason and was worse than useless.
+
+`FactoryBankTests` now asserts every preset peaks above −30 dBFS **at the
+note its category implies**. Not a mix decision — taste is not testable — but
+40 dB under the bank is not taste.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.

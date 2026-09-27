@@ -168,11 +168,27 @@ void renderFactoryBank (const juce::File& outputDirectory)
 
         const auto tree = bank[i];
 
+        /*  THE AUDITION NOTE COMES FROM THE CATEGORY, and it has to.
+
+            Everything here was rendered at MIDI 36 while the bank was all
+            bass patches, and that quietly ruined the graintable pack: a pad
+            through the formant filter at C1 has its harmonics far below the
+            formant frequencies, so the filter attenuates almost all of it.
+            "Grain Choir" came out at 0.008 peak and looked like a broken
+            preset rather than a pad being auditioned two octaves below where
+            anybody would play it.
+
+            The mapping lives in FactoryBank so the tests audition at exactly
+            the same note this does. They had a copy each once, and disagreed
+            silently. */
+        const auto note = preset::FactoryBank::getAuditionNote (
+            preset::readMetadata (bank[i]).category);
+
         // Three seconds: long enough for the pad's 850 ms attack to arrive and
         // for a delay or reverb tail to be audible after the note ends.
         renderToFile (file, 3.0,
             [&tree] (GnarlProcessor& p) { p.getPresets().apply (tree); },
-            [] (juce::MidiBuffer& midi, int blockIndex) { holdNote (midi, blockIndex, 36); },
+            [note] (juce::MidiBuffer& midi, int blockIndex) { holdNote (midi, blockIndex, note); },
             [] (GnarlProcessor&, double) {});
     }
 }
