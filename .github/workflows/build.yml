@@ -156,12 +156,17 @@ jobs:
 
       # GNARL_BUILD_UI=OFF because the bundle was built in the `ui` job and
       # downloaded above; the CMake UI step would only rebuild it.
+      # GNARL_PERSONAL_BUILD: there is no activation server to point at, so
+      # without it every download carries a permanent "Development build"
+      # banner (CLAUDE.md section 9). Drop this flag the day the plugin is
+      # sold rather than used.
       - name: Configure
         run: >
           cmake -B build
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DGNARL_BUILD_TESTS=ON
           -DGNARL_BUILD_UI=OFF
+          -DGNARL_PERSONAL_BUILD=ON
           -DJUCE_WEBVIEW2_PACKAGE_LOCATION=${{ github.workspace }}/nuget
 
       - name: Build
@@ -228,11 +233,57 @@ jobs:
             --timeout-ms 600000 \
             --validate ~/Library/Audio/Plug-Ins/Components/GNARL.component
 
+      # A FLAT ARTIFACT, not the build tree. `build/**/GNARL.vst3` zips the
+      # plugin inside six levels of CMake scaffolding, which somebody then
+      # has to dig through before they can install anything. This produces a
+      # folder whose contents go straight where they belong.
+      - name: Stage the artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          for pattern in GNARL.vst3 GNARL.component GNARL.app GNARL.exe GNARL; do
+            found=$(find build -maxdepth 8 -name "$pattern" -not -path '*/artefacts/*/*/*' 2>/dev/null | head -n 1 || true)
+
+            if [ -n "$found" ]; then
+              cp -R "$found" artifacts/ 2>/dev/null || true
+              echo "staged $found"
+            fi
+          done
+
+          cat > artifacts/INSTALL.txt <<'NOTE'
+          GNARL
+          =====
+
+          WINDOWS
+            Copy GNARL.vst3 into:
+              C:\Program Files\Common Files\VST3\
+
+            FL Studio:  Options > Manage plugins > Find more plugins.
+                        GNARL then appears under Plugin database > Generators.
+            Ableton:    Preferences > Plug-Ins > turn VST3 on, then Rescan.
+
+            GNARL.exe is the standalone - it needs no DAW at all, and is the
+            quickest way to check the plugin runs before touching a project.
+
+          macOS
+            GNARL.vst3       -> ~/Library/Audio/Plug-Ins/VST3/
+            GNARL.component  -> ~/Library/Audio/Plug-Ins/Components/   (AU)
+
+            Unsigned, so the first launch needs Finder > right-click > Open,
+            or the DAW will silently not list it.
+
+          If the plugin window is blank on Windows, the machine is missing the
+          WebView2 runtime - it ships with Windows 11 and recent 10, and is a
+          free download from Microsoft otherwise.
+          NOTE
+
+          ls -la artifacts
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: gnarl-${{ matrix.name }}
-          path: |
-            build/**/GNARL.vst3
-            build/**/GNARL.component
-          retention-days: 7
+          path: artifacts/
+          retention-days: 30
