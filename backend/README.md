@@ -124,6 +124,14 @@ npx wrangler d1 execute gnarl --remote --command \
    values (lower(hex(randomblob(16))), 'GNARL-XXXX-XXXX-XXXX', 'you@example.com', 'active', 3)"
 ```
 
+## The plugin side
+
+`plugin/source/license/LicenseClient.{h,cpp}` is the verifier
+`LicenseManager` runs. The two functions that matter — building the request
+and interpreting the response — are **pure**, so `LicenseClientTests` covers
+the cases a test against a live server never could: a captive portal's login
+page, a 200 with an unrecognised status, a proxy's 401.
+
 ## Not built yet
 
 - The Stripe webhook that creates a licence row on purchase.

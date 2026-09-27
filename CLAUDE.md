@@ -859,6 +859,23 @@ Consequences of the figure above:
   is not the licence.
 - License verification runs on a background thread with a timeout. It never
   touches the audio thread and never blocks the UI.
+- **The licence key lives in the machine's settings, never in the ValueTree.**
+  The tree travels with the patch, so a key kept there would be written into
+  every `.gnarl` preset and every host session file — and the first time
+  somebody posted a patch publicly they would be posting their licence with
+  it. It sits beside the view preferences (§6), for the same reason those do.
+- **Only `valid` and `rejected` are decisions.** `license::interpretResponse`
+  maps *everything else* to `unreachable`, which opens the grace period: a
+  non-200 (including the 503 the Worker returns when its own database fails),
+  a body that is not JSON, a 200 whose `status` is unrecognised — a captive
+  portal's login page is exactly that shape. Reading our own outage as a
+  rejection would disable a paying customer's preset saving over a fault that
+  was never theirs, and `LicenseClientTests` fails in six places if the error
+  path is changed to return a decision.
+- What crosses the wire as a machine id is a **SHA-256 of the device id**, not
+  the device id. The server needs to tell two machines apart and has no
+  business telling *which* machine, so a leaked database cannot be joined
+  against anything.
 
 ---
 

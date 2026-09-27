@@ -73,6 +73,8 @@ target_sources(GNARL PRIVATE
     source/params/ParameterRanges.h
     source/params/SettingsReader.cpp
     source/params/SettingsReader.h
+    source/license/LicenseClient.cpp
+    source/license/LicenseClient.h
     source/license/LicenseManager.cpp
     source/license/LicenseManager.h
     source/license/LicenseState.cpp
@@ -134,6 +136,9 @@ target_link_libraries(GNARL
         juce::juce_audio_processors
         juce::juce_dsp
         juce::juce_gui_extra
+        # SHA-256 for the machine fingerprint. The raw device id never leaves
+        # the machine; only a hash of it is sent.
+        juce::juce_cryptography
         juce::juce_recommended_config_flags
     PRIVATE
         juce::juce_recommended_lto_flags

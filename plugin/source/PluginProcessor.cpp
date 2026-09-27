@@ -1,5 +1,7 @@
 #include "PluginProcessor.h"
 
+#include "license/LicenseClient.h"
+
 #include "preset/FactoryBank.h"
 
 #include <array>
@@ -65,8 +67,18 @@ GnarlProcessor::GnarlProcessor()
     }
     else
     {
-        // Phase 7 replaces this with the real HTTPS call. It runs on the
-        // manager's background thread, under its own timeout.
+        /*  The real thing: a POST to the Worker, on the manager's background
+            thread, under its timeout. The key comes from the machine's
+            settings rather than from the ValueTree - a key in the tree would
+            be written into every preset and every session file, so sharing a
+            patch would mean sharing the licence with it.
+
+            No key yet is not a rejection. `makeHttpVerifier` reports
+            `unreachable` for an empty one, which leaves features on and the
+            banner up rather than disabling preset saving for somebody who
+            has simply not typed their key in. */
+        licensing.setVerifier (license::makeHttpVerifier (GNARL_LICENCE_ENDPOINT,
+                                                          license::loadLicenceKey()));
         licensing.verify();
     }
 
