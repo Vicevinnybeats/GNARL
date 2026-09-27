@@ -259,11 +259,12 @@ jobs:
             fi
           done
 
-          # The standalone, one level down so it is never the first thing
-          # in the folder. The folder is created only if the binary is
-          # actually there: INSTALL.txt points at it, so an empty one reads
-          # as a broken download rather than as a format that did not
-          # build; an empty folder is worse than none.
+          # The standalone sits at the ROOT, beside the plugin - not in a
+          # subfolder. It was in one briefly, on the theory that a loose
+          # GNARL.exe is the file somebody double-clicks by mistake; but
+          # this build exists to be tested, and the thing you are going to
+          # run first should not be one folder further away than the thing
+          # you cannot run at all.
           #
           # Written as an explicit `if` rather than `[ -n "$x" ] && break`,
           # because this step runs under `set -e` and that list exits
@@ -277,8 +278,7 @@ jobs:
           done
 
           if [ -n "$standalone" ]; then
-            mkdir -p "artifacts/Standalone (no DAW needed)"
-            cp -R "$standalone" "artifacts/Standalone (no DAW needed)/"
+            cp -R "$standalone" artifacts/
             echo "staged standalone $standalone"
           else
             echo "::warning::no Standalone build found - the artifact will have the plugin only"
@@ -290,17 +290,20 @@ jobs:
 
           FASTEST WAY TO HEAR IT - no DAW, no install
 
-            Open "Standalone (no DAW needed)" and run GNARL.
+            Unzip this into your Downloads folder and double-click
+
+                C:\Users\<you>\Downloads\GNARL.exe
+
             Pick an audio device and a MIDI input, and play. Nothing is
-            installed and nothing is registered; close it and it is gone.
+            installed and nothing is registered; delete it and it is gone.
 
-            This is the quickest check that the build works at all. It is
-            NOT the plugin - a DAW cannot load it. For that, read on.
+            That is the quickest check that the build works at all. It is
+            NOT the plugin - a DAW cannot load an .exe. For that, read on.
 
-          WINDOWS - keep it wherever you like
+          WINDOWS - the plugin, kept in the same folder
 
-            You do NOT have to put this in Program Files. Leave GNARL.vst3 in
-            your Downloads folder (or anywhere else) and point the DAW at it.
+            You do NOT have to put this in Program Files. Leave GNARL.vst3
+            in Downloads next to the .exe and point the DAW at that folder.
 
             FL STUDIO
               Options > Manage plugins
@@ -321,6 +324,7 @@ jobs:
           macOS
             GNARL.vst3       -> ~/Library/Audio/Plug-Ins/VST3/
             GNARL.component  -> ~/Library/Audio/Plug-Ins/Components/   (AU)
+            GNARL.app        -> stays wherever you put it (the standalone)
 
             macOS does not allow a custom VST3 folder the way Windows does,
             so these two paths are fixed. Unsigned, so the first launch needs
