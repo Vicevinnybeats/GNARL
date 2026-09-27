@@ -167,6 +167,28 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       </SettingRow>
 
       <SettingRow
+        label="Opening animation"
+        hint="The splash while the interface loads. Off with reduced motion."
+      >
+        <Toggle
+          value={settings.splash}
+          onChange={(value) => updateSettings({ splash: value })}
+          compact
+        />
+      </SettingRow>
+
+      <SettingRow
+        label="Opening growl"
+        hint="Plays in the window, never through the plugin - it cannot reach what you are recording."
+      >
+        <Toggle
+          value={settings.splashSound}
+          onChange={(value) => updateSettings({ splashSound: value })}
+          compact
+        />
+      </SettingRow>
+
+      <SettingRow
         label="Knob travel"
         hint="Drag distance for a full sweep. Shift is fine, Ctrl finer, whatever this is."
       >

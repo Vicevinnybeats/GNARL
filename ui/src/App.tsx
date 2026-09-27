@@ -6,6 +6,7 @@ import { PresetBrowser } from './components/PresetBrowser';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { LicenseBanner } from './components/LicenseBanner';
+import { Splash } from './components/Splash';
 import { useLicense } from './bridge/license';
 import { useAppScale } from './bridge/useAppScale';
 import { METER_FLOOR_DB, meterPosition, type ModulationFrame } from './bridge/modulationFrame';
@@ -268,6 +269,7 @@ export function App() {
           {info.isMock ? 'browser preview · no audio engine' : `v${info.pluginVersion} · ${info.platform}`}
         </span>
       </footer>
+      <Splash />
     </div>
   );
 }

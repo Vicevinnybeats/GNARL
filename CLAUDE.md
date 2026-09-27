@@ -600,6 +600,17 @@ whenever you add one.
   `--gn-glow-hover*` says "the pointer is here", which the cursor has already
   said. The settings panel switches the second off and never the first: a UI
   that stops telling you what is enabled is broken, not calmer.
+- **The opening growl plays in the WEBVIEW, never through the plugin.** A
+  sound emitted from `processBlock` goes wherever the plugin's output goes —
+  into a take being recorded, through the mixer, audible to everyone on a
+  session — because somebody opened a window. `bridge/growl.ts` uses Web
+  Audio, reaches the system output, and cannot touch the DAW's audio path at
+  all. It is synthesised rather than sampled: a `.wav` would be a hundred
+  kilobytes embedded in every binary for three quarters of a second of sound.
+  It defaults **off** — a plugin that makes a noise every time its window
+  opens is one somebody eventually opens forty times in a row — while the
+  animation defaults on and follows the motion setting like everything else
+  that moves.
 - **View settings live in `ui/src/settings.ts`, not in the ValueTree.** Theme,
   animations, hover glow, help text and knob travel belong to the person at the
   machine, not to the patch. In the ValueTree they would travel with a preset,

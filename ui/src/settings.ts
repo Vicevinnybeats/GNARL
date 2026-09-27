@@ -45,6 +45,21 @@ export interface Settings {
       a dense synth has to be learnable; off for someone who knows it and wants
       the density back. */
   hints: boolean;
+  /** The opening animation. Off for prefers-reduced-motion, like the rest of
+      the motion here - a splash is the most motion this interface ever
+      makes. */
+  splash: boolean;
+  /** The growl that plays with it.
+
+      IT PLAYS IN THE WEBVIEW, NOT THROUGH THE PLUGIN. A sound emitted from
+      `processBlock` would go wherever the plugin's output goes - into a take
+      being recorded, through the mixer, audible to everyone on a session -
+      just because somebody opened a window. This goes to the system output
+      instead and cannot reach the DAW's audio path at all.
+
+      Still off by default: a plugin that makes a noise every time its window
+      opens is a plugin somebody eventually opens forty times in a row. */
+  splashSound: boolean;
   /** Pixels of vertical drag for a knob's full sweep. Higher is finer. */
   knobDragPx: number;
 }
@@ -72,6 +87,8 @@ function defaults(): Settings {
     motion: !reduced,
     glow: !reduced,
     hints: true,
+    splash: !reduced,
+    splashSound: false,
     knobDragPx: DEFAULT_KNOB_DRAG_PX,
   };
 }
@@ -100,6 +117,9 @@ function parse(raw: string | null): Settings {
       motion: typeof stored.motion === 'boolean' ? stored.motion : base.motion,
       glow: typeof stored.glow === 'boolean' ? stored.glow : base.glow,
       hints: typeof stored.hints === 'boolean' ? stored.hints : base.hints,
+      splash: typeof stored.splash === 'boolean' ? stored.splash : base.splash,
+      splashSound:
+        typeof stored.splashSound === 'boolean' ? stored.splashSound : base.splashSound,
       knobDragPx:
         stored.knobDragPx === undefined ? base.knobDragPx : clampDrag(stored.knobDragPx),
     };
