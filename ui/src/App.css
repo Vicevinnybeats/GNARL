@@ -1,8 +1,33 @@
+/*
+ * THE WHOLE INTERFACE SCALES; IT DOES NOT REFLOW.
+ *
+ * The editor is resizable 70%-200% with a FIXED ASPECT RATIO, and the tab
+ * layout is built on exact pixel budgets - 720 minus the 58px header, the
+ * 22px status bar and 16px of padding leaves 624px, and every row inside is
+ * an explicit height (section 6). That arithmetic is what keeps panels from
+ * overflowing onto each other, and it only holds at one size.
+ *
+ * So the app is always 1180x720 in its own coordinates and is SCALED to the
+ * window. Reflowing instead would mean every row height becoming a
+ * proportion, which is exactly the thing that has broken this layout four
+ * times.
+ *
+ * Measured before this existed: at 0.70x the page scrolled horizontally, the
+ * body overflowed vertically, and a panel body had 180px of content in a
+ * 12px box. `useAppScale` sets --gn-scale; without JS running it falls back
+ * to 1, which is correct at the design size.
+ */
 .gn-app {
   position: relative;
   display: grid;
   grid-template-rows: 58px 1fr 22px;
-  height: 100%;
+
+  width: var(--gn-design-width);
+  height: var(--gn-design-height);
+
+  transform-origin: top left;
+  transform: scale(var(--gn-scale, 1));
+
   background: var(--gn-bg);
 
   /* The themed light. Painted on the app rather than on <body> so the artwork

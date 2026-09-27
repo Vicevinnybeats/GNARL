@@ -7,6 +7,7 @@ import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { LicenseBanner } from './components/LicenseBanner';
 import { useLicense } from './bridge/license';
+import { useAppScale } from './bridge/useAppScale';
 import { METER_FLOOR_DB, meterPosition, type ModulationFrame } from './bridge/modulationFrame';
 import { FxTab } from './tabs/FxTab';
 import { ModTab } from './tabs/ModTab';
@@ -41,6 +42,9 @@ export function App() {
   const info = getPluginInfo();
 
   const [tab, setTab] = useState<Tab>('OSC');
+  // Scales the whole interface to the window; see useAppScale.
+  useAppScale();
+
   const [status, setStatus] = useState('');
 
   const license = useLicense();

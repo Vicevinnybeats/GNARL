@@ -654,6 +654,20 @@ whenever you add one.
   entirely. It has an explicit 104px height now, matching the knob row it
   sits beside. Screenshot after any layout change; this was invisible in the
   diff and unmissable in the picture.
+- **The interface SCALES with the window; it does not reflow.** The editor is
+  resizable 70%–200% with a fixed aspect ratio, and every budget above is an
+  exact pixel count that holds at exactly one size. So `.gn-app` is always
+  1180×720 in its own coordinates and carries `transform: scale(--gn-scale)`,
+  which `useAppScale` sets from the window. Reflowing instead would mean
+  turning every row height into a proportion — the thing that has broken this
+  layout four times.
+
+  Measured before that existed: at **0.70× the page scrolled horizontally,
+  the body overflowed vertically, and a panel body had 180 px of content in a
+  12 px box**. The editor was permitting a window size the CSS could not
+  render. `body` also needs `overflow: hidden`, because a transform does not
+  shrink an element's layout box — a scaled-down 1180×720 element still
+  reserves 1180×720 for scrolling.
 - **The structural half of that fix is `min-height: 0` on `.gn-panel`.** A
   grid or flex item's automatic minimum size is its *content* size, so a panel
   taller than its track grows past it — and the body's own `overflow: hidden`

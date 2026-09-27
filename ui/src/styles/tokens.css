@@ -108,6 +108,11 @@
   --gn-radius-sm: 3px;
   --gn-hairline: 1px;
 
+  /* The design size. Every pixel budget in the layout is expressed against
+     these, and the app is scaled to the window rather than reflowed. */
+  --gn-design-width: 1180px;
+  --gn-design-height: 720px;
+
   /* Spacing — 4px base grid */
   --gn-space-1: 4px;
   --gn-space-2: 8px;
@@ -268,6 +273,12 @@ body,
 body {
   background: var(--gn-app-gradient);
   background-color: var(--gn-bg);
+
+  /*  The app is scaled with a transform, which does NOT shrink its layout
+      box - a scaled-down 1180x720 element still reserves 1180x720 for
+      scrolling purposes. Without this the page gains scrollbars at every
+      size below the design size, which is what it did. */
+  overflow: hidden;
   color: var(--gn-text);
   font-family: var(--gn-font-mono);
   font-size: var(--gn-size-body);
