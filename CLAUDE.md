@@ -994,7 +994,7 @@ Consequences of the figure above:
 | 7 | Backend, licensing, subscription | client + activation endpoint **done**; Stripe not started |
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
-| 10 | Marketing site (Three.js + GSAP sticky scroll) — see [`docs/website-brief.md`](docs/website-brief.md) | not started |
+| 10 | Marketing site (Three.js + GSAP scroll-zoom) — [`site/`](site/), see [`docs/website-brief.md`](docs/website-brief.md) | **done** |
 
 **The synth now makes sound.** Oscillators, sub, noise, send routing and both
 filter slots are wired end to end, and `tests/EngineTests.cpp` drives the whole
@@ -1038,6 +1038,61 @@ loops rather than through React state, because a `setState` per frame
 re-renders the whole tab sixty times a second. `ui/src/bridge/previewEngine.ts`
 simulates the same frames in the browser preview, where there is no engine to
 push them.
+
+### The marketing site
+
+[`site/`](site/) — Three.js + GSAP, built by Vite, deployed as static files.
+Its centrepiece is the **plugin's own interface**, a plane textured with real
+screenshots of it at the design size, so the site cannot drift from what the
+thing looks like. The scroll is a **zoom**, not a fall: the panel comes towards
+the camera leaving the hero and parks to one side to clear the text.
+
+**The panel is sized from the camera's FRUSTUM, not by a scalar.** The first
+version multiplied a fixed scale, so one number had to serve a 1440×720
+desktop and a 390×844 phone — and did not: measured in a screenshot, the phone
+showed it bleeding off all four edges at scroll zero while the desktop's last
+section zoomed so far past the frame that the instrument stopped reading as an
+object. The scroll drives a **fraction of the viewport** it spans, clamped on
+both axes because a short wide window runs out of height first and a phone runs
+out of width. A fraction cannot overflow a screen it is measured against.
+
+**And the move finishes before the page does.** Scroll progress reaches 1 only
+at the very bottom of the document, so tying the parked state to it left the
+panel half-zoomed over the last two sections with a card on top of it. It
+settles at 0.62 and holds — which also stops the composition moving under the
+part of the page that is being read.
+
+**Text that decodes is timed in MILLISECONDS, not frames.** A frame count ties
+how long a sentence takes to resolve to how fast the machine is drawing, and
+there is a WebGL scene running beside it: on a software renderer every card was
+still mid-static after two and a half seconds. Same family as the meter
+ballistics in §3 — a quantity that should be a function of time computed from
+whatever the machine happened to do instead.
+
+**And writing decoded text back with `textContent` deletes the `<br>`.** A
+heading broken by hand came out as "FOURTEEN EFFECTS.ANY ORDER.", which looks
+like a typo rather than a lost tag. The break is read out as a newline and the
+headings are `white-space: pre-line`.
+
+**Which side the words sit on is not a free choice.** The panel parks right, so
+alternating the cards left and right put half of them straight on top of the
+instrument. On a phone there is no side at all: the panel takes a band across
+the **top**, with the sections' own padding keeping it clear — centred behind a
+full-width card it showed as two slivers down the edges, the product invisible
+on the device most people will open the page on.
+
+```bash
+cd site && npm run build
+(cd dist && python3 -m http.server 4174 --bind 127.0.0.1 &)
+node ../tools/screenshot_site.mjs <output-directory>
+```
+
+That script drives **both** sizes to each section and waits for the scene's
+easing and the decode before shooting. It re-reads `scrollY` in a separate
+`evaluate` to check where it landed, because Playwright's phone emulation
+briefly reports a viewport four times too tall, the browser clamps `scrollTop`
+against it, and the shot labelled `fx` was a photograph of the engine card
+while the check passed.
 
 ---
 
