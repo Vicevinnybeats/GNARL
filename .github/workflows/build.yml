@@ -3,6 +3,12 @@ name: build
 on:
   push:
     branches: ['**']
+    # A TAG IS WHAT PUBLISHES. The download button on the site points at
+    # /releases/latest, which is a stable URL that needs no GitHub account -
+    # unlike a run's artifacts, which expire and are only reachable when
+    # signed in. Pushing a `v*` tag runs this same pipeline and, if every
+    # platform goes green, attaches the result to a release.
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -406,3 +412,80 @@ jobs:
           name: gnarl-${{ matrix.name }}
           path: artifacts/
           retention-days: 30
+
+  # ---------------------------------------------------------------------
+  #  PUBLISH. Only on a tag, and only after every platform and the test
+  #  suite have passed - `needs` is what makes that true, so a tag pushed
+  #  onto a red commit produces no release rather than a broken one.
+  release:
+    name: publish the release
+    needs: [plugin, tests-linux, audition]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      # The default token is read-only on this repository; creating a
+      # release needs this and nothing else.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: staged
+
+      #  ZIPPED HERE RATHER THAN ATTACHING THE ARTIFACTS AS THEY ARE, for
+      #  one reason: a .vst3, a .component and a .app are DIRECTORIES, and
+      #  GitHub's own artifact zip flattens the permission bits and the
+      #  symlinks inside a macOS bundle. `zip -ry` keeps both, which is the
+      #  difference between a bundle macOS will load and one it refuses
+      #  without saying why.
+      - name: Package
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          for platform in macOS Windows; do
+            src="staged/gnarl-${platform}"
+            if [ -d "$src" ]; then
+              (cd "$src" && zip -qry "${GITHUB_WORKSPACE}/dist/GNARL-${version}-${platform}.zip" .)
+              echo "packaged ${platform}"
+            else
+              echo "::error::no artifact for ${platform} - refusing to publish a partial release"
+              exit 1
+            fi
+          done
+
+          # The bank audition rides along: 6.9 minutes of all 150 presets
+          # with an index, so somebody can hear the thing before deciding
+          # whether to install it.
+          if [ -d staged/gnarl-bank-audition ]; then
+            (cd staged/gnarl-bank-audition && zip -qry "${GITHUB_WORKSPACE}/dist/GNARL-${version}-bank-audition.zip" .)
+          fi
+
+          ls -la dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME}"
+
+          # `--prerelease` for anything carrying a suffix (v0.1.0-beta).
+          # /releases/latest SKIPS prereleases, so this is not cosmetic: it
+          # decides whether the site's download button points here at all.
+          extra=""
+          case "$version" in
+            *-*) extra="--prerelease" ;;
+          esac
+
+          #  THE NOTES LIVE IN A FILE, not in a heredoc here. An
+          #  indented heredoc terminator is not a terminator - bash reads to
+          #  the end of the script looking for it - and even where it works,
+          #  every line arrives with ten leading spaces, which markdown
+          #  renders as a code block. A file is also reviewable in a diff.
+          gh release create "$version" dist/*.zip \
+            --title "GNARL $version" \
+            --notes-file .github/release-notes.md \
+            $extra
