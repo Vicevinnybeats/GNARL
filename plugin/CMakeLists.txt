@@ -81,6 +81,8 @@ target_sources(GNARL PRIVATE
     source/license/LicenseState.h
     source/preset/FactoryBank.cpp
     source/preset/FactoryBank.h
+    source/preset/FactoryGenerator.cpp
+    source/preset/FactoryGenerator.h
     source/preset/PresetFormat.cpp
     source/preset/PresetFormat.h
     source/preset/PresetManager.cpp

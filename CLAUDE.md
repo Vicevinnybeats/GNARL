@@ -481,6 +481,63 @@ for exactly that reason and was worse than useless.
 note its category implies**. Not a mix decision — taste is not testable — but
 40 dB under the bank is not taste.
 
+**The bank is 150: twenty-six written out and a hundred and twenty-four
+generated** (`preset/FactoryGenerator.cpp`). The written ones each exercise a
+specific part of the architecture and say so in a comment, which is worth
+doing twenty-six times and worthless a hundred and twenty-four; what a bank
+that size needs is *coverage* of the space they map out. So each archetype
+declares a skeleton and the axes it varies along, and variants are drawn from
+**curated tables** rather than from free randomness — random over the whole
+parameter space gives patches that are silent, clipped, or the same patch
+twice. The sequence is a fixed xorshift with a fixed seed, because a preset
+stores an **index** into this list and a bank that reshuffled itself between
+versions would silently repoint every saved reference to it. Generated
+presets are **appended, never interleaved**, for the same reason.
+
+**A filter envelope has to be UNIPOLAR, and that cost a whole archetype.** A
+mod slot is bipolar by default, which is right for an LFO — it should swing
+either side of where the knob is set — and wrong for an envelope: at note-on
+the envelope reads 0, so a bipolar slot puts the cutoff a full depth *below*
+its base, and the base is where the note has to get out. The cutoff is
+smoothed, so it cannot climb back inside the millisecond an amp envelope
+takes to peak, and the transient — the entire audible part of a pluck —
+passes through an almost-closed filter. The whole pluck archetype measured
+around −30 dBFS and three failed outright, while the hand-written "Metal
+Pluck", identical in envelope and audition note but with **no cutoff
+modulation at all**, passed comfortably. That comparison is what located it;
+the level was a symptom three layers above the cause.
+
+**The two archetypes with no drive stage were the two that failed first.**
+Same lesson as the graintable pack above: a patch with no drive has no gain
+staging, and legitimate costs stack into inaudibility with nothing anywhere
+being a bug.
+
+**"Sub" is a category, on the evidence.** Eight reference tracks the client
+sent were measured — band balance, crest factor, and the modulation rate of
+the 220–1200 Hz band, which is where formant movement lives. The sub band
+carries **50–81% of the total energy**, which makes the sub a patch somebody
+loads on its own rather than a control inside a growl; the growl band is
+2–21%, so the formant content sits *under* the sub; articulation clusters at
+**1/8 and 1/8 triplet** (4.7–8.2 Hz at the ~144 BPM those tracks run), so the
+rate tables are weighted there with the faster divisions as the minority they
+actually are; and crest factors of 9–13 dB mean heavy limiting, so the OTT
+and the limiter are on in nearly everything. `getAuditionNote` had to learn
+"Sub" or the test would have failed those patches for being inaudible at C4,
+an octave above anything they contain.
+
+Measuring that took two corrections worth remembering: band energies must be
+**summed, not averaged** over the bins (a mean divides out the band's width,
+and narrow low bands came back as thousands of per cent of the total), and an
+envelope sampled at one frame per 8192 samples has a Nyquist of 1.35 Hz — so
+every track "measured" a wobble of 1.2 Hz, which was the band edge rather
+than the music. A 1/8 triplet at 150 BPM is 7.5 Hz and needs a hop nearer
+256. The first honest-looking number was an artefact of the instrument, which
+is the oscillator test's Hann-window lesson in §8 wearing different clothes.
+
+**Nothing was sampled from those tracks.** They were measured for
+characteristics; no audio, spectrum or wavetable is derived from them, which
+§9 makes a requirement rather than a preference.
+
 **Message-thread → audio-thread handover.** Anything larger than an atomic
 (a wavetable, an LFO curve, a preset) is built on the message thread, published
 through a lock-free swap, and the old object is freed on the message thread.

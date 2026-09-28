@@ -1,5 +1,7 @@
 #include "FactoryBank.h"
 
+#include "FactoryGenerator.h"
+
 #include "../params/ParameterChoices.h"
 #include "../params/ModStateBridge.h"
 #include "../params/ParameterIDs.h"
@@ -131,7 +133,13 @@ namespace
 
 std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
 {
-    return {
+    /*  THE SIGNATURE HALF, written out. Each of these exists to exercise a
+        specific part of the architecture and says in its comment what it is
+        for. The generated half that follows provides COVERAGE of the space
+        these map out - the same growl at eight articulations, the same sub at
+        six weights - which is a thing to describe once rather than to type a
+        hundred and twenty-four times. See FactoryGenerator.h. */
+    std::vector<Definition> definitions {
         /*  THE PATCH THE PRODUCT EXISTS FOR. A wavetable through the formant
             filter, with a drawn LFO on the formant X at a triplet division -
             which is where the "triplet growl" in the brief comes from. The
@@ -1228,6 +1236,16 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::fxLimiter.enabled, 1.0f },
           } },
     };
+
+    /*  APPENDED, NEVER INTERLEAVED. A preset stores an index into this list,
+        so inserting the generated ones among the hand-written ones would
+        repoint every saved reference by however many landed before it. New
+        presets go on the end, for the same reason a choice list is
+        append-only (CLAUDE.md section 4). */
+    const auto generated = generateVariations();
+    definitions.insert (definitions.end(), generated.begin(), generated.end());
+
+    return definitions;
 }
 
 int FactoryBank::getAuditionNote (const juce::String& category)
@@ -1235,7 +1253,12 @@ int FactoryBank::getAuditionNote (const juce::String& category)
     // A bass patch auditioned at C4 and a pad auditioned at C1 are both
     // misleading, and the second is what the renderer used to do to the
     // whole bank.
-    if (category == "Bass" || category == "Growl")
+    /*  "Sub" belongs with these and not with the default. A sub patch
+        auditioned at C4 is a patch auditioned an octave above anything it
+        contains - the low-pass at 140-380 Hz removes the note - and the bank
+        test would then fail it for being inaudible when the only thing wrong
+        was the question. */
+    if (category == "Bass" || category == "Growl" || category == "Sub")
         return 36;                          // C1 - where a riddim patch lives.
 
     if (category == "Pluck" || category == "FX" || category == "Sequence")
