@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>GNARL — Wavetable Synthesizer</title>
-    <meta name="description" content="A wavetable synthesizer for riddim and dubstep. Drawable LFOs on a triplet grid, a formant filter that growls, and fourteen effects you can reorder." />
+    <meta
+      name="description"
+      content="A wavetable synthesizer for riddim and dubstep. Drawable LFOs on a triplet grid, a formant filter that growls, and fourteen effects you can reorder."
+    />
     <meta name="color-scheme" content="dark" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
   </head>
@@ -12,11 +15,11 @@
     <canvas id="stage" aria-hidden="true"></canvas>
     <canvas id="rain" aria-hidden="true"></canvas>
 
-    <!-- Filled by chrome.ts: one nav, not five that can drift apart. -->
+    <!-- Filled by chrome.ts: one nav, in one place. -->
     <header class="nav"></header>
 
     <main>
-      <section class="panel panel--hero">
+      <section class="panel panel--hero" id="top">
         <div class="slab slab--hero">
           <p class="eyebrow" data-decode>VST3 &middot; AU &middot; STANDALONE</p>
           <h1 class="display" data-decode data-decode-delay="120">GNARL</h1>
@@ -25,32 +28,122 @@
             formant wobbles, and fourteen effects you can put in any order.
           </p>
           <div class="row">
-            <a class="button" href="./download.html">GET IT</a>
-            <a class="button button--ghost" href="./engine.html">SEE THE ENGINE</a>
+            <a class="button" href="#download">GET IT</a>
+            <a class="button button--ghost" href="#engine">SEE THE ENGINE</a>
           </div>
         </div>
         <p class="scroll-hint">SCROLL TO ENTER</p>
       </section>
-      <section class="panel ">
+      <section class="panel " id="engine">
         <div class="slab">
-          <p class="index" data-decode>00</p>
-          <h2 class="heading" data-decode>ONE SOUND,<br />DONE PROPERLY.</h2>
+          <p class="index" data-decode>01</p>
+          <h2 class="heading" data-decode>THE GROWL IS THE<br />FORMANT MOVING.</h2>
           <p class="body" data-decode data-decode-delay="200">
-            It is not a general-purpose synth with a dubstep preset folder. Every decision in it — the zero-delay filters, the drawable LFO grid, the oversampled drive — is there because the genre needs that specific thing.
+            Not the cutoff sweeping. A twelve-type zero-delay filter bank with a vowel space you can drive at audio rate, so the movement reads as a voice rather than as a filter.
           </p>
           <ul class="specs">
-            <li data-decode>ZERO-DELAY FILTERS, MODULATED AT AUDIO RATE</li>
-            <li data-decode>DRAWABLE LFO CURVES ON A TRIPLET GRID</li>
-            <li data-decode>26 FACTORY PRESETS, RIDDIM AND GRAINTABLE</li>
-            <li data-decode>WINDOWS AND macOS</li>
+            <li data-decode>TWO WAVETABLE / GRAINTABLE OSCILLATORS</li>
+            <li data-decode>SIXTEEN-VOICE UNISON, PER-VOICE DETUNE</li>
+            <li data-decode>2× AND 4× OVERSAMPLING ON THE VOICE SECTION</li>
+            <li data-decode>−65.6 dBc ALIASING, MEASURED</li>
           </ul>
+        </div>
+      </section>
+      <section class="panel " id="presets">
+        <div class="slab">
+          <p class="index" data-decode>02</p>
+          <h2 class="heading" data-decode>DRAW THE RHYTHM,<br />NOT THE RATE.</h2>
+          <p class="body" data-decode data-decode-delay="200">
+            Four LFOs with drawable curves on a triplet grid. The rate says how long a cycle lasts; what happens inside it is the shape you draw, and that is where the genre lives.
+          </p>
+          <ul class="specs">
+            <li data-decode>26 FACTORY PRESETS</li>
+            <li data-decode>MORPH BETWEEN ANY TWO</li>
+            <li data-decode>RANDOMISE THAT STAYS MUSICAL</li>
+            <li data-decode>MODULATION IN 32-SAMPLE CHUNKS</li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel " id="fx">
+        <div class="slab">
+          <p class="index" data-decode>03</p>
+          <h2 class="heading" data-decode>FOURTEEN EFFECTS.<br />ANY ORDER.</h2>
+          <p class="body" data-decode data-decode-delay="200">
+            Order matters and the rack respects it. Two distortions with an EQ between them sound different from the same two with an EQ after — because the EQ changes what the second curve is given.
+          </p>
+          <ul class="specs">
+            <li data-decode>OTT, DISTORTION ×2, EQ ×2, FILTER ×2</li>
+            <li data-decode>CHORUS, FLANGER, PHASER, HYPER</li>
+            <li data-decode>DIMENSION, DELAY, REVERB, LIMITER</li>
+            <li data-decode>2× OVERSAMPLED WHEN ANYTHING NONLINEAR IS ON</li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel panel--download" id="download">
+        <div class="slab slab--wide">
+          <p class="index" data-decode>04</p>
+          <h2 class="heading" data-decode>TAKE IT.</h2>
+          <p class="body" data-decode data-decode-delay="160">
+            Windows and macOS. VST3 everywhere, AU on macOS, and a standalone
+            that needs no DAW at all.
+          </p>
+          <div class="row">
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/actions" rel="noreferrer">LATEST BUILD</a>
+            <a class="button button--ghost" href="https://github.com/Vicevinnybeats/GNARL" rel="noreferrer">SOURCE</a>
+          </div>
+
+          <!-- The page is public and both links are not. Saying so is the
+               difference between a dead button and a private beta. -->
+          <p class="note" data-decode data-decode-delay="240">
+            BOTH LINKS ARE PRIVATE WHILE THIS IS A PERSONAL BUILD.
+          </p>
+
+          <div class="faq">
+            <details>
+              <summary data-decode>WHERE DO I PUT THE PLUGIN?</summary>
+              <p>
+                Anywhere you like on Windows. Unzip into Downloads, double-click
+                <code>GNARL.exe</code> to hear it with no DAW at all, and leave
+                <code>GNARL.vst3</code> in the same folder &mdash; then add that folder to
+                FL Studio&rsquo;s plugin search paths, or turn on Ableton&rsquo;s VST3 custom
+                folder, and rescan. macOS fixes the paths:
+                <code>~/Library/Audio/Plug-Ins/VST3/</code> and
+                <code>&hellip;/Components/</code> for the AU.
+              </p>
+            </details>
+            <details>
+              <summary data-decode>THE PLUGIN WINDOW IS BLANK.</summary>
+              <p>
+                The machine is missing the WebView2 runtime. The interface is a
+                web view; without it there is nothing to draw with. It ships with
+                Windows 11 and recent 10, and is a free download from Microsoft
+                otherwise.
+              </p>
+            </details>
+            <details>
+              <summary data-decode>WILL IT RUN IN FL STUDIO?</summary>
+              <p>
+                Yes, and in Ableton, and anywhere else that loads a VST3. CI runs
+                <code>pluginval</code> at strictness 10 on every build, on both
+                Windows and macOS.
+              </p>
+            </details>
+            <details>
+              <summary data-decode>HOW MUCH CPU?</summary>
+              <p>
+                Oversampling is the dial that matters: the whole voice section runs
+                at 2&times; or 4&times;, because a nonlinear stage aliases the moment it runs
+                and no filter afterwards can remove those partials. 2&times; is the
+                default and measures &minus;43.1 dBc on a hard-clipped sine.
+              </p>
+            </details>
+          </div>
         </div>
       </section>
     </main>
 
-    <div class="next"></div>
     <footer class="foot"></footer>
 
-    <script type="module" src="./src/pages/home.ts"></script>
+    <script type="module" src="./src/boot.ts"></script>
   </body>
 </html>

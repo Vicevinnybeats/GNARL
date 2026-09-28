@@ -329,63 +329,14 @@ code { color: var(--accent); }
     is mid-decode keeps its box. */
 [data-decode] { min-height: 1em; }
 
-/* ---------------------------------------------------------------- next -- */
-/*  The forward path. A five-page site with no link onward is five dead
-    ends: somebody who reads to the bottom of ENGINE has to go back up to
-    the nav to discover there is anything after it. */
-.next {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 var(--gutter) 40px;
-}
-
-.next__link {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 16px 22px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: rgba(13, 8, 36, 0.9);
-  backdrop-filter: blur(14px);
-  text-decoration: none;
-  transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease);
-}
-
-.next__link:hover {
-  border-color: var(--line-hot);
-  box-shadow: 0 0 28px -10px var(--accent);
-}
-
-.next__label {
-  font-size: 10px;
-  letter-spacing: 0.3em;
-  color: var(--text-faint);
-}
-
-.next__name {
-  font-size: 13px;
-  letter-spacing: 0.2em;
-  color: var(--text);
-}
-
-.next__arrow {
-  color: var(--accent);
-}
-
-/*  The current page in the nav. Underlined rather than merely brighter:
+/*  The section the reader is in. Underlined rather than merely brighter:
     a colour shift alone is the one cue somebody with low vision is most
     likely to miss, and this is the only thing on screen saying where you
     are. aria-current carries the same fact to a screen reader. */
-.nav__links a[aria-current='page'] {
+.nav__links a[aria-current] {
   color: var(--text);
   border-bottom: 1px solid var(--accent);
   padding-bottom: 2px;
 }
 
-@media (max-width: 860px) {
-  .next { justify-content: stretch; padding-bottom: 28px; }
-  .next__link { flex: 1; justify-content: space-between; }
-}
+

@@ -1,51 +1,37 @@
 /**
- * The header and footer, injected rather than copied into five files.
+ * The header and footer, injected rather than written into the page.
  *
- * WHY THIS IS IN JAVASCRIPT. Five hand-written copies of a nav is five
- * chances for one of them to keep a link the others dropped, and that kind
- * of drift is invisible until somebody clicks the odd one out. This project
- * already treats duplicated-by-hand structure as a defect to be checked
- * (the parameter mirror, the reference vectors); a nav is small enough that
- * the fix is simply not to duplicate it.
- *
- * The cost is honest and worth naming: with JavaScript off there is no nav.
- * That is acceptable HERE and nowhere else on the site — every page's
- * subject is a WebGL scene, so a browser that cannot run the nav could not
- * have drawn the page either. The reading matter itself stays in the HTML.
+ * ONE PAGE AGAIN. It was briefly five, and the forward-link chain that
+ * needed is gone with them: a one-pager's "next" is the scroll, and a button
+ * saying so is a button that does what the wheel already did. What the nav
+ * marks now is which SECTION you are in, which the scroll can tell it.
  */
 
-export interface Page {
+export interface Section {
   readonly id: string;
-  readonly href: string;
   readonly label: string;
 }
 
-/** The five pages, in the order the nav shows them. One source of truth. */
-export const PAGES: readonly Page[] = [
-  { id: 'home', href: './index.html', label: 'HOME' },
-  { id: 'engine', href: './engine.html', label: 'ENGINE' },
-  { id: 'presets', href: './presets.html', label: 'PRESETS' },
-  { id: 'fx', href: './fx.html', label: 'FX' },
-  { id: 'download', href: './download.html', label: 'DOWNLOAD' },
+/** The sections, in the order the page passes through them. */
+export const SECTIONS: readonly Section[] = [
+  { id: 'engine', label: 'ENGINE' },
+  { id: 'presets', label: 'PRESETS' },
+  { id: 'fx', label: 'FX' },
+  { id: 'download', label: 'DOWNLOAD' },
 ];
 
-export function mountChrome(current: string): void {
+export function mountChrome(): void {
   const header = document.querySelector('.nav');
 
   if (header) {
-    const links = PAGES.filter((page) => page.id !== 'download')
-      .map((page) => {
-        // aria-current is what tells a screen reader which page this is;
-        // the underline is only the sighted half of the same fact.
-        const active = page.id === current ? ' aria-current="page"' : '';
-        return `<a href="${page.href}"${active}>${page.label}</a>`;
-      })
+    const links = SECTIONS.filter((section) => section.id !== 'download')
+      .map((section) => `<a href="#${section.id}">${section.label}</a>`)
       .join('');
 
     header.innerHTML = `
-      <a class="nav__mark" href="./index.html">GNARL</a>
+      <a class="nav__mark" href="#top">GNARL</a>
       <nav class="nav__links">${links}</nav>
-      <a class="nav__cta" href="./download.html">DOWNLOAD</a>
+      <a class="nav__cta" href="#download">DOWNLOAD</a>
     `;
   }
 
@@ -60,32 +46,42 @@ export function mountChrome(current: string): void {
 }
 
 /**
- * The next page, for the arrow at the foot of each one.
+ * Marks the section the reader is actually in.
  *
- * A five-page site with no forward path is five dead ends: somebody who
- * reads to the bottom of ENGINE has to go back up to the nav to find out
- * there is anything else. The order here is the order in PAGES, so adding a
- * page puts it in the chain without touching anything.
+ * An IntersectionObserver rather than a scroll handler doing the arithmetic:
+ * the browser already knows what is on screen, and asking it costs nothing
+ * where recomputing four bounding boxes on every scroll event costs a layout
+ * flush per frame.
  */
-export function nextPage(current: string): Page | null {
-  const index = PAGES.findIndex((page) => page.id === current);
+export function trackSections(): void {
+  const links = new Map<string, Element>();
 
-  if (index < 0 || index >= PAGES.length - 1) return null;
+  for (const section of SECTIONS) {
+    const link = document.querySelector(`.nav__links a[href="#${section.id}"]`);
+    if (link) links.set(section.id, link);
+  }
 
-  return PAGES[index + 1] ?? null;
-}
+  if (links.size === 0) return;
 
-export function mountNextLink(current: string): void {
-  const slot = document.querySelector('.next');
-  const next = nextPage(current);
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const link = links.get(entry.target.id);
+        if (!link) continue;
 
-  if (!slot || !next) return;
+        // aria-current is what tells a screen reader where it is; the
+        // underline is only the sighted half of the same fact.
+        if (entry.isIntersecting) link.setAttribute('aria-current', 'true');
+        else link.removeAttribute('aria-current');
+      }
+    },
+    // The middle band of the viewport: a section counts as "here" when it is
+    // where the eye is, not when one pixel of it has appeared at the bottom.
+    { rootMargin: '-40% 0px -40% 0px' },
+  );
 
-  slot.innerHTML = `
-    <a class="next__link" href="${next.href}">
-      <span class="next__label">NEXT</span>
-      <span class="next__name">${next.label}</span>
-      <span class="next__arrow" aria-hidden="true">&rarr;</span>
-    </a>
-  `;
+  for (const section of SECTIONS) {
+    const element = document.getElementById(section.id);
+    if (element) observer.observe(element);
+  }
 }

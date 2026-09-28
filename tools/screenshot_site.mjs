@@ -29,12 +29,11 @@ const DEVICES = [
   { name: 'mobile', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ];
 
-/*  FIVE PAGES NOW, each shot at the top and again at the foot. The scroll
-    is what the scenes are driven by, so a picture of only the top of a page
-    says nothing about the state it ends in - which is exactly where the
-    dissolve has finished burning and where the interface resolves. */
-const PAGES = ['index', 'engine', 'presets', 'fx', 'download'];
-const STOPS = [0, 1];
+/*  ONE PAGE, so the stops are points along its scroll rather than separate
+    documents. Six of them, because the journey changes what it is five
+    times and a picture taken BETWEEN two stages says more about whether the
+    transition works than either end does. */
+const STOPS = [0, 0.2, 0.4, 0.6, 0.78, 1];
 
 const errors = [];
 
@@ -50,50 +49,45 @@ for (const device of DEVICES) {
   await page.mouse.move(device.viewport.width * 0.62, device.viewport.height * 0.45);
   await page.waitForTimeout(1800);
 
-  for (const name of PAGES) {
-    await page.goto(URL.replace('index.html', `${name}.html`), { waitUntil: 'networkidle' });
-    await page.mouse.move(device.viewport.width * 0.62, device.viewport.height * 0.45);
-    await page.waitForTimeout(1800);
+  for (const stop of STOPS) {
+    /*  Driven by absolute scroll rather than by scrolling an element into
+        view: what is worth photographing is a FRACTION of the journey, and
+        the interesting ones fall between sections where no element sits.
+        Read back in a SEPARATE evaluate, because reading scrollY in the same
+        synchronous block reports the value that was ASKED for, not the one
+        the browser settled on - the first version of this check passed every
+        time while the page sat nowhere near it. Playwright's phone emulation
+        briefly reports a viewport four times too tall and the browser clamps
+        scrollTop against that. */
+    let landed = -1;
 
-    for (const stop of STOPS) {
-      /*  Driven by absolute scroll rather than by scrolling an element into
-          view: these pages are short enough that "the bottom" is the state
-          worth photographing, and it is the one an element query cannot
-          name. Read back in a SEPARATE evaluate, because reading scrollY in
-          the same synchronous block reports the value that was ASKED for,
-          not the one the browser settled on - the first version of this
-          check passed every time while the page sat nowhere near it. */
-      let landed = -1;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const target = await page.evaluate((fraction) => {
+        const max = document.body.scrollHeight - window.innerHeight;
+        const top = Math.round(max * fraction);
+        document.documentElement.style.scrollBehavior = 'auto';
+        window.scrollTo(0, top);
+        return top;
+      }, stop);
 
-      for (let attempt = 0; attempt < 8; attempt += 1) {
-        const target = await page.evaluate((fraction) => {
-          const max = document.body.scrollHeight - window.innerHeight;
-          const top = Math.round(max * fraction);
-          document.documentElement.style.scrollBehavior = 'auto';
-          window.scrollTo(0, top);
-          return top;
-        }, stop);
+      await page.waitForTimeout(300);
+      landed = await page.evaluate((top) => top - Math.round(window.scrollY), target);
 
-        await page.waitForTimeout(300);
-        landed = await page.evaluate((top) => top - Math.round(window.scrollY), target);
-
-        if (landed === 0) break;
-      }
-
-      if (landed !== 0) {
-        errors.push(`${device.name}: could not scroll ${name} to ${stop} (off by ${landed}px)`);
-      }
-
-      /*  Long enough for the camera's easing AND the longest decoding line.
-          The dissolve needs it most: its threshold is eased like everything
-          else, so a shot taken early is a picture of a half-finished burn
-          that looks like a bug in the shader. */
-      await page.waitForTimeout(2600);
-
-      const label = `${device.name}-${name}-${stop === 0 ? 'top' : 'end'}`;
-      await page.screenshot({ path: `${OUT}/${label}.png` });
-      console.log(`  ${label}.png`);
+      if (landed === 0) break;
     }
+
+    if (landed !== 0) {
+      errors.push(`${device.name}: could not scroll to ${stop} (off by ${landed}px)`);
+    }
+
+    /*  Long enough for the camera's chase to settle AND the longest decoding
+        line. The camera LAGS on purpose, so a shot taken early is a picture
+        of it still catching up rather than of the composition. */
+    await page.waitForTimeout(2600);
+
+    const label = `${device.name}-${String(Math.round(stop * 100)).padStart(3, '0')}`;
+    await page.screenshot({ path: `${OUT}/${label}.png` });
+    console.log(`  ${label}.png`);
   }
 
   await page.close();
