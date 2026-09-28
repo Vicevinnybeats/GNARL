@@ -1,0 +1,7 @@
+# One page, nothing private, nothing to keep out. The sitemap line is the
+# whole point of this file: it is the one place a crawler looks for it
+# without being told.
+User-agent: *
+Allow: /
+
+Sitemap: https://gnarl.vercel.app/sitemap.xml

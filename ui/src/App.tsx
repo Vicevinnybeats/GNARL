@@ -4,6 +4,7 @@ import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
 import { RotatePrompt } from './components/RotatePrompt';
+import { TouchKeyboard } from './components/TouchKeyboard';
 import { listPresets, loadPreset } from './bridge/presets';
 import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
@@ -351,10 +352,21 @@ export function App() {
           <span className="gn-statusbar__text">{status}</span>
         )}
         <span className="gn-statusbar__meta">
-          {info.isMock ? 'browser preview · no audio engine' : `v${info.pluginVersion} · ${info.platform}`}
+          {/*  "no audio engine" was true and is not any more: the browser now has
+               a small Web Audio preview voice. It is NOT the C++ engine, and the
+               wording has to keep saying so - somebody who believes they have
+               heard GNARL will judge GNARL by a subtractive approximation of
+               it. "preview voice" claims exactly what is there.  */}
+          {info.isMock
+            ? 'browser preview · preview voice, not the engine'
+            : `v${info.pluginVersion} · ${info.platform}`}
         </span>
       </footer>
       <Splash />
+
+        {/*  Browser and installed app only; null inside the plugin, where the
+             host sends MIDI and this would cost the panels 58px. */}
+        <TouchKeyboard />
       </div>
     </>
   );
