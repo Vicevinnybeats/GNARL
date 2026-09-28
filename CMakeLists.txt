@@ -5,6 +5,12 @@ project(GNARL
     DESCRIPTION "GNARL - riddim/dubstep synthesizer"
     LANGUAGES C CXX)
 
+#  An iOS build is a FEASIBILITY target, not a release one: it answers whether
+#  the engine and the WebView UI are portable, which is a real question because
+#  the whole interface lives in juce::WebBrowserComponent. It is unsigned and
+#  untested on a device.
+option(GNARL_IOS "Configure for iOS (AUv3 + standalone, unsigned)" OFF)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

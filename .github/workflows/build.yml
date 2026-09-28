@@ -270,6 +270,64 @@ jobs:
           path: library/
           retention-days: 30
 
+  #  ---------------------------------------------------------------------
+  #  DOES IT BUILD FOR iOS AT ALL? A feasibility job, not a release target.
+  #
+  #  The question is not academic: GNARL's entire interface is a React bundle
+  #  inside juce::WebBrowserComponent, and if the native integration it needs
+  #  is absent on a platform then the plugin draws nothing there. JUCE
+  #  includes the SAME WKWebView implementation for iOS as for macOS
+  #  (juce_gui_extra.cpp: `#if JUCE_MAC || JUCE_IOS`), so it should work -
+  #  and "should" is exactly the word that produced a shipped plugin with a
+  #  dev-mode UI, so this compiles it instead of asserting it.
+  #
+  #  UNSIGNED, and deliberately. Signing needs an Apple Developer account and
+  #  a provisioning profile, which are the client's to buy and not something
+  #  a build can invent. CODE_SIGNING_ALLOWED=NO compiles the code without
+  #  them, which answers the compile question; installing on a device is a
+  #  separate question with a separate cost.
+  #
+  #  continue-on-error: this must never fail a release. It is here to find
+  #  out what breaks, and the answer "it does not build yet" is information
+  #  rather than a regression.
+  ios-probe:
+    name: iOS (feasibility)
+    needs: ui
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gnarl-ui-dist
+          path: ui/dist
+
+      - name: Configure for iOS
+        id: configure
+        run: |
+          set -euo pipefail
+          #  AUv3 is the format that matters on iOS - it is what GarageBand,
+          #  AUM and Cubasis load. VST3 does not exist there at all, so
+          #  asking for it would fail for a reason that says nothing.
+          cmake -B build-ios -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
+            -DGNARL_BUILD_TESTS=OFF \
+            -DGNARL_BUILD_UI=OFF \
+            -DGNARL_PERSONAL_BUILD=ON \
+            -DGNARL_IOS=ON 2>&1 | tail -40
+
+      - name: Build for iOS
+        run: |
+          set -euo pipefail
+          cmake --build build-ios --config Release \
+            -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | tail -60
+
+      - name: What came out
+        if: always()
+        run: find build-ios -maxdepth 6 \( -name '*.appex' -o -name '*.app' \) 2>/dev/null | head
+
   plugin:
     name: ${{ matrix.name }}
     needs: ui

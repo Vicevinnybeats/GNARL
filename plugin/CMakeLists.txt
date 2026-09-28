@@ -1,5 +1,17 @@
 include(${CMAKE_SOURCE_DIR}/cmake/WebUI.cmake)
 
+#  WHICH FORMATS THIS PLATFORM ACTUALLY HAS.
+#
+#  Desktop ships VST3, AU and a standalone. iOS has none of those: its plugin
+#  format is AUv3 (Standalone with an embedded app extension), which is what
+#  GarageBand, AUM and Cubasis load. Naming the desktop formats on iOS fails
+#  at configure time for a reason unrelated to whether the code is portable.
+if (GNARL_IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(GNARL_PLUGIN_FORMATS Standalone AUv3)
+else()
+    set(GNARL_PLUGIN_FORMATS VST3 AU Standalone)
+endif()
+
 juce_add_plugin(GNARL
     COMPANY_NAME                "Gnarl Audio"
     COMPANY_WEBSITE             "https://gnarl.audio"
@@ -7,7 +19,11 @@ juce_add_plugin(GNARL
     BUNDLE_ID                   "audio.gnarl.gnarl"
     PLUGIN_MANUFACTURER_CODE    Gnrl
     PLUGIN_CODE                 Gnr1
-    FORMATS                     VST3 AU Standalone
+    #  iOS HAS NO VST3 AND NO AU - it has AUv3, which is a different format
+    #  (an app extension, not a bundle a host loads). Asking for VST3 there
+    #  would fail for a reason that tells you nothing about whether the
+    #  plugin works.
+    FORMATS                     ${GNARL_PLUGIN_FORMATS}
     PRODUCT_NAME                "GNARL"
     DESCRIPTION                 "Riddim/dubstep synthesizer"
     IS_SYNTH                    TRUE
