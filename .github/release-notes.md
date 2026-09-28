@@ -7,20 +7,29 @@ audition. Nothing installs itself and nothing writes outside that folder.
 ```
 GNARL/
   GNARL.exe        the standalone — double-click, no DAW needed
-  GNARL.vst3       the plugin, ONE FILE — copy this into your VST3 folder
+  GNARL.vst3/      the plugin — a FOLDER. Copy the whole thing.
   Presets/         the 150 factory presets as .gnarl files
   Bank audition/   all 150 rendered to one .wav, with an index
   INSTALL.txt      the FL Studio / Ableton / Reaper paths
 ```
 
-**On Windows the VST3 is a single file, not a folder.** A VST3 is specified
-as a bundle — a folder with the binary buried at `Contents/x86_64-win` — and
-the spec also allows that binary on its own, which every current host loads.
-"Drag this one file into your VST3 folder" is an instruction that cannot be
-got half right; copying a folder is, and people end up copying the inner file
-or the `Contents` directory and the DAW then finds nothing. The bundle form
-is still in a subfolder for any host that insists. macOS keeps the bundle,
-where it is mandatory.
+**The VST3 is a folder — copy the whole folder.** A VST3 is specified as a
+"bundle": a folder named `GNARL.vst3` with the binary inside it. That is the
+form every host is required to scan, so it is what sits at the top. Copying
+only the inner file is the most common way to end up with a plugin your DAW
+cannot find.
+
+v0.1.2 shipped the bare DLL at the top instead, on the claim that every
+current host loads it. That was asserted rather than checked and it cost a
+failed scan in FL Studio, so the order is reversed. The single file is still
+there, in a subfolder, for any host that prefers it — the same binary, byte
+for byte. Use one or the other, never both.
+
+**FL Studio not finding it?** Options → Manage plugins → tick **"Rescan
+previously verified plugins"** → *Find more plugins*. FL caches scan results
+per folder and skips folders it has already seen, so without that tickbox a
+newly added plugin is never looked at. It then appears under *Generators →
+New* — it is a synth, not an effect. `INSTALL.txt` has the full checklist.
 
 **Windows: right-click the .zip → Properties → tick Unblock → Apply, before
 you extract.** This build is unsigned, and Windows marks downloaded archives

@@ -398,7 +398,7 @@ jobs:
           nothing writes outside it.
 
             GNARL.exe        the standalone - double-click it, no DAW needed
-            GNARL.vst3       the plugin, ONE FILE - this is the one to copy
+            GNARL.vst3       the plugin - a FOLDER. Copy the whole folder.
             Presets/         the 150 factory presets as files (see below)
             Bank audition/   all 150 rendered to one .wav, with an index
             INSTALL.txt      this
@@ -429,37 +429,64 @@ jobs:
 
           WINDOWS - the plugin
 
-            GNARL.vst3 is a SINGLE FILE. Copy that one file into whichever
-            folder your DAW scans for VST3 plugins, and rescan.
-
-            The usual folder, which every DAW already looks in:
+            GNARL.vst3 is a FOLDER, and that is correct - a VST3 is a
+            "bundle", a folder with the actual binary inside it. Copy the
+            WHOLE FOLDER, not its contents, into:
 
                 C:\Program Files\Common Files\VST3\
 
-            Or keep it where it is and point the DAW at this folder instead:
+            You should end up with
 
-            FL STUDIO
-              Options > Manage plugins
-              Under "Plugin search paths", click the folder icon and add the
-              folder this file is in. Then click "Find more plugins".
-              GNARL appears under Plugin database > Generators > New.
+                C:\Program Files\Common Files\VST3\GNARL.vst3\Contents\...
+
+            Copying only the inner file is the single most common way to get
+            a plugin a DAW cannot find.
+
+          FL STUDIO WILL NOT FIND IT - work through these in order
+
+            1. RESCAN PROPERLY. This is nearly always the answer.
+               Options > Manage plugins
+               Tick "Rescan previously verified plugins"   <- the important one
+               Click "Find more plugins"
+
+               FL caches its scan results per folder. Without that tickbox it
+               skips a folder it has seen before, so a plugin added after the
+               last scan is never looked at.
+
+            2. LOOK UNDER GENERATORS, NOT EFFECTS. GNARL is a synth.
+               Plugin database > Generators > New
+               A freshly found plugin lands in "New", not in the alphabetical
+               list, until you sort it.
+
+            3. IF YOU PUT IT SOMEWHERE ELSE, TELL FL WHERE.
+               Options > Manage plugins > "Plugin search paths" > the folder
+               icon > add the folder. VST2 and VST3 paths are the same list,
+               but the plugin must actually be in a folder on it.
+
+            4. CHECK THE BITNESS. FL must be the 64-bit build. There is no
+               32-bit GNARL and a 32-bit FL will not list it.
+
+            5. STILL NOTHING? Try the single file instead. The subfolder
+               "Single file VST3" holds the same plugin as one .vst3 file
+               rather than a folder - the same binary, byte for byte. A few
+               hosts prefer one form over the other. Copy that file into the
+               VST3 folder in place of the GNARL.vst3 FOLDER, and rescan.
+
+               Use one or the other, never both, or the DAW lists GNARL
+               twice and you will not know which one you loaded.
+
+            6. IF IT FINDS IT AND THEN FAILS, it is not a scan problem - see
+               "IF THE PLUGIN WINDOW IS BLANK" at the bottom.
 
             ABLETON LIVE
               Preferences > Plug-Ins
-              Turn "Use VST3 Plug-In Custom Folder" on, browse to this
-              folder, then click Rescan.
+              Turn "Use VST3 Plug-In Custom Folder" on, browse to the folder
+              you copied GNARL.vst3 into, then click Rescan.
               GNARL appears in Browser > Plug-Ins.
 
-            Reaper, Studio One, Cubase, Bitwig: add this folder to the VST3
+            Reaper, Studio One, Cubase, Bitwig: add the folder to the VST3
             paths in their preferences and rescan. They all work the same
-            way.
-
-            THE "VST3 bundle" SUBFOLDER - you almost certainly do not need
-            it. A VST3 can be a single file or a folder, and every current
-            host loads the single file. If yours somehow will not, copy the
-            GNARL.vst3 FOLDER out of that subfolder instead, and use it in
-            place of the single file. Use one or the other, never both, or
-            the DAW lists the plugin twice.
+            way, and all of them take the bundle folder.
 
           macOS
 
@@ -554,24 +581,26 @@ jobs:
             mkdir -p "$root"
             cp -R "$src"/. "$root"/
 
-            #  THE SINGLE-FILE VST3, on Windows only.
+            #  THE BUNDLE IS THE DEFAULT. A VST3 is specified as a bundle -
+            #  a FOLDER named GNARL.vst3 with the binary at
+            #  Contents/x86_64-win inside it - and that is the form every
+            #  host is required to scan. On Windows the older layout, the
+            #  bare DLL named .vst3, is also widely accepted, and an earlier
+            #  version of this shipped that at the top on the grounds that
+            #  one file is easier to drag than a folder.
             #
-            #  A VST3 is specified as a BUNDLE - a folder named GNARL.vst3
-            #  with the binary at Contents/x86_64-win inside it - and on
-            #  Windows the spec also permits that binary on its own, named
-            #  .vst3, which every current host still loads. It is the same
-            #  compiled DLL either way; the bundle only adds a manifest the
-            #  host can regenerate by scanning.
+            #  That was asserted rather than checked, and it cost somebody a
+            #  failed scan in FL Studio. "Easier to copy" is worth nothing
+            #  against "might not be found", so the order is now the other
+            #  way round: the standard bundle is what sits at the top, and
+            #  the single file is the fallback for a host that wants it.
             #
-            #  The single file is what goes at the top, because "drag this
-            #  one file into your VST3 folder" is an instruction that cannot
-            #  be got half right. Copying a FOLDER is - people copy the
-            #  Contents directory, or the inner file, and then the DAW finds
-            #  nothing and the plugin looks broken.
+            #  The two binaries are byte-identical - the bundle only adds a
+            #  1.4 KB moduleinfo.json - so this is a question of layout and
+            #  never of which one works.
             #
-            #  The bundle stays, in a subfolder, for any host that wants it.
-            #  macOS gets no such treatment: there the bundle is mandatory -
-            #  it carries Info.plist, and a bare binary is not loadable.
+            #  macOS has no such choice: the bundle carries Info.plist and a
+            #  bare binary is not loadable at all.
             if [ "$platform" = "Windows" ]; then
               inner=$(find "$root/GNARL.vst3" -name '*.vst3' -type f | head -n 1 || true)
 
@@ -580,22 +609,19 @@ jobs:
                 exit 1
               fi
 
-              #  Copied OUT before the bundle moves, not after. `$inner` is a
-              #  path inside the bundle, so moving the bundle first
-              #  invalidates it - which a mock run of this caught, and which
-              #  would otherwise have failed the release at the `cp`.
-              cp "$inner" single.vst3
+              #  Copied out BEFORE anything moves. `$inner` is a path inside
+              #  the bundle, so reordering these invalidates it - which a
+              #  mock run caught once already.
+              mkdir -p "$root/Single file VST3 (only if the folder will not scan)"
+              cp "$inner" "$root/Single file VST3 (only if the folder will not scan)/GNARL.vst3"
 
-              mkdir -p "$root/VST3 bundle (only if the single file will not scan)"
-              mv "$root/GNARL.vst3" "$root/VST3 bundle (only if the single file will not scan)/"
-              mv single.vst3 "$root/GNARL.vst3"
+              #  The bundle stays exactly where it was staged, at the top.
+              test -d "$root/GNARL.vst3" \
+                || { echo "::error::the top-level VST3 should be the bundle directory"; exit 1; }
+              test -f "$root/Single file VST3 (only if the folder will not scan)/GNARL.vst3" \
+                || { echo "::error::single-file VST3 missing"; exit 1; }
 
-              echo "single-file VST3: $(stat -c%s "$root/GNARL.vst3") bytes"
-
-              #  A single file, not a directory. If the bundle move ever
-              #  lands back on top of this the plugin still "exists" and the
-              #  instruction to copy one file becomes wrong.
-              test -f "$root/GNARL.vst3" || { echo "::error::VST3 is not a file"; exit 1; }
+              echo "bundle at top; single file also provided"
             fi
 
             #  The presets and the audition go IN the folder, not beside it.
