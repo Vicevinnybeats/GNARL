@@ -23,7 +23,14 @@ on:
         default: ''
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  #  A RELEASE RUN GETS ITS OWN GROUP. With the group keyed on the workflow
+  #  and the ref alone, a release dispatched on a branch shares a group with
+  #  every ordinary push to that branch - so the next commit CANCELS the
+  #  publish, which is exactly what happened the first time this was used.
+  #  Superseding a build nobody is waiting on is the point of
+  #  cancel-in-progress; superseding the one run that produces the artefacts
+  #  is not.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.release_version || '' }}
   cancel-in-progress: true
 
 env:
