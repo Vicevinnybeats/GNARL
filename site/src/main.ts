@@ -2,7 +2,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 import { decodeOnReveal } from './decode';
-import { createScene } from './scene';
+import { createWorld } from './world';
 
 import './styles.css';
 
@@ -11,8 +11,8 @@ gsap.registerPlugin(ScrollTrigger);
 const canvas = document.querySelector<HTMLCanvasElement>('#stage');
 
 if (canvas) {
-  const scene = createScene(canvas);
-  scene.resize();
+  const world = createWorld(canvas);
+  world.resize();
 
   /*  THE SCROLL DRIVES THE ZOOM, and ScrollTrigger only reports progress -
       the easing lives in the scene's render loop. Animating the panel's
@@ -23,32 +23,19 @@ if (canvas) {
     trigger: document.body,
     start: 'top top',
     end: 'bottom bottom',
-    onUpdate: (self) => scene.setScroll(self.progress),
+    onUpdate: (self) => world.setScroll(self.progress),
   });
 
-  /*  Which face of the instrument shows. Each section owns one, so
-      scrolling through the page walks the three tabs - the site showing the
-      product rather than a picture of it. */
-  const faces: Array<[string, number]> = [
-    ['#top', 0],
-    ['#engine', 0],
-    ['#presets', 1],
-    ['#fx', 2],
-    ['#download', 2],
-  ];
+  /*  NO PER-SECTION TEXTURE SWAP ANY MORE. The flat version had one panel
+      and changed the picture on it as each section arrived, which is a
+      slideshow wearing a 3D costume. The three tabs are three PLACES in the
+      hall now, standing at fixed points down its length, and you see the one
+      you have flown to because you have flown to it. Scroll progress is the
+      only thing the world needs.
 
-  for (const [selector, index] of faces) {
-    const element = document.querySelector(selector);
-    if (!element) continue;
-
-    ScrollTrigger.create({
-      trigger: element,
-      start: 'top 60%',
-      end: 'bottom 40%',
-      onEnter: () => scene.setTexture(index),
-      onEnterBack: () => scene.setTexture(index),
-    });
-  }
+      That also deletes five ScrollTriggers and the ordering bug waiting in
+      them - `onEnterBack` firing for a section you are leaving is a class of
+      mistake that simply has no analogue in a world with positions. */
 
   /*  Pointer in 0..1. `pointermove` rather than `mousemove` so a stylus and
       a finger-drag reach it too; on a touch screen there is no hover, so the
@@ -57,13 +44,13 @@ if (canvas) {
   window.addEventListener(
     'pointermove',
     (event) => {
-      scene.setPointer(event.clientX / window.innerWidth, event.clientY / window.innerHeight);
+      world.setPointer(event.clientX / window.innerWidth, event.clientY / window.innerHeight);
     },
     { passive: true },
   );
 
   window.addEventListener('resize', () => {
-    scene.resize();
+    world.resize();
     ScrollTrigger.refresh();
   });
 
@@ -71,7 +58,7 @@ if (canvas) {
 
   const frame = (now: number) => {
     last = now;
-    scene.render(last / 1000);
+    world.render(last / 1000);
     requestAnimationFrame(frame);
   };
 

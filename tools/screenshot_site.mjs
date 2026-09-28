@@ -29,7 +29,7 @@ const DEVICES = [
   { name: 'mobile', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
 ];
 
-const SECTIONS = ['#top', '#engine', '#fx', '#download'];
+const SECTIONS = ['#top', '#engine', '#presets', '#fx', '#download'];
 
 const errors = [];
 

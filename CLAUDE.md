@@ -1042,44 +1042,73 @@ push them.
 ### The marketing site
 
 [`site/`](site/) — Three.js + GSAP, built by Vite, deployed as static files.
-Its centrepiece is the **plugin's own interface**, a plane textured with real
-screenshots of it at the design size, so the site cannot drift from what the
-thing looks like. The scroll is a **zoom**, not a fall: the panel comes towards
-the camera leaving the hero and parks to one side to clear the text.
+It is a **place, not a page**: a near-black hall with a wet lattice floor
+running to the horizon, three lit monoliths standing down its length carrying
+the plugin's three tabs, and fog eating everything past them. Scrolling flies
+the CAMERA through it. The monoliths are the only light in the scene, which is
+what makes the fog and the floor reflection do any work at all — a dark room
+with a bright object in it has depth for free, and a uniformly lit one has
+none.
 
-**The panel is sized from the camera's FRUSTUM, not by a scalar.** The first
-version multiplied a fixed scale, so one number had to serve a 1440×720
-desktop and a 390×844 phone — and did not: measured in a screenshot, the phone
-showed it bleeding off all four edges at scroll zero while the desktop's last
-section zoomed so far past the frame that the instrument stopped reading as an
-object. The scroll drives a **fraction of the viewport** it spans, clamped on
-both axes because a short wide window runs out of height first and a phone runs
-out of width. A fraction cannot overflow a screen it is measured against.
+An earlier version was a flat document with one textured plane floating over
+it, zooming on scroll. It read as exactly that.
 
-**And the move finishes before the page does.** Scroll progress reaches 1 only
-at the very bottom of the document, so tying the parked state to it left the
-panel half-zoomed over the last two sections with a card on top of it. It
-settles at 0.62 and holds — which also stops the composition moving under the
-part of the page that is being read.
+**The text is NOT in the world.** The obvious move is to project each card
+from a world anchor. Every layout failure in this project has come from
+something being COMPUTED where it could have been laid out — four panel
+overflows in the plugin, a panel that outgrew its viewport on the first
+version of this site — and projected text breaks worst at exactly the window
+sizes nobody screenshots. The cards stay in CSS flow; the camera path puts
+each monolith where the card is not.
 
-**Text that decodes is timed in MILLISECONDS, not frames.** A frame count ties
-how long a sentence takes to resolve to how fast the machine is drawing, and
-there is a WebGL scene running beside it: on a software renderer every card was
-still mid-static after two and a half seconds. Same family as the meter
-ballistics in §3 — a quantity that should be a function of time computed from
-whatever the machine happened to do instead.
+**Which side they stand on is not a rhythm choice.** They alternated left and
+right at first, so the hall would not read as a rail — and the cards are
+always on the left, so the middle monolith stood exactly where the text is
+and the FX section rendered its heading *through* a wall of knobs. Third time
+this project has learned that where a thing sits is decided by where the words
+are (§6). The variety comes from the weave in the camera path and from the
+monoliths standing at different distances.
 
-**And writing decoded text back with `textContent` deletes the `<br>`.** A
-heading broken by hand came out as "FOURTEEN EFFECTS.ANY ORDER.", which looks
-like a typo rather than a lost tag. The break is read out as a newline and the
-headings are `white-space: pre-line`.
+**Their z positions are a SCHEDULE, not spacing.** Five full-height sections
+means the scroll reaches each at a known fraction, so the camera is at a known
+point in the hall: engine at about −12, presets at −33, fx at −54. Spaced by
+eye instead, they drifted a section out of step and the FX card was read
+against the MOD tab — which looks completely deliberate in a screenshot until
+you read the tab.
 
-**Which side the words sit on is not a free choice.** The panel parks right, so
-alternating the cards left and right put half of them straight on top of the
-instrument. On a phone there is no side at all: the panel takes a band across
-the **top**, with the sections' own padding keeping it clear — centred behind a
-full-width card it showed as two slivers down the edges, the product invisible
-on the device most people will open the page on.
+**A phone is a different lens and a different hall.** Half the horizontal
+field of a 9:19 screen is about 19°, so a monolith beside the path subtends
+more than the frame exactly when you draw level with it — the one moment it is
+worth seeing. Two attempts tried to fix that by moving the monoliths; the
+geometry does not allow it, because anything far enough to the side to stay in
+frame is too far away to read. **The camera turns its head instead**, blending
+its aim towards whichever monolith is nearest. The monoliths are also raised
+on a phone: the card owns the bottom two thirds, and a monolith standing on
+the floor is *below* a camera at eye height, so it renders below the horizon
+whatever the lens does. Tilting down to "see more" fills the top with void;
+tilting up slides the world down behind the card. Neither is a lens problem.
+
+**The floor spill is a gradient, not the screen's own texture.** The first
+version mapped the UI onto the pool of light under each monolith, reasoning
+that the spill should be the colour of what casts it — and since that plane is
+26 units deep and lying flat, the result was the plugin's interface printed
+legibly across the floor: you could read "CUTOFF" in the carpet. Light falling
+on a floor is a blur, not a slide projection.
+
+**The grid is in world units, not UV.** UV cells on a plane you fly over
+stretch to the horizon, so the near squares would be enormous and the far ones
+sub-pixel. Cells are a fixed size in the world and perspective does the rest,
+which is also what gives the floor a scale rather than making it wallpaper.
+The lit cell is found by **raycasting the pointer onto the floor plane**: on a
+flat backdrop the pointer's 0..1 coordinates *are* the surface coordinates, on
+a floor in perspective they are not, and using them lights a cell that drifts
+away from the cursor as the camera moves.
+
+Planar reflection and full-resolution bloom are desktop only. A Reflector
+re-renders the whole scene from a mirrored camera every frame and bloom is
+three more full-screen passes; on a mid-range phone that is the difference
+between 60 fps and a slideshow, and a stuttering fly-through is worse than a
+still one.
 
 ```bash
 cd site && npm run build
@@ -1087,12 +1116,21 @@ cd site && npm run build
 node ../tools/screenshot_site.mjs <output-directory>
 ```
 
-That script drives **both** sizes to each section and waits for the scene's
-easing and the decode before shooting. It re-reads `scrollY` in a separate
-`evaluate` to check where it landed, because Playwright's phone emulation
-briefly reports a viewport four times too tall, the browser clamps `scrollTop`
-against it, and the shot labelled `fx` was a photograph of the engine card
-while the check passed.
+That script drives **both** sizes to **every** section — the one section it
+skipped at first was the one whose alignment was wrong. It waits for the
+camera's easing and the text decode before shooting, and it re-reads `scrollY`
+in a separate `evaluate` to check where it landed, because Playwright's phone
+emulation briefly reports a viewport four times too tall, the browser clamps
+`scrollTop` against it, and the shot labelled `fx` was a photograph of the
+engine card while the check passed.
+
+**Text decodes on a millisecond clock, not a frame count.** A frame count ties
+how long a sentence takes to resolve to how fast the machine is drawing, and
+there is a WebGL scene running beside it: on a software renderer every card
+was still mid-static after two and a half seconds. Same family as the meter
+ballistics in §3. And writing the result back with `textContent` deletes any
+`<br>`, so a heading broken by hand came out as "FOURTEEN EFFECTS.ANY ORDER." —
+the break is read out as a newline and the headings are `white-space: pre-line`.
 
 ---
 
