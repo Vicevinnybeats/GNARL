@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en" data-theme="dream">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>GNARL — The Rack</title>
+    <meta name="description" content="Fourteen effects in any order: OTT, two distortions, two EQs, two filters, chorus, flanger, phaser, hyper, dimension, delay, reverb and a limiter." />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
+  </head>
+  <body>
+    <canvas id="stage" aria-hidden="true"></canvas>
+    <canvas id="rain" aria-hidden="true"></canvas>
+
+    <!-- Filled by chrome.ts: one nav, not five that can drift apart. -->
+    <header class="nav"></header>
+
+    <main>
+      <section class="panel panel--hero">
+        <div class="slab">
+          <p class="index" data-decode>03</p>
+          <h2 class="heading" data-decode>FOURTEEN EFFECTS.<br />ANY ORDER.</h2>
+          <p class="body" data-decode data-decode-delay="200">
+            Order matters and the rack respects it. Two distortions with an EQ between them sound different from the same two with an EQ after — because the EQ changes what the second curve is given.
+          </p>
+          <ul class="specs">
+            <li data-decode>OTT, DISTORTION ×2, EQ ×2, FILTER ×2</li>
+            <li data-decode>CHORUS, FLANGER, PHASER, HYPER</li>
+            <li data-decode>DIMENSION, DELAY, REVERB, LIMITER</li>
+            <li data-decode>2× OVERSAMPLED WHEN ANYTHING NONLINEAR IS ON</li>
+          </ul>
+        </div>
+      </section>
+      <section class="panel ">
+        <div class="slab">
+          <h2 class="heading" data-decode>OFF MEANS<br />UNTOUCHED.</h2>
+          <p class="body" data-decode data-decode-delay="200">
+            A mid/side round trip is not bit-exact, so an effect turned fully down still altered every sample, forever. With fourteen in a chain that most patches do not use, every one of them early-outs at zero rather than multiplying by it.
+          </p>
+          <ul class="specs">
+            <li data-decode>EACH SLOT REORDERABLE BY DRAG</li>
+            <li data-decode>WET, DRIVE AND MIX PER SLOT</li>
+            <li data-decode>DRIVE COMPENSATED SO IT IS NOT A VOLUME KNOB</li>
+            <li data-decode>BIT-EXACT BLOCK-SIZE INVARIANCE, ASSERTED</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <div class="next"></div>
+    <footer class="foot"></footer>
+
+    <script type="module" src="./src/pages/fx.ts"></script>
+  </body>
+</html>

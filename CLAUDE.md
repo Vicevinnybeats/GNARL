@@ -994,7 +994,7 @@ Consequences of the figure above:
 | 7 | Backend, licensing, subscription | client + activation endpoint **done**; Stripe not started |
 | 8 | AI features | not started |
 | 9 | Release prep, installers, manual | not started |
-| 10 | Marketing site (Three.js + GSAP scroll-zoom) — [`site/`](site/), see [`docs/website-brief.md`](docs/website-brief.md) | **done** |
+| 10 | Marketing site — five pages, [`site/`](site/), see [`site/README.md`](site/README.md) | **done** |
 
 **The synth now makes sound.** Oscillators, sub, noise, send routing and both
 filter slots are wired end to end, and `tests/EngineTests.cpp` drives the whole
@@ -1041,74 +1041,82 @@ push them.
 
 ### The marketing site
 
-[`site/`](site/) — Three.js + GSAP, built by Vite, deployed as static files.
-It is a **place, not a page**: a near-black hall with a wet lattice floor
-running to the horizon, three lit monoliths standing down its length carrying
-the plugin's three tabs, and fog eating everything past them. Scrolling flies
-the CAMERA through it. The monoliths are the only light in the scene, which is
-what makes the fog and the floor reflection do any work at all — a dark room
-with a bright object in it has depth for free, and a uniformly lit one has
-none.
+[`site/`](site/) — **five pages**, one universe. Three.js + GSAP, built by
+Vite to static files. See [`site/README.md`](site/README.md) for the page
+table, the model drop-in slot and where to get models.
 
-An earlier version was a flat document with one textured plane floating over
-it, zooming on scroll. It read as exactly that.
+Four of the five are the **same shader walking a different slice** of one
+continuous transformation — orbits, the oscillator's harmonic surface, a
+double helix, a vortex, the interface's own rectangle — so arriving on
+ENGINE picks up where HOME left off instead of resetting to something
+unrelated. A page differs only by the `{ from, to }` it walks.
 
-**The text is NOT in the world.** The obvious move is to project each card
-from a world anchor. Every layout failure in this project has come from
-something being COMPUTED where it could have been laid out — four panel
-overflows in the plugin, a panel that outgrew its viewport on the first
-version of this site — and projected text breaks worst at exactly the window
-sizes nobody screenshots. The cards stay in CSS flow; the camera path puts
-each monolith where the card is not.
+The fifth, FX, is a **dissolve**: a solid object burning away into its own
+dust. The rack takes a signal apart, so the page's subject and its animation
+are the same idea rather than an animation applied to a subject.
 
-**Which side they stand on is not a rhythm choice.** They alternated left and
-right at first, so the hall would not read as a rail — and the cards are
-always on the left, so the middle monolith stood exactly where the text is
-and the FX section rendered its heading *through* a wall of knobs. Third time
-this project has learned that where a thing sits is decided by where the words
-are (§6). The variety comes from the weave in the camera path and from the
-monoliths standing at different distances.
+**Damping is a function of TIME, not of frames**, and this is the third time
+this project has hit that mistake. `x += (target - x) * 0.075` advances 7.5%
+*per frame*: half a second to settle at 60 fps, two seconds at 15 — and each
+frame jumps 7.5% of whatever distance a fast flick opened. You see four or
+five discrete positions and the page appears to cut between them. That is
+what "it teleports when I scroll fast" was. Everything eases through
+`1 - exp(-rate * dt)`, which is the same exponential sampled correctly and
+composes exactly — the identical argument the meter ballistics in §3 rest
+on. The other two in the family: the meter that read the block size, and the
+text decode that counted frames.
 
-**Their z positions are a SCHEDULE, not spacing.** Five full-height sections
-means the scroll reaches each at a known fraction, so the camera is at a known
-point in the hall: engine at about −12, presets at −33, fx at −54. Spaced by
-eye instead, they drifted a section out of step and the FX card was read
-against the MOD tab — which looks completely deliberate in a screenshot until
-you read the tab.
+**Additive light SUMS.** The per-particle alpha that looks right for one
+particle is flat white for ninety thousand of them. Both the figure and the
+dissolve's dust were rebuilt after a screenshot showed a white disc with the
+copy floating on it, and the second time the cause was arithmetic rather than
+taste: the mote fade window was 0.55 while the burn threshold stopped at
+1.15, so the last motes released reached an age of only 0.27 and sat there at
+near-full brightness. The bloom **threshold** is the number that matters, not
+its strength.
 
-**A phone is a different lens and a different hall.** Half the horizontal
-field of a 9:19 screen is about 19°, so a monolith beside the path subtends
-more than the frame exactly when you draw level with it — the one moment it is
-worth seeing. Two attempts tried to fix that by moving the monoliths; the
-geometry does not allow it, because anything far enough to the side to stay in
-frame is too far away to read. **The camera turns its head instead**, blending
-its aim towards whichever monolith is nearest. The monoliths are also raised
-on a phone: the card owns the bottom two thirds, and a monolith standing on
-the floor is *below* a camera at eye height, so it renders below the horizon
-whatever the lens does. Tilting down to "see more" fills the top with void;
-tilting up slides the world down behind the card. Neither is a lens problem.
+**A figure made of soft sprites is a cloud, never a drawing.** Line art —
+thin bright curves on black — is legible because the strokes are thin and the
+gaps are empty; a dense field of sprites is fog. The figure is `LineSegments`.
 
-**The floor spill is a gradient, not the screen's own texture.** The first
-version mapped the UI onto the pool of light under each monolith, reasoning
-that the spill should be the colour of what casts it — and since that plane is
-26 units deep and lying flat, the result was the plugin's interface printed
-legibly across the floor: you could read "CUTOFF" in the carpet. Light falling
-on a floor is a blur, not a slide projection.
+**The dissolve samples its noise in OBJECT space.** In world space the
+pattern is nailed to the room, so rotating the object makes the burn crawl
+across it like a searchlight rather than like the thing itself decaying. The
+particles read the *same* field at the *same* coordinates as the surface
+shader — one shared GLSL string — so each mote lets go exactly when the
+surface under it opens. A timer or a random stagger drifts out of step with
+the hole it is supposed to be coming from.
 
-**The grid is in world units, not UV.** UV cells on a plane you fly over
-stretch to the horizon, so the near squares would be enormous and the far ones
-sub-pixel. Cells are a fixed size in the world and perspective does the rest,
-which is also what gives the floor a scale rather than making it wallpaper.
-The lit cell is found by **raycasting the pointer onto the floor plane**: on a
-flat backdrop the pointer's 0..1 coordinates *are* the surface coordinates, on
-a floor in perspective they are not, and using them lights a cell that drifts
-away from the cursor as the camera moves.
+**Model → particles: sample the TRIANGLES, not the vertices.** Vertex
+positions give a cloud whose density maps how the modeller subdivided — dense
+along detailed parts, empty across a large flat face. Points are scattered
+across triangles picked with probability proportional to area, via a
+cumulative table and a binary search (a loop per point over a hundred
+thousand triangles freezes the tab). The uniform point inside a triangle
+needs the `sqrt` on the first barycentric weight; without it the points
+bunch at every centroid, which on a low-poly model is a visible dot per face.
 
-Planar reflection and full-resolution bloom are desktop only. A Reflector
-re-renders the whole scene from a mirrored camera every frame and bloom is
-three more full-screen passes; on a mid-range phone that is the difference
-between 60 fps and a slideshow, and a stuttering fly-through is worse than a
-still one.
+**The default figure is generated, not downloaded** — a loudspeaker driver
+as a lathe. On theme, and with no licence question, which §9 makes a
+requirement rather than a preference: a downloaded mesh is an asset exactly
+as a wavetable is. The model slot is opt-in through a `<meta>` tag so a
+default build makes no request and logs no 404.
+
+**The figure sits BESIDE the words, never behind them**, and the offset is
+measured along the camera's own **right vector** as a fraction of the
+frustum. Not world x: the camera orbits, so by the last page it is a hundred
+degrees round the arc and world x has become depth — the figure obediently
+stayed centred and sat on the copy, and every fix that read it as "not far
+enough" made it worse somewhere else.
+
+**On a phone there is no fixed band to aim at, because the card scrolls.**
+Three attempts: aiming the camera up (which pitches the view and slides the
+world *down*, the opposite of the intent), then raising the object into the
+strip above the card at 40svh (which only exists at the top of the page — by
+a third of the way down the object had left the viewport and the screen was
+empty). What works is centred slightly high and scaled to about a quarter of
+the frame, with the card passing over its lower part. A subject partly behind
+the text reads as depth; a subject that leaves the screen reads as broken.
 
 ```bash
 cd site && npm run build
@@ -1116,21 +1124,13 @@ cd site && npm run build
 node ../tools/screenshot_site.mjs <output-directory>
 ```
 
-That script drives **both** sizes to **every** section — the one section it
-skipped at first was the one whose alignment was wrong. It waits for the
-camera's easing and the text decode before shooting, and it re-reads `scrollY`
-in a separate `evaluate` to check where it landed, because Playwright's phone
-emulation briefly reports a viewport four times too tall, the browser clamps
-`scrollTop` against it, and the shot labelled `fx` was a photograph of the
-engine card while the check passed.
-
-**Text decodes on a millisecond clock, not a frame count.** A frame count ties
-how long a sentence takes to resolve to how fast the machine is drawing, and
-there is a WebGL scene running beside it: on a software renderer every card
-was still mid-static after two and a half seconds. Same family as the meter
-ballistics in §3. And writing the result back with `textContent` deletes any
-`<br>`, so a heading broken by hand came out as "FOURTEEN EFFECTS.ANY ORDER." —
-the break is read out as a newline and the headings are `white-space: pre-line`.
+That script drives **both sizes to the top AND the foot of all five pages** —
+the foot is where the dissolve has finished burning and where the interface
+resolves, and a picture of only the top says nothing about either. It
+re-reads `scrollY` in a separate `evaluate` to check where it landed, because
+Playwright's phone emulation briefly reports a viewport four times too tall,
+the browser clamps `scrollTop` against it, and an earlier version photographed
+the wrong section entirely while the check passed.
 
 ---
 

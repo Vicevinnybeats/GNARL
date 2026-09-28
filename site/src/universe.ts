@@ -4,6 +4,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
+import { createStarfield, type Starfield } from './starfield';
+
 /**
  * The universe: a figure drawn in light, turning in a starfield, which keeps
  * becoming something else as the page scrolls.
@@ -173,7 +175,20 @@ const FORMATIONS = /* glsl */ `
   }
 `;
 
-export function createUniverse(canvas: HTMLCanvasElement): Universe {
+export interface UniverseOptions {
+  /*  WHICH SLICE OF THE UNIVERSE THIS PAGE WALKS. All five formations are
+      compiled into the one shader on every page; a page differs only by the
+      stretch of them its scroll moves through. So the site is one continuous
+      transformation cut into five, and arriving on ENGINE picks up exactly
+      where HOME left off instead of resetting to something unrelated. */
+  readonly from: number;
+  readonly to: number;
+}
+
+export function createUniverse(
+  canvas: HTMLCanvasElement,
+  options: UniverseOptions,
+): Universe {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let mobile = window.innerWidth < 860;
@@ -195,101 +210,10 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
 
   const disposables: Array<{ dispose(): void }> = [];
 
-  // --- the starfield ------------------------------------------------------
-  /*  A real backdrop, not more of the figure. Points rather than lines here,
-      because a star IS a point — and small and sharp rather than soft, which
-      is the difference between a sky and a haze. Warm and cool mixed, since
-      a field of one colour reads as a gradient. */
-  const STARS = mobile ? 3500 : 9000;
-
-  const starGeometry = new THREE.BufferGeometry();
-  const starPos = new Float32Array(STARS * 3);
-  const starSeed = new Float32Array(STARS * 2);
-
-  for (let i = 0; i < STARS; i += 1) {
-    // On a shell well outside the figure, so the parallax is gentle and the
-    // camera can never fly into it.
-    const r = 120 + Math.random() * 90;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(1 - 2 * Math.random());
-
-    starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-    starPos[i * 3 + 1] = r * Math.cos(phi);
-    starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-
-    starSeed[i * 2] = Math.random();
-    starSeed[i * 2 + 1] = Math.random();
-  }
-
-  starGeometry.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-  starGeometry.setAttribute('aSeed', new THREE.BufferAttribute(starSeed, 2));
-  disposables.push(starGeometry);
-
-  const starUniforms = {
-    uTime: { value: 0 },
-    uPixelRatio: { value: renderer.getPixelRatio() },
-  };
-
-  const starMaterial = new THREE.ShaderMaterial({
-    uniforms: starUniforms,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    vertexShader: /* glsl */ `
-      precision highp float;
-
-      attribute vec2 aSeed;
-      uniform float uTime;
-      uniform float uPixelRatio;
-
-      varying float vBright;
-      varying float vWarm;
-
-      void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-
-        /*  Unequal, and steeply so. A field of equally bright dots reads as
-            noise; a few bright ones among many faint ones reads as a sky.
-            The fourth power is what keeps most of them nearly invisible. */
-        float b = aSeed.x * aSeed.x * aSeed.x * aSeed.x;
-
-        // A slow twinkle, out of phase per star so they never pulse together.
-        b *= 0.65 + 0.35 * sin(uTime * 0.6 + aSeed.y * 90.0);
-
-        vBright = b;
-        vWarm = aSeed.y;
-
-        gl_PointSize = (0.9 + b * 3.4) * uPixelRatio;
-        gl_Position = projectionMatrix * mv;
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      precision highp float;
-
-      varying float vBright;
-      varying float vWarm;
-
-      void main() {
-        vec2 d = gl_PointCoord - 0.5;
-        float r = length(d);
-        if (r > 0.5) discard;
-
-        float alpha = smoothstep(0.5, 0.05, r);
-
-        vec3 cool = vec3(0.62, 0.78, 1.00);
-        vec3 warm = vec3(1.00, 0.82, 0.58);
-        vec3 colour = mix(cool, warm, smoothstep(0.55, 1.0, vWarm));
-
-        gl_FragColor = vec4(colour, alpha * (0.16 + vBright * 0.9));
-      }
-    `,
-  });
-
-  disposables.push(starMaterial);
-
-  const stars = new THREE.Points(starGeometry, starMaterial);
-  stars.frustumCulled = false;
-  scene.add(stars);
+  /*  The sky is shared with every other page (starfield.ts). It is the one
+      thing all five have in common, which is what makes them read as five
+      views of one place rather than five pages with the same stylesheet. */
+  const stars: Starfield = createStarfield(scene, renderer, mobile);
 
   // --- the figure ---------------------------------------------------------
   /*  Segments per curve. Enough that a great circle is smooth at the size it
@@ -496,7 +420,7 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
     composer.setSize(width, height);
     bloom.setSize(width, height);
 
-    starUniforms.uPixelRatio.value = renderer.getPixelRatio();
+    stars.resize(renderer);
 
     camera.aspect = width / height;
     camera.fov = mobile ? 64 : 50;
@@ -516,7 +440,6 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
 
     render(elapsed: number, delta: number) {
       uniforms.uTime.value = elapsed;
-      starUniforms.uTime.value = elapsed;
 
       /*  DAMPING IS A FUNCTION OF TIME, NOT OF FRAMES.
           This is the bug that made the previous version teleport, and it is
@@ -545,14 +468,14 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
         pointerEase.lerp(pointer, ease(2.5));
       }
 
-      /*  THE FORMATIONS FINISH BEFORE THE PAGE DOES. Mapped straight from
-          progress, the last one is still arriving at the top of the
-          download section - so the section you are meant to READ was the
-          one showing a half-finished morph and a tangle of strays. It
-          completes at 0.86 and holds, which gives the final screen a
-          settled picture. Same fix the corridor needed, for the same
-          reason: scroll progress reaches 1 only at the very bottom. */
-      uniforms.uForm.value = Math.min(1, scrollEase / 0.78) * (FORMS - 1);
+      /*  THE MOVE FINISHES BEFORE THE PAGE DOES. Mapped straight from
+          progress, the formation is still arriving at the top of the last
+          section - so the part you are meant to READ is the part showing a
+          half-finished morph. It completes at 0.78 and holds. Scroll
+          progress reaches 1 only at the very bottom of the document, which
+          is never where the last thing worth looking at is. */
+      const walked = Math.min(1, scrollEase / 0.78);
+      uniforms.uForm.value = THREE.MathUtils.lerp(options.from, options.to, walked);
 
       /*  THE CAMERA ORBITS AND ZOOMS, continuously, and never arrives
           anywhere. With no destinations there is no distance to cover in a
@@ -617,12 +540,17 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
       core.scale.setScalar(3.0 + starness * 2.8);
 
       // The sky drifts, so a page nobody is touching still moves.
-      stars.rotation.y = elapsed * 0.006;
+      stars.update(elapsed);
 
       /*  The interface fades up inside the last formation, so the universe
           RESOLVES into the product rather than cutting to it. It faces the
           camera, because the ruled rectangle making its shape does too. */
-      const resolve = THREE.MathUtils.smoothstep(scrollEase, 0.68, 0.80);
+      /*  Only the page that actually ENDS on the interface resolves it. On
+          the others uForm never reaches the last formation, so fading a
+          screenshot up would be fading it up over a helix. */
+      const resolve = options.to >= FORMS - 1
+        ? THREE.MathUtils.smoothstep(scrollEase, 0.68, 0.80)
+        : 0;
       panelMaterial.opacity = resolve * 0.95;
       panel.visible = resolve > 0.001;
       panel.quaternion.copy(camera.quaternion);
@@ -632,6 +560,7 @@ export function createUniverse(canvas: HTMLCanvasElement): Universe {
 
     dispose() {
       for (const item of disposables) item.dispose();
+      stars.dispose();
       composer.dispose();
       renderer.dispose();
     },
