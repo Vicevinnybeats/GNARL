@@ -56,12 +56,12 @@ const ALL_CATEGORIES = 'All';
     list. "Growl" and "Factory" answer different questions - what the patch
     sounds like, and where it came from - and folding them into one row of
     buttons means you cannot ask both at once, which is exactly what somebody
-    hunting their own bass in a bank of 150 wants to do. */
+    hunting their own bass in a bank of this size wants to do. */
 type Source = 'all' | 'factory' | 'user';
 
 const SOURCES: ReadonlyArray<{ id: Source; label: string; title: string }> = [
   { id: 'all', label: 'ALL', title: 'Every preset' },
-  { id: 'factory', label: 'FACTORY', title: 'The 150 presets that ship with GNARL' },
+  { id: 'factory', label: 'FACTORY', title: 'The factory presets that ship with GNARL' },
   { id: 'user', label: 'USER', title: 'Presets you saved' },
 ];
 
@@ -268,7 +268,7 @@ export function PresetBrowser({ open, onClose, onPatchChanged, embedded = false 
         {/*  Segmented, not a dropdown. Three options that the user switches
              between constantly while hunting deserve one click each; a select
              costs two and hides the other two behind a menu. It also makes
-             the count visible - "FACTORY 150" answers "did my presets load?"
+             the count visible - "FACTORY 160" answers "did my presets load?"
              without anybody having to open anything. */}
         <div className="gn-browser__source" role="group" aria-label="Preset source">
           {SOURCES.map(({ id, label, title }) => {

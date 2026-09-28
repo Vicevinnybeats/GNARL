@@ -6,7 +6,7 @@ import './LibraryTab.css';
  * The LIBRARY tab.
  *
  * THE BROWSER WAS ONLY EVER A POPOVER, and a popover is the wrong shape for
- * the thing somebody spends the most time in. Auditioning a bank of 150 means
+ * the thing somebody spends the most time in. Auditioning a whole bank means
  * clicking down it for minutes at a stretch; a panel that hangs off the
  * header is sized for a glance, overlays the controls you are trying to hear
  * the effect on, and closes the moment you click away from it.

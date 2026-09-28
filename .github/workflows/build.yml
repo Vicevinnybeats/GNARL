@@ -256,7 +256,7 @@ jobs:
           set -euo pipefail
           count=$(find library -name '*.gnarl' | wc -l)
           echo "$count preset files"
-          test "$count" -eq 150 || { echo "::error::expected 150 presets, got $count"; exit 1; }
+          test "$count" -eq 160 || { echo "::error::expected 160 presets, got $count"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
