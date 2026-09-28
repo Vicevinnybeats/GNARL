@@ -107,6 +107,67 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  # ---------------------------------------------------------------------
+  #  THE BANK, RENDERED, so it can be LISTENED TO without installing
+  #  anything. The factory presets are constructed from what the DSP does -
+  #  code cannot listen - so the only way anybody finds out that a patch is
+  #  wrong is by hearing it, and asking somebody to build the plugin first is
+  #  asking them not to bother.
+  #
+  #  One continuous take of all 150 with an index of timestamps, which is
+  #  what a person actually scrubs through. Downloaded from the run's
+  #  artifacts.
+  audition:
+    name: bank audition
+    needs: ui
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: gnarl-ui-dist
+          path: ui/dist
+
+      - name: Install JUCE's Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libx11-dev libxext-dev libxinerama-dev \
+            libxrandr-dev libxcursor-dev libxcomposite-dev \
+            libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev \
+            libcurl4-openssl-dev libwebkit2gtk-4.1-dev
+
+      - name: Cache JUCE and Catch2 checkouts
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: Linux-deps-${{ hashFiles('cmake/Dependencies.cmake') }}
+
+      # Release, because rendering 150 presets in Debug is roughly fifteen
+      # times slower here - the cost is almost entirely juce::dsp::FFT.
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DGNARL_BUILD_DEMO_RENDERER=ON
+          -DGNARL_BUILD_UI=OFF
+
+      - name: Build the renderer
+        run: cmake --build build --target GnarlRenderDemo --parallel 4
+
+      - name: Render the bank
+        run: ./build/tests/GnarlRenderDemo --audition audition
+
+      - name: Index
+        run: cat audition/gnarl-bank-audition.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gnarl-bank-audition
+          path: audition/
+          retention-days: 30
+
   plugin:
     name: ${{ matrix.name }}
     needs: ui

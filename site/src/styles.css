@@ -457,3 +457,47 @@ code { color: var(--accent); }
 }
 
 
+
+/* ------------------------------------------------- arriving at the end -- */
+/*  The download button starts breathing as the journey completes, so the
+    thing the page has been travelling towards announces itself instead of
+    waiting to be noticed. `gn-arrived` is set from the render loop when the
+    scroll passes 90% of the journey, with hysteresis so a scroll resting on
+    the threshold cannot flicker it.
+
+    Animating box-shadow and transform only - both compositor properties, so
+    this costs nothing in layout. It stops as soon as the pointer is on the
+    button: once somebody has found it, drawing attention to it is noise. */
+@keyframes gn-arrive {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(100, 230, 255, 0);
+    transform: translateZ(0) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 26px -4px rgba(100, 230, 255, 0.55);
+    transform: translateZ(0) scale(1.035);
+  }
+}
+
+html.gn-arrived .panel--download .button:not(.button--ghost) {
+  animation: gn-arrive 2.4s var(--ease) infinite;
+  border-color: var(--line-hot);
+}
+
+html.gn-arrived .panel--download .button:not(.button--ghost):hover {
+  animation: none;
+}
+
+/*  And the nav's own download link, which is on screen the whole way down
+    and is the one somebody reaches for if they do not scroll to the foot. */
+html.gn-arrived .nav__cta {
+  border-color: var(--line-hot);
+  box-shadow: 0 0 20px -8px var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.gn-arrived .panel--download .button:not(.button--ghost) {
+    animation: none;
+    box-shadow: 0 0 22px -6px rgba(100, 230, 255, 0.45);
+  }
+}

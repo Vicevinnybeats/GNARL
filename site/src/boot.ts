@@ -57,6 +57,7 @@ let journey: Journey | null = null;
 let rain: { render(now: number): void; resize(): void } | null = null;
 let loaderAlive = loader !== null;
 let entering = false;
+let nearEnd = false;
 let assembly: Assembly | null = null;
 
 function finishBuild() {
@@ -227,7 +228,22 @@ const frame = (now: number) => {
         position goes stale mid-flick and then arrives all at once - the
         scene sits still and then jumps. `scrollY` read here is whatever the
         compositor is showing right now, on every frame it draws. */
-    journey.setScroll(readScroll());
+    const progress = readScroll();
+
+    journey.setScroll(progress);
+
+    /*  THE CALL TO ACTION WAKES UP AS YOU ARRIVE. A class toggled on the
+        document rather than a style written per frame: the animation is CSS
+        and runs on the compositor, so the loop's only job is to say when.
+        Hysteresis on the threshold, or a scroll resting exactly on it
+        flickers the class on and off every frame. */
+    if (progress > 0.9 && !nearEnd) {
+      nearEnd = true;
+      root.classList.add('gn-arrived');
+    } else if (progress < 0.84 && nearEnd) {
+      nearEnd = false;
+      root.classList.remove('gn-arrived');
+    }
     journey.render(now / 1000, delta);
     rain?.render(now);
     framesRendered += 1;

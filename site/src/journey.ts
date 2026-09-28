@@ -90,7 +90,7 @@ const FORMS = 5;
     after it 10-20%, so the journey appeared to be running away from the
     viewer. Same reasoning as the lateral offset below - a composition is a
     fraction of the frustum, never a number of world units. */
-const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 6.2] as const;
+const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 5.8] as const;
 
 /*  And their HALF-WIDTHS, which is a different question from the one above.
     The radii say what should fill the frame vertically; these say what must
@@ -111,6 +111,12 @@ const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 6.5] as const;
     subject that fits with room to spare reads as placed; one that fits
     exactly reads as cropped the moment anything moves. */
 const SUBJECT_WIDTH_FRACTION = 0.78;
+
+/*  Except at the END, where the instrument is the subject and the page has
+    stopped travelling. 0.78 is a margin for a shape still moving; the panel
+    is stationary by the time it resolves, so it can have the frame. Eased
+    across the last transition rather than switched at it. */
+const SUBJECT_WIDTH_FRACTION_END = 0.92;
 
 /*  How high the subject rides on a phone, as a fraction of the visible
     height, measured along the camera's own up vector rather than in world
@@ -1066,8 +1072,14 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       /*  visibleWidth = visibleHeight x aspect, so the same solve with the
           aspect divided back out. The FURTHER of the two wins: whichever
           axis would clip decides the distance. */
+      const widthFraction = THREE.MathUtils.lerp(
+        SUBJECT_WIDTH_FRACTION,
+        SUBJECT_WIDTH_FRACTION_END,
+        THREE.MathUtils.smoothstep(form, 3.2, 4.0),
+      );
+
       const forWidth =
-        halfWidth / (SUBJECT_WIDTH_FRACTION * halfFov * Math.max(0.1, camera.aspect));
+        halfWidth / (widthFraction * halfFov * Math.max(0.1, camera.aspect));
 
       const base = Math.max(forHeight, forWidth);
 

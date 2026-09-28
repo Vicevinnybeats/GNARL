@@ -40,11 +40,12 @@ namespace
     /** Called once per block with the elapsed time, to move parameters. */
     using Automation = std::function<void (GnarlProcessor&, double timeSeconds)>;
 
-    void renderToFile (const juce::File& file,
-                       double seconds,
-                       const std::function<void (GnarlProcessor&)>& setUpPatch,
-                       const std::function<void (juce::MidiBuffer&, int blockIndex)>& midiFor,
-                       const Automation& automate)
+    /** Renders a patch and hands back the audio, un-normalised. */
+    juce::AudioBuffer<float> renderToBuffer (
+        double seconds,
+        const std::function<void (GnarlProcessor&)>& setUpPatch,
+        const std::function<void (juce::MidiBuffer&, int blockIndex)>& midiFor,
+        const Automation& automate)
     {
         GnarlProcessor processor;
         processor.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
@@ -78,6 +79,17 @@ namespace
             for (int channel = 0; channel < 2; ++channel)
                 output.copyFrom (channel, blockIndex * kBlockSize, block, channel, 0, kBlockSize);
         }
+
+        return output;
+    }
+
+    void renderToFile (const juce::File& file,
+                       double seconds,
+                       const std::function<void (GnarlProcessor&)>& setUpPatch,
+                       const std::function<void (juce::MidiBuffer&, int blockIndex)>& midiFor,
+                       const Automation& automate)
+    {
+        auto output = renderToBuffer (seconds, setUpPatch, midiFor, automate);
 
         const auto peak = output.getMagnitude (0, output.getNumSamples());
         std::printf ("  peak %.3f", peak);
@@ -193,6 +205,143 @@ void renderFactoryBank (const juce::File& outputDirectory)
     }
 }
 
+
+/*  ONE FILE TO AUDITION THE WHOLE BANK.
+
+    A hundred and fifty separate .wavs is a directory, not something anybody
+    listens to. This writes a single continuous take with every preset played
+    in turn and a short gap between them, plus an index naming what is at each
+    timestamp - so judging the bank is scrubbing through one file with the
+    index open beside it, which is what a person actually does.
+
+    GROUPED BY CATEGORY, deliberately. Hearing eighteen subs in a row is how
+    you notice that three of them are the same patch; hearing them scattered
+    between growls is how you miss it.
+
+    AND NOT NORMALISED PER PRESET, which the individual .wavs above are. Those
+    exist to judge one patch, so making them comparable by ear is right. This
+    one exists to judge the BANK, and the first thing worth knowing is whether
+    a patch arrives thirty decibels under its neighbour - which per-preset
+    normalisation is precisely what hides. One gain is applied to the whole
+    take at the end. */
+void renderBankAudition (const juce::File& outputDirectory)
+{
+    GnarlProcessor builder;
+    builder.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
+    builder.prepareToPlay (kSampleRate, kBlockSize);
+
+    const auto bank = preset::FactoryBank::build (
+        builder.getValueTreeState(), builder.getValueTreeState().copyState());
+
+    const auto definitions = preset::FactoryBank::getDefinitions();
+
+    const auto count = std::min (bank.size(), definitions.size());
+
+    // Stable sort by category, so the bank's own order survives within a
+    // category and a preset can still be found by the number it ships under.
+    std::vector<std::size_t> order (count);
+    std::iota (order.begin(), order.end(), std::size_t { 0 });
+
+    std::stable_sort (order.begin(), order.end(),
+        [&definitions] (std::size_t a, std::size_t b)
+        {
+            return juce::String (definitions[a].category)
+                 < juce::String (definitions[b].category);
+        });
+
+    constexpr double kHold = 2.4;      // long enough to hear a growl cycle
+    constexpr double kGap = 0.35;      // and to tell one patch from the next
+
+    const auto holdSamples = static_cast<int> (kHold * kSampleRate);
+    const auto gapSamples = static_cast<int> (kGap * kSampleRate);
+    const auto stride = holdSamples + gapSamples;
+
+    juce::AudioBuffer<float> sheet (2, stride * static_cast<int> (count));
+    sheet.clear();
+
+    juce::StringArray index;
+    index.add ("# GNARL factory bank audition");
+    index.add ("# " + juce::String (static_cast<int> (count)) + " presets, "
+               + juce::String (kHold, 1) + "s each");
+    index.add ("");
+    index.add ("time      peak   category   name");
+
+    std::printf ("\nRendering the bank audition (%d presets)\n",
+                 static_cast<int> (count));
+
+    for (std::size_t position = 0; position < order.size(); ++position)
+    {
+        const auto i = order[position];
+        const auto& definition = definitions[i];
+        const auto tree = bank[i];
+
+        const auto note = preset::FactoryBank::getAuditionNote (
+            preset::readMetadata (bank[i]).category);
+
+        auto rendered = renderToBuffer (kHold,
+            [&tree] (GnarlProcessor& p) { p.getPresets().apply (tree); },
+            [note] (juce::MidiBuffer& midi, int blockIndex) { holdNote (midi, blockIndex, note); },
+            [] (GnarlProcessor&, double) {});
+
+        const auto peak = rendered.getMagnitude (0, rendered.getNumSamples());
+        const auto start = stride * static_cast<int> (position);
+        const auto length = std::min (holdSamples, rendered.getNumSamples());
+
+        for (int channel = 0; channel < 2; ++channel)
+            sheet.copyFrom (channel, start, rendered, channel, 0, length);
+
+        /*  A SHORT FADE AT EACH END. The note is cut off rather than released,
+            so without this every preset ends in a click - and a hundred and
+            fifty clicks is the only thing you would hear. */
+        const auto fade = static_cast<int> (0.008 * kSampleRate);
+        sheet.applyGainRamp (start, fade, 0.0f, 1.0f);
+        sheet.applyGainRamp (start + length - fade, fade, 1.0f, 0.0f);
+
+        const auto seconds = static_cast<double> (start) / kSampleRate;
+        const auto minutes = static_cast<int> (seconds) / 60;
+
+        index.add (juce::String (minutes).paddedLeft ('0', 2) + ":"
+                   + juce::String (seconds - minutes * 60, 1).paddedLeft ('0', 4)
+                   + "  " + juce::String (peak, 3).paddedLeft (' ', 5)
+                   + "  " + juce::String (definition.category).paddedRight (' ', 9)
+                   + "  " + juce::String (definition.name));
+
+        std::printf ("  %3d  %-8s  %-22s peak %.3f\n",
+                     static_cast<int> (position) + 1,
+                     definition.category,
+                     definition.name,
+                     peak);
+    }
+
+    // One gain for the whole take, so the relative levels survive.
+    const auto peak = sheet.getMagnitude (0, sheet.getNumSamples());
+
+    if (peak > 0.0f)
+        sheet.applyGain (0.891f / peak);
+
+    const auto file = outputDirectory.getChildFile ("gnarl-bank-audition.wav");
+    file.deleteFile();
+
+    juce::WavAudioFormat format;
+
+    if (auto stream = std::unique_ptr<juce::FileOutputStream> (file.createOutputStream()))
+    {
+        if (auto writer = std::unique_ptr<juce::AudioFormatWriter> (
+                format.createWriterFor (stream.get(), kSampleRate, 2, 16, {}, 0)))
+        {
+            stream.release();
+            writer->writeFromAudioSampleBuffer (sheet, 0, sheet.getNumSamples());
+        }
+    }
+
+    outputDirectory.getChildFile ("gnarl-bank-audition.txt")
+        .replaceWithText (index.joinIntoString ("\n") + "\n");
+
+    std::printf ("\n  %s  (%.1f minutes)\n",
+                 file.getFullPathName().toRawUTF8(),
+                 static_cast<double> (sheet.getNumSamples()) / kSampleRate / 60.0);
+}
+
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -202,6 +351,11 @@ int main (int argc, char* argv[])
     // the bank does not - a factory preset has to sound right without anything
     // driving it.
     auto bankOnly = false;
+    /*  --audition writes ONE file with the whole bank in it, grouped by
+        category, plus an index of timestamps. That is the one somebody
+        listens to; --bank writes the hundred and fifty separate files, which
+        is what you want when you are working on a single patch. */
+    auto auditionOnly = false;
     juce::File outputDirectory = juce::File::getCurrentWorkingDirectory();
 
     for (int i = 1; i < argc; ++i)
@@ -210,11 +364,20 @@ int main (int argc, char* argv[])
 
         if (argument == "--bank")
             bankOnly = true;
+        else if (argument == "--audition")
+            auditionOnly = true;
         else
             outputDirectory = juce::File (argument);
     }
 
     outputDirectory.createDirectory();
+
+    if (auditionOnly)
+    {
+        renderBankAudition (outputDirectory);
+        std::printf ("Done.\n");
+        return 0;
+    }
 
     if (bankOnly)
     {
