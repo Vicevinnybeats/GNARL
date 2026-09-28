@@ -301,3 +301,56 @@
 .gn-browser__status {
   color: var(--gn-accent);
 }
+
+/*  THE SOURCE FILTER. Segmented buttons rather than another dropdown: three
+    options switched between constantly while hunting are worth one click
+    each, and a select would cost two and hide the other two.
+
+    The count is not decoration. "FACTORY 150" is the answer to "did the bank
+    load at all?", which is a question somebody asks the moment a browser
+    looks emptier than they expected - and it is visible without opening
+    anything. */
+.gn-browser__source {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--gn-line);
+  border-radius: 5px;
+  background: var(--gn-surface-sunken, rgba(0, 0, 0, 0.25));
+}
+
+.gn-browser__source-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--gn-text-dim);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 3px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  /*  0ms under the motion gate, per the tokens rule in CLAUDE.md section 6 -
+      the gate redefines the token, it does not override this rule. */
+  transition: background var(--gn-motion, 120ms) ease, color var(--gn-motion, 120ms) ease;
+  white-space: nowrap;
+}
+
+.gn-browser__source-btn:hover {
+  color: var(--gn-text);
+}
+
+/*  Glow marks what is ON - state, not hover - so this one stays lit even
+    when the hover-glow setting is off. */
+.gn-browser__source-btn--on {
+  background: color-mix(in srgb, var(--gn-accent) 16%, transparent);
+  color: var(--gn-accent);
+  box-shadow: var(--gn-glow-accent-soft, none);
+}
+
+.gn-browser__source-count {
+  opacity: 0.6;
+  font-size: 9px;
+  margin-left: 3px;
+}

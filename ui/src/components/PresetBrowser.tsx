@@ -41,10 +41,24 @@ interface Props {
 
 const ALL_CATEGORIES = 'All';
 
+/*  SOURCE IS A SEPARATE AXIS FROM CATEGORY, not another entry in the same
+    list. "Growl" and "Factory" answer different questions - what the patch
+    sounds like, and where it came from - and folding them into one row of
+    buttons means you cannot ask both at once, which is exactly what somebody
+    hunting their own bass in a bank of 150 wants to do. */
+type Source = 'all' | 'factory' | 'user';
+
+const SOURCES: ReadonlyArray<{ id: Source; label: string; title: string }> = [
+  { id: 'all', label: 'ALL', title: 'Every preset' },
+  { id: 'factory', label: 'FACTORY', title: 'The 150 presets that ship with GNARL' },
+  { id: 'user', label: 'USER', title: 'Presets you saved' },
+];
+
 export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
   const [rows, setRows] = useState<PresetRow[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [category, setCategory] = useState(ALL_CATEGORIES);
+  const [source, setSource] = useState<Source>('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
   const [status, setStatus] = useState('');
@@ -109,6 +123,8 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
     const needle = search.trim().toLowerCase();
 
     return rows.filter((row) => {
+      if (source === 'factory' && !row.factory) return false;
+      if (source === 'user' && row.factory) return false;
       if (category !== ALL_CATEGORIES && row.category !== category) return false;
       if (needle.length === 0) return true;
 
@@ -121,7 +137,7 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
         row.tags.some((tag) => tag.toLowerCase().includes(needle))
       );
     });
-  }, [rows, category, search]);
+  }, [rows, category, search, source]);
 
   const load = useCallback(
     async (index: number) => {
@@ -225,6 +241,35 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
             </option>
           ))}
         </select>
+
+        {/*  Segmented, not a dropdown. Three options that the user switches
+             between constantly while hunting deserve one click each; a select
+             costs two and hides the other two behind a menu. It also makes
+             the count visible - "FACTORY 150" answers "did my presets load?"
+             without anybody having to open anything. */}
+        <div className="gn-browser__source" role="group" aria-label="Preset source">
+          {SOURCES.map(({ id, label, title }) => {
+            const count =
+              id === 'all'
+                ? rows.length
+                : rows.filter((row) => (id === 'factory' ? row.factory : !row.factory)).length;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                className={
+                  'gn-browser__source-btn' + (source === id ? ' gn-browser__source-btn--on' : '')
+                }
+                onClick={() => setSource(id)}
+                aria-pressed={source === id}
+                title={title}
+              >
+                {label} <span className="gn-browser__source-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
       </header>
 
       <div className="gn-browser__body">
