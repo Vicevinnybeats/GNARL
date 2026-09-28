@@ -178,13 +178,16 @@ async function start() {
 
   loader.onEnter(() => {
     document.documentElement.classList.remove('gn-booting');
+  });
 
-    // Long enough for the dismissal to finish drawing itself; the loader
-    // hides its own canvas at the end of it.
-    window.setTimeout(() => {
-      loaderAlive = false;
-      loader.dispose();
-    }, 1400);
+  /*  Torn down when the dismissal has finished DRAWING, never on a timer.
+      The fade advances per frame; a wall-clock wait for it is a guess at the
+      frame rate, and at a few frames a second the 1400ms this used to wait
+      disposed the renderer a third of the way through - leaving the canvas
+      frozen on a half-faded loader over the page, permanently. */
+  loader.onDismissed(() => {
+    loaderAlive = false;
+    loader.dispose();
   });
 }
 

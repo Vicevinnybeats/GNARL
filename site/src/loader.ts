@@ -37,6 +37,15 @@ export interface Loader {
   ready(): void;
   /** Called once, when the viewer clicks through. */
   onEnter(callback: () => void): void;
+  /**
+   * Called once, when the dismissal has finished DRAWING itself.
+   *
+   * Not a timer. The fade advances per frame, so a wall-clock wait for it is
+   * a guess at the frame rate: at a few frames a second the renderer was
+   * being disposed a third of the way through and the canvas kept its last
+   * drawn image - a half-faded loader sitting over the page for good.
+   */
+  onDismissed(callback: () => void): void;
   render(now: number, delta: number): void;
   resize(): void;
   dispose(): void;
@@ -542,6 +551,8 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
   let dismissing = 0;
   let entered = false;
   let enterCallback: (() => void) | null = null;
+  let dismissedCallback: (() => void) | null = null;
+  let announcedDismissal = false;
 
   const pointer = new THREE.Vector2(0.5, 0.5);
   const pointerEase = new THREE.Vector2(0.5, 0.5);
@@ -612,6 +623,10 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
       enterCallback = callback;
     },
 
+    onDismissed(callback: () => void) {
+      dismissedCallback = callback;
+    },
+
     render(now: number, delta: number) {
       const step = Math.min(delta, 0.1);
       const ease = (rate: number) => 1 - Math.exp(-rate * step);
@@ -666,7 +681,15 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
         idleMaterial.opacity = 0.3 * fade;
 
         canvas.style.opacity = String(fade);
-        if (dismissing >= 1) canvas.style.display = 'none';
+
+        if (dismissing >= 1 && !announcedDismissal) {
+          announcedDismissal = true;
+          canvas.style.display = 'none';
+
+          // Only now is it safe to tear the renderer down; anything sooner
+          // freezes the canvas on a half-drawn frame.
+          dismissedCallback?.();
+        }
       }
 
       composer.render();
@@ -675,6 +698,11 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
     resize,
 
     dispose() {
+      // Belt and braces: a disposed renderer leaves whatever it last drew on
+      // the canvas, so hide it here too rather than trusting the caller to
+      // have waited for the dismissal.
+      canvas.style.display = 'none';
+
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onClick);
       window.removeEventListener('keydown', onKey);

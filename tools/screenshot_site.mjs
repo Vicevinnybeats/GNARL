@@ -53,16 +53,30 @@ for (const device of DEVICES) {
   await page.waitForFunction(() => window.__gnarlJourney !== undefined, null, {
     timeout: 60000,
   });
-  await page.waitForTimeout(400);
-  await page.mouse.click(device.viewport.width / 2, device.viewport.height / 2);
-  await page
-    .waitForFunction(
-      () => !document.documentElement.classList.contains('gn-booting'),
-      null,
-      { timeout: 15000 },
-    )
-    .catch(() => errors.push(`${device.name}: boot screen never dismissed`));
-  await page.waitForTimeout(1500);
+  /*  Clicked REPEATEDLY until it takes. The loader ignores a click until it
+      is ready, and ready means a frame has been drawn - which on a software
+      renderer arrives some unknowable time after the journey object exists.
+      One click on a fixed delay is a coin flip. */
+  let dismissed = false;
+
+  for (let attempt = 0; attempt < 40 && !dismissed; attempt += 1) {
+    await page.mouse.click(device.viewport.width / 2, device.viewport.height / 2);
+    await page.waitForTimeout(500);
+
+    // The CANVAS being gone, not just the class: the class comes off when
+    // the click lands, while the fade still has frames to draw.
+    dismissed = await page.evaluate(() => {
+      const boot = document.getElementById('boot');
+      return (
+        !document.documentElement.classList.contains('gn-booting') &&
+        (boot === null || getComputedStyle(boot).display === 'none')
+      );
+    });
+  }
+
+  if (!dismissed) errors.push(`${device.name}: boot screen never dismissed`);
+
+  await page.waitForTimeout(1200);
   // The pointer parked in a corner leaves the lattice unlit; put it where a
   // reader's would be. Same lesson as the plugin's hover-glow shot.
   await page.mouse.move(device.viewport.width * 0.62, device.viewport.height * 0.45);
