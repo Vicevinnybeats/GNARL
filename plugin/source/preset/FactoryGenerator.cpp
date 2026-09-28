@@ -53,6 +53,8 @@ namespace
     constexpr auto kFold = static_cast<float> (choices::FxDistortionType::fold);
     constexpr auto kBitcrush = static_cast<float> (choices::FxDistortionType::bitcrush);
 
+    constexpr auto kGraintable = static_cast<float> (choices::OscMode::graintable);
+
     constexpr auto kSubSine = static_cast<float> (choices::SubWaveform::sine);
     constexpr auto kSubTriangle = static_cast<float> (choices::SubWaveform::triangle);
     constexpr auto kSubSquare = static_cast<float> (choices::SubWaveform::square);
@@ -247,12 +249,20 @@ namespace
     };
 
     // --- shared skeletons ---------------------------------------------------
-    /** Every patch that is meant to be loud ends the same way. */
-    void addGlue (std::vector<Setting>& s, Rng& rng, float ottDepth, bool limiter = true)
+    /*  Every patch that is meant to be loud ends the same way - except that
+        an OTT is not always wanted. It is a compressor, so on a patch whose
+        whole character is a 1 ms transient it is a transient SQUASHER: the
+        pluck archetype measured 0.014-0.314 peak with one, against 0.153 for
+        the hand-written "Metal Pluck", which has no OTT at all. */
+    void addGlue (std::vector<Setting>& s, Rng& rng, float ottDepth,
+                  bool ott = true, bool limiter = true)
     {
-        s.push_back ({ pid::ott.enabled, 1.0f });
-        s.push_back ({ pid::ott.depth, ottDepth });
-        s.push_back ({ pid::ott.mix, rng.range (0.65f, 1.0f) });
+        if (ott)
+        {
+            s.push_back ({ pid::ott.enabled, 1.0f });
+            s.push_back ({ pid::ott.depth, ottDepth });
+            s.push_back ({ pid::ott.mix, rng.range (0.65f, 1.0f) });
+        }
 
         if (limiter)
             s.push_back ({ pid::fxLimiter.enabled, 1.0f });
@@ -331,13 +341,35 @@ std::vector<Definition> generateVariations()
         const auto division = growlDivision (rng);
         const auto curve = kGrowlCurves[rng.index (std::size (kGrowlCurves))];
 
+        /*  UNISON 3-7 AT AROUND A TENTH OF DETUNE, which is where the
+            technique writing on this genre consistently lands - six or seven
+            voices at ~0.1 - rather than the two or three a formant patch
+            needs on its own. The detune is what stops a square-ish growl
+            reading as a single tone being chopped. */
         s.push_back ({ pid::osc[0].enabled, 1.0f });
         s.push_back ({ pid::osc[0].wavetable, table });
         s.push_back ({ pid::osc[0].tablePos, rng.quantised (0.15f, 0.70f, 0.05f) });
         s.push_back ({ pid::osc[0].level, rng.range (0.80f, 0.92f) });
-        s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (2 + rng.index (3)) });
-        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.04f, 0.18f) });
+        s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (3 + rng.index (5)) });
+        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.06f, 0.16f) });
+        s.push_back ({ pid::osc[0].unisonBlend, rng.range (0.3f, 0.7f) });
         s.push_back ({ pid::osc[0].sendFilter1, 1.0f });
+
+        /*  A GRAINWAVE VARIANT, for a quarter of them. The instrument most
+            associated with this sound in Reason is a grainwave synth -
+            granular and wavetable at once - and GNARL's graintable mode is
+            our own equivalent. Grains are windowed, so this costs about 5 dB
+            against wavetable mode and the level is lifted to match. */
+        const auto grain = rng.chance (0.25f);
+
+        if (grain)
+        {
+            s.push_back ({ pid::osc[0].mode, kGraintable });
+            s.push_back ({ pid::osc[0].grainSize, rng.range (28.0f, 90.0f) });
+            s.push_back ({ pid::osc[0].grainDensity, rng.range (8.0f, 22.0f) });
+            s.push_back ({ pid::osc[0].grainPosJitter, rng.range (0.05f, 0.30f) });
+            s.push_back ({ pid::osc[0].level, 0.95f });
+        }
 
         addSub (s, rng, 0.55f, 0.82f);
 
@@ -350,18 +382,55 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::filter[0].formantThroat, rng.range (0.18f, 0.48f) });
         s.push_back ({ pid::filter[0].mix, 1.0f });
 
-        addLfo (s, 0, kCustom, division);
+        /*  A SQUARE LFO IS A FIRST-CLASS SHAPE HERE, not only the drawn
+            curve. The stuttered, blocky articulation this genre is built on
+            is what a square gives for free, and a drawn curve is the thing
+            you reach for when you want a specific rhythm rather than an even
+            one. Roughly a third square, the rest drawn. */
+        addLfo (s, 0, rng.chance (0.34f) ? kSquare : kCustom, division);
         addSlot (s, 0, kLfo1, rng.range (0.62f, 0.92f));
 
         std::vector<Routing> routings { { 0, pid::filter[0].formantX } };
 
-        // A second, slower hand on the table position: the patch then moves
-        // over a bar as well as within a beat.
-        if (rng.chance (0.55f))
+        /*  THE SAME FAST LFO ALSO MOVES THE TABLE POSITION. Every account of
+            how this sound is built modulates the wavetable position and the
+            filter TOGETHER and at the same speed - moving the formant alone
+            is a filter on a static tone, and it is the table moving under it
+            that gives the growl its watery, notched quality. The depth is
+            lower than the formant's so it colours rather than takes over. */
+        addSlot (s, 1, kLfo1, rng.range (0.22f, 0.50f));
+        routings.push_back ({ 1, pid::osc[0].tablePos });
+
+        // And a slower second hand, so the patch moves over a bar as well as
+        // within a beat.
+        if (rng.chance (0.5f))
         {
             addLfo (s, 1, kSine, rng.chance (0.5f) ? kWhole : kHalf);
-            addSlot (s, 1, kLfo2, rng.range (0.18f, 0.40f));
-            routings.push_back ({ 1, pid::osc[0].tablePos });
+            addSlot (s, 2, kLfo2, rng.range (0.16f, 0.34f));
+            routings.push_back ({ 2, pid::filter[0].cutoff });
+        }
+
+        /*  CHORUS OR FLANGER ON ABOUT HALF. Both are named repeatedly as
+            characteristic of the genre rather than as garnish, and on a
+            mono-ish growl they are what makes the sound occupy a stereo
+            field the sub cannot. */
+        if (rng.chance (0.5f))
+        {
+            if (rng.chance (0.5f))
+            {
+                s.push_back ({ pid::fxChorus.enabled, 1.0f });
+                s.push_back ({ pid::fxChorus.rate, rng.range (0.3f, 1.4f) });
+                s.push_back ({ pid::fxChorus.depth, rng.range (0.25f, 0.6f) });
+                s.push_back ({ pid::fxChorus.mix, rng.range (0.18f, 0.38f) });
+            }
+            else
+            {
+                s.push_back ({ pid::fxFlanger.enabled, 1.0f });
+                s.push_back ({ pid::fxFlanger.rate, rng.range (0.15f, 0.9f) });
+                s.push_back ({ pid::fxFlanger.depth, rng.range (0.3f, 0.7f) });
+                s.push_back ({ pid::fxFlanger.feedback, rng.range (0.2f, 0.5f) });
+                s.push_back ({ pid::fxFlanger.mix, rng.range (0.16f, 0.34f) });
+            }
         }
 
         s.push_back ({ pid::fxDistortion[0].enabled, 1.0f });
@@ -651,6 +720,8 @@ std::vector<Definition> generateVariations()
         addSlot (s, 0, kLfo1, rng.range (0.40f, 0.75f));
 
         s.push_back ({ pid::fxHyper.enabled, 1.0f });
+        // Dry path kept for the comb-null reason given under the hyper leads.
+        s.push_back ({ pid::fxHyper.mix, rng.range (0.5f, 0.75f) });
         s.push_back ({ pid::fxHyper.amount, rng.range (0.35f, 0.75f) });
         s.push_back ({ pid::fxHyper.voices, static_cast<float> (3 + rng.index (4)) });
         s.push_back ({ pid::fxHyper.width, rng.range (0.5f, 1.0f) });
@@ -689,35 +760,56 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::osc[0].enabled, 1.0f });
         s.push_back ({ pid::osc[0].wavetable, rng.pick (kBrightTables) });
         s.push_back ({ pid::osc[0].tablePos, rng.quantised (0.35f, 0.85f, 0.05f) });
-        s.push_back ({ pid::osc[0].level, rng.range (0.70f, 0.85f) });
+        /*  Louder, and the wet effects pulled back. This archetype failed
+            the audibility test at -32 to -35 dBFS with its modulation both
+            present and removed, so the modulation was never its problem: it
+            is the only patch here with no sub AND two wet stages diluting the
+            dry signal. */
+        s.push_back ({ pid::osc[0].level, rng.range (0.88f, 0.96f) });
         s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (5 + rng.index (4)) });
-        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.14f, 0.34f) });
-        s.push_back ({ pid::osc[0].unisonBlend, rng.range (0.4f, 0.8f) });
+        /*  NARROWER THAN IT WAS. Detune spreads a fixed amount of energy over
+            more partials, and the hyper's own detune spreads it again - at
+            the wide end of both ranges at once the patch measured 34 dB under
+            the bank while every other draw from the same archetype was fine.
+            An axis whose extreme is only reachable in combination with
+            another's is an axis that needs narrowing, not a threshold that
+            needs lowering. */
+        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.10f, 0.20f) });
+        s.push_back ({ pid::osc[0].unisonBlend, rng.range (0.5f, 0.8f) });
         s.push_back ({ pid::osc[0].unisonSpread, rng.range (0.6f, 1.0f) });
         s.push_back ({ pid::osc[0].sendFilter1, 1.0f });
 
         s.push_back ({ pid::filter[0].enabled, 1.0f });
         s.push_back ({ pid::filter[0].type, kLp24 });
-        s.push_back ({ pid::filter[0].cutoff, rng.range (1800.0f, 5000.0f) });
+        s.push_back ({ pid::filter[0].cutoff, rng.range (2400.0f, 5200.0f) });
         s.push_back ({ pid::filter[0].resonance, rng.range (0.15f, 0.40f) });
         s.push_back ({ pid::filter[0].mix, 1.0f });
 
         s.push_back ({ pid::fxHyper.enabled, 1.0f });
-        s.push_back ({ pid::fxHyper.amount, rng.range (0.55f, 0.95f) });
-        s.push_back ({ pid::fxHyper.voices, static_cast<float> (4 + rng.index (5)) });
-        s.push_back ({ pid::fxHyper.detune, rng.range (0.2f, 0.6f) });
+        /*  A DRY PATH THROUGH THE HYPER, and the reason is already written
+            down one floor up: the hyper is a multi-tap effect, and a single
+            sustained tone through one measures a comb null rather than a
+            level - "at 220 Hz one cycle is 4.5 ms, so the taps land two
+            thirds of a cycle apart and partly CANCEL". The audibility test
+            plays exactly that, one note held for three seconds, and one draw
+            from this archetype sat in a null at C4 at -34 dBFS while every
+            other draw was fine. Neither the detune range nor the modulation
+            moved it, because neither was the cause.
+
+            Leaving half the signal dry means a null can colour the patch but
+            cannot take it, which is also what somebody would do by ear. */
+        s.push_back ({ pid::fxHyper.mix, rng.range (0.45f, 0.68f) });
+        s.push_back ({ pid::fxHyper.amount, rng.range (0.45f, 0.75f) });
+        s.push_back ({ pid::fxHyper.voices, static_cast<float> (3 + rng.index (4)) });
+        s.push_back ({ pid::fxHyper.detune, rng.range (0.15f, 0.35f) });
         s.push_back ({ pid::fxHyper.width, rng.range (0.7f, 1.0f) });
 
         s.push_back ({ pid::fxDimension.enabled, 1.0f });
-        s.push_back ({ pid::fxDimension.amount, rng.range (0.3f, 0.7f) });
+        s.push_back ({ pid::fxDimension.amount, rng.range (0.2f, 0.45f) });
 
-        if (rng.chance (0.5f))
-        {
-            s.push_back ({ pid::fxReverb.enabled, 1.0f });
-            s.push_back ({ pid::fxReverb.mix, rng.range (0.12f, 0.28f) });
-            s.push_back ({ pid::fxReverb.size, rng.range (0.4f, 0.8f) });
-        }
-
+        /*  Also off the cutoff, for the reason spelled out under the plucks:
+            this is the other archetype here with no sub, and it failed the
+            same way at -32 and -35 dBFS. */
         addLfo (s, 0, kTriangle, rng.chance (0.5f) ? kWhole : kHalf);
         addSlot (s, 0, kLfo1, rng.range (0.15f, 0.35f));
 
@@ -729,10 +821,10 @@ std::vector<Definition> generateVariations()
             bank: nothing was a bug, and it was still inaudible. */
         s.push_back ({ pid::fxDistortion[0].enabled, 1.0f });
         s.push_back ({ pid::fxDistortion[0].type, kTanh });
-        s.push_back ({ pid::fxDistortion[0].drive, rng.range (5.0f, 12.0f) });
+        s.push_back ({ pid::fxDistortion[0].drive, rng.range (10.0f, 18.0f) });
         s.push_back ({ pid::fxDistortion[0].tone, rng.range (0.45f, 0.70f) });
 
-        addGlue (s, rng, rng.range (0.34f, 0.50f));
+        addGlue (s, rng, rng.range (0.42f, 0.58f));
 
         cached.push_back ({ name (kScreechFirst, kScreechSecond, 100 + i),
                             "Lead",
@@ -740,7 +832,7 @@ std::vector<Definition> generateVariations()
                                       "widener - the supersaw end of the instrument."),
                             "lead,hyper,wide,supersaw",
                             std::move (s),
-                            { { 0, pid::filter[0].cutoff } } });
+                            { { 0, pid::osc[0].tablePos } } });
     }
 
     // --- plucks -------------------------------------------------------------
@@ -751,10 +843,19 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::osc[0].enabled, 1.0f });
         s.push_back ({ pid::osc[0].wavetable, rng.pick (kBrightTables) });
         s.push_back ({ pid::osc[0].tablePos, rng.quantised (0.25f, 0.80f, 0.05f) });
-        s.push_back ({ pid::osc[0].level, rng.range (0.88f, 0.98f) });
-        s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (1 + rng.index (3)) });
-        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.02f, 0.12f) });
+        s.push_back ({ pid::osc[0].level, 0.96f });
+        s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (2 + rng.index (3)) });
+        s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.02f, 0.10f) });
         s.push_back ({ pid::osc[0].sendFilter1, 1.0f });
+
+        /*  A LITTLE SUB UNDER IT. This is the thinnest patch in the bank -
+            one oscillator, no sub, and an envelope that is over in a tenth of
+            a second - and it kept producing a quiet tail whichever way the
+            draws fell: different plucks failed the audibility test on every
+            reseed, at -33 to -44 dBFS. Body is what it was missing, and a
+            pluck with a touch of sub under it is what anybody would build
+            anyway. */
+        addSub (s, rng, 0.38f, 0.58f);
 
         /*  Short and plucked, in SECONDS. Envelope 1 is the amplifier, so
             this is what makes it a pluck rather than a stab held under a
@@ -784,11 +885,22 @@ std::vector<Definition> generateVariations()
             them failed the audibility test outright, while the hand-written
             "Metal Pluck", identical in envelope and audition note but with no
             cutoff modulation at all, passed comfortably. */
-        s.push_back ({ pid::envelope[1].attack, 0.001f });
-        s.push_back ({ pid::envelope[1].decay, rng.range (0.04f, 0.20f) });
-        s.push_back ({ pid::envelope[1].sustain, 0.0f });
-        addSlot (s, 0, kEnv2, rng.range (0.30f, 0.60f));
-        s.push_back ({ pid::modSlot[0].bipolar, 0.0f });
+        /*  NO MOD SLOT AT ALL, which is what the measurement says rather
+            than what the design wanted.
+
+            This archetype measured -30 to -44 dBFS with an envelope routed to
+            the filter cutoff. Making the slot unipolar did not fix it; moving
+            the destination to the table position did not fix it either - it
+            came back at -44.7. Removing the slot entirely fixed it outright,
+            and every pluck passed. So it is the modulation itself on a patch
+            this thin, not the destination or the polarity, and I have not
+            isolated the mechanism beyond that.
+
+            The hand-written "Metal Pluck" has no modulation either and sits
+            at 0.153 peak, so this is the shape that is known to work here. A
+            pluck's character is its amplitude envelope; the timbral snap can
+            come back when somebody has worked out what the slot is actually
+            doing to the level. */
 
         if (rng.chance (0.55f))
         {
@@ -805,7 +917,12 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::fxDistortion[0].drive, rng.range (4.0f, 10.0f) });
         s.push_back ({ pid::fxDistortion[0].tone, rng.range (0.40f, 0.65f) });
 
-        addGlue (s, rng, rng.range (0.30f, 0.46f));
+        /*  THE OTT STAYS ON, against the guess that it was squashing the
+            transient. Taking it off made this archetype QUIETER, not louder -
+            one pluck went from -33 to -44 dBFS - because its upward
+            compression was lifting the decay, which is most of what a short
+            patch has. Measured, not reasoned. */
+        addGlue (s, rng, rng.range (0.28f, 0.44f));
 
         cached.push_back ({ name (kPluckFirst, kPluckSecond, i + 1),
                             "Pluck",
