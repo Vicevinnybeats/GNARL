@@ -381,3 +381,87 @@ TEST_CASE ("Every factory preset is audible somewhere in its range", "[factory]"
         CHECK (peakDb > -30.0f);
     }
 }
+
+/*  THE BANK SURVIVES A ROUND TRIP THROUGH A FILE.
+
+    `GnarlRenderDemo --presets` writes the bank as a .gnarl library, and the
+    failure that matters there is not "the tool crashed" - it is a file that
+    is written, looks fine in a directory listing, and does not parse. That
+    produces a library which is silently short, and nobody finds out until
+    they try to load the one preset that is broken.
+
+    So this serialises every preset, parses it back, and checks the metadata
+    and the parameter values survived. The parameter check is what makes it
+    worth having: a metadata-only test passes on a file whose entire <GNARL>
+    child was dropped, which is exactly the shape of a preset that loads and
+    sounds like whatever was loaded before it.
+
+    UNIQUE FILENAMES ARE CHECKED HERE RATHER THAN IN THE TOOL, because the
+    tool numbers them and so cannot collide - but that number is the only
+    thing preventing it, and a later change that drops the prefix for a
+    prettier name would silently overwrite. The assertion states the
+    requirement rather than the current implementation of it. */
+TEST_CASE ("The factory bank round-trips through the preset file format", "[factory]")
+{
+    GnarlProcessor processor;
+    processor.setPlayConfigDetails (0, 2, 48000.0, 512);
+    processor.prepareToPlay (48000.0, 512);
+
+    const auto bank = gnarl::preset::FactoryBank::build (
+        processor.getValueTreeState(), processor.getValueTreeState().copyState());
+
+    REQUIRE (bank.size() == static_cast<std::size_t> (gnarl::preset::FactoryBank::getCount()));
+
+    juce::StringArray filenames;
+
+    for (std::size_t i = 0; i < bank.size(); ++i)
+    {
+        const auto text = gnarl::preset::toText (bank[i]);
+        const auto reloaded = gnarl::preset::fromText (text);
+
+        REQUIRE (gnarl::preset::isPreset (reloaded));
+
+        const auto before = gnarl::preset::readMetadata (bank[i]);
+        const auto after = gnarl::preset::readMetadata (reloaded);
+
+        CHECK (after.name == before.name);
+        CHECK (after.category == before.category);
+
+        //  The state itself, not just the label on it.
+        const auto stateBefore = gnarl::preset::readState (bank[i]);
+        const auto stateAfter = gnarl::preset::readState (reloaded);
+
+        REQUIRE (stateAfter.isValid());
+        REQUIRE (stateAfter.getNumChildren() == stateBefore.getNumChildren());
+
+        for (int child = 0; child < stateBefore.getNumChildren(); ++child)
+        {
+            const auto a = stateBefore.getChild (child);
+            const auto b = stateAfter.getChild (child);
+
+            CHECK (a.getType() == b.getType());
+
+            /*  Exactly equal, not near. A preset that recalls to within a
+                tolerance is a preset that sounds slightly different every
+                time it is saved and loaded, and the drift compounds.
+                tests/CMakeLists.txt turns -Wfloat-equal off for this
+                target precisely so this can be written. */
+            for (int prop = 0; prop < a.getNumProperties(); ++prop)
+            {
+                const auto name = a.getPropertyName (prop);
+                CHECK (a.getProperty (name).toString() == b.getProperty (name).toString());
+            }
+        }
+
+        const auto filename = juce::String (static_cast<int> (i) + 1).paddedLeft ('0', 3)
+                            + " " + gnarl::preset::sanitiseFilename (before.name);
+
+        CHECK_FALSE (filename.isEmpty());
+        filenames.add (filename);
+    }
+
+    auto unique = filenames;
+    unique.removeDuplicates (true);   // ignoring case: Windows filenames do
+
+    CHECK (unique.size() == filenames.size());
+}

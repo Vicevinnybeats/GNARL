@@ -185,10 +185,32 @@ jobs:
       - name: Index
         run: cat audition/gnarl-bank-audition.txt
 
+      #  THE SAME BANK AS FILES. The presets are compiled into the binary, so
+      #  this is not how they reach the plugin - it is a LIBRARY, to back up,
+      #  share, or load on a machine running a different build. The tool
+      #  reads every file back and reports how many parse, because writing a
+      #  file that does not parse is the one failure here that looks exactly
+      #  like success.
+      - name: Write the preset library
+        run: ./build/tests/GnarlRenderDemo --presets library
+
+      - name: Check the library is complete
+        run: |
+          set -euo pipefail
+          count=$(find library -name '*.gnarl' | wc -l)
+          echo "$count preset files"
+          test "$count" -eq 150 || { echo "::error::expected 150 presets, got $count"; exit 1; }
+
       - uses: actions/upload-artifact@v4
         with:
           name: gnarl-bank-audition
           path: audition/
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gnarl-presets
+          path: library/
           retention-days: 30
 
   plugin:
@@ -372,6 +394,21 @@ jobs:
           GNARL
           =====
 
+          BEFORE YOU UNZIP, ON WINDOWS - do this first
+
+            Right-click the .zip > Properties > tick "Unblock" > Apply.
+
+            Windows marks every file downloaded from the internet, and the
+            mark is inherited by everything you extract out of the archive.
+            This build is UNSIGNED, so with the mark in place Defender can
+            quarantine GNARL.exe during extraction - usually with no dialog
+            at all. The file is simply not there afterwards, and the zip
+            looks like it shipped without it. It did not: GNARL.exe is in
+            here, and it is about 9 MB.
+
+            If it has already vanished, open Windows Security > Protection
+            history. It will be listed, and you can restore it from there.
+
           FASTEST WAY TO HEAR IT - no DAW, no install
 
             Unzip this into your Downloads folder and double-click
@@ -413,6 +450,18 @@ jobs:
             macOS does not allow a custom VST3 folder the way Windows does,
             so these two paths are fixed. Unsigned, so the first launch needs
             Finder > right-click > Open or the DAW silently will not list it.
+
+          THE 150 FACTORY PRESETS
+
+            They are built into the plugin. There is nothing to install and
+            nothing to copy anywhere - open the preset browser and they are
+            there.
+
+            The separate presets zip on the release page is a LIBRARY of the
+            same 150 as .gnarl files, one folder per category. You do not
+            need it to use them. It is there so you can back them up, put
+            them on a shared drive, hand one to somebody else, or open one on
+            a machine running a different build.
 
           IF THE PLUGIN WINDOW IS BLANK
             The machine is missing the WebView2 runtime. It ships with
@@ -478,6 +527,11 @@ jobs:
           # whether to install it.
           if [ -d staged/gnarl-bank-audition ]; then
             (cd staged/gnarl-bank-audition && zip -qry "${GITHUB_WORKSPACE}/dist/GNARL-${version}-bank-audition.zip" .)
+          fi
+
+          # And the same bank as .gnarl files.
+          if [ -d staged/gnarl-presets ]; then
+            (cd staged/gnarl-presets && zip -qry "${GITHUB_WORKSPACE}/dist/GNARL-${version}-presets.zip" .)
           fi
 
           ls -la dist

@@ -342,6 +342,93 @@ void renderBankAudition (const juce::File& outputDirectory)
                  static_cast<double> (sheet.getNumSamples()) / kSampleRate / 60.0);
 }
 
+/*  THE BANK AS FILES, which is a different thing from the bank in the binary.
+
+    The 150 presets are compiled in, so a fresh install already has them and
+    this writes nothing the plugin needs. What it produces is a LIBRARY: a
+    folder of .gnarl files somebody can back up, put in a shared drive, hand
+    to a collaborator, load one of on a machine running an older build, or
+    edit and keep beside their own patches. A bank that exists only inside an
+    executable is a bank you cannot do any of that with.
+
+    ONE FOLDER PER CATEGORY, because a flat directory of 150 files is a list
+    nobody scrolls. The categories are the ones in `preset::categories`, so
+    the folders match what the browser shows rather than inventing a second
+    taxonomy.
+
+    THE FILENAME IS NUMBERED. `sanitiseFilename` strips what a filename cannot
+    hold, and two presets could in principle sanitise to the same text -
+    silently overwriting each other and producing a "library" of 149. The
+    index prefix makes a collision impossible, and it also makes the bank's
+    own order visible, which is the order a preset's stored INDEX refers to
+    (CLAUDE.md section 3: generated presets are appended, never interleaved). */
+void writePresetLibrary (const juce::File& outputDirectory)
+{
+    GnarlProcessor builder;
+    builder.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
+    builder.prepareToPlay (kSampleRate, kBlockSize);
+
+    const auto bank = preset::FactoryBank::build (
+        builder.getValueTreeState(), builder.getValueTreeState().copyState());
+
+    const auto root = outputDirectory.getChildFile ("GNARL Factory");
+    root.createDirectory();
+
+    juce::StringArray index;
+    index.add ("# GNARL factory preset library");
+    index.add ("# " + juce::String (static_cast<int> (bank.size()))
+               + " presets, .gnarl format");
+    index.add ("");
+
+    int written = 0;
+
+    for (std::size_t i = 0; i < bank.size(); ++i)
+    {
+        const auto metadata = preset::readMetadata (bank[i]);
+
+        const auto folder = root.getChildFile (
+            metadata.category.isNotEmpty() ? metadata.category : juce::String ("Bass"));
+        folder.createDirectory();
+
+        const auto name = juce::String (static_cast<int> (i) + 1).paddedLeft ('0', 3)
+                        + " " + preset::sanitiseFilename (metadata.name);
+
+        const auto file = folder.getChildFile (name + "." + preset::kFileExtension);
+
+        /*  replaceWithText, not appendText: this tool is re-run over an
+            existing directory whenever the bank changes, and appending would
+            produce a file holding two presets, which parses as neither. */
+        if (file.replaceWithText (preset::toText (bank[i])))
+        {
+            ++written;
+            index.add (metadata.category.paddedRight (' ', 10) + "  " + metadata.name);
+        }
+        else
+        {
+            std::printf ("  could not write %s\n", file.getFullPathName().toRawUTF8());
+        }
+    }
+
+    root.getChildFile ("INDEX.txt").replaceWithText (index.joinIntoString ("\n") + "\n");
+
+    /*  A READ-BACK, not a claim. Writing a file that does not parse is the
+        one failure this tool can produce that looks exactly like success, so
+        every file is loaded again and checked to be a preset. */
+    int verified = 0;
+
+    for (const auto& file : root.findChildFiles (juce::File::findFiles, true,
+                                                 preset::kFileWildcard))
+        if (preset::isPreset (preset::fromText (file.loadFileAsString())))
+            ++verified;
+
+    std::printf ("Wrote %d presets to %s\n", written,
+                 root.getFullPathName().toRawUTF8());
+    std::printf ("Verified %d of %d parse back as presets\n", verified, written);
+
+    if (verified != written)
+        std::printf ("  WARNING: %d file(s) did not parse back\n", written - verified);
+}
+
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -356,6 +443,9 @@ int main (int argc, char* argv[])
         listens to; --bank writes the hundred and fifty separate files, which
         is what you want when you are working on a single patch. */
     auto auditionOnly = false;
+    /*  --presets writes the bank as .gnarl FILES rather than as audio: a
+        library to back up, share or load on another machine. */
+    auto presetsOnly = false;
     juce::File outputDirectory = juce::File::getCurrentWorkingDirectory();
 
     for (int i = 1; i < argc; ++i)
@@ -366,11 +456,20 @@ int main (int argc, char* argv[])
             bankOnly = true;
         else if (argument == "--audition")
             auditionOnly = true;
+        else if (argument == "--presets")
+            presetsOnly = true;
         else
             outputDirectory = juce::File (argument);
     }
 
     outputDirectory.createDirectory();
+
+    if (presetsOnly)
+    {
+        writePresetLibrary (outputDirectory);
+        std::printf ("Done.\n");
+        return 0;
+    }
 
     if (auditionOnly)
     {
