@@ -43,6 +43,54 @@ The figure is `LineSegments`, not sprites. Line art is legible because the
 strokes are thin and the gaps are empty; a dense field of soft sprites is
 fog, and the first version was a white disc with the copy floating on it.
 
+## The boot screen
+
+`src/loader.ts` — a HUD dial that fills while the page loads, with the
+wordmark inside it. Drawn **entirely in three.js**: no DOM text, no font
+file, no image. Every glyph is a polyline in a small stroke font defined in
+that file, and the percentage is seven-segment digits switched on and off
+through a buffer attribute, so a readout that changes sixty times a second
+never re-tessellates anything.
+
+**The number is the real load.** It comes from the stages `boot.ts` reports
+and from `THREE.DefaultLoadingManager`, and it never reaches 100 before the
+page is genuinely ready — "ready" meaning a frame has actually been *drawn*,
+not that the objects exist, because the first frame is where the shaders
+compile and on a slow machine that is the longest pause of the whole load.
+A bar on a timer is a lie, and on the one connection where it matters it is
+confidently wrong.
+
+**`journey.ts` is reached through a dynamic import**, which is what makes the
+loader worth having: a static import puts the whole scene in the first chunk
+and the browser parses every byte of it before a frame of the loader can be
+drawn, so the screen that exists to cover the wait arrives at the end of it.
+The build splits into a `journey` chunk because of that one `await import`.
+
+**It dismisses on a click**, not on its own. The whole page is driven by
+scroll, so an automatic dismissal drops the viewer into the opening shot
+mid-gesture. A click is also the gesture a browser requires before a page may
+make any sound. Enter and Space do the same thing — a loader you can only
+leave with a mouse is one some people cannot leave.
+
+Two things the screenshots caught that code review did not:
+
+- **A clear colour is not a background.** `OutputPass` converts the frame to
+  sRGB on the way out, so `setClearColor(0x05030e)` — chosen as a near-black —
+  came back out a visible violet-grey, several stops brighter than the site it
+  introduces. The backdrop is a CSS gradient on `#boot` instead, because CSS
+  is not in that pipeline.
+- **Everything was at the origin.** The bar ran straight through the dial's
+  lower arc and the wordmark measured 0.735 across inside a ring 0.60 wide, so
+  the L sat on the ring. It is a vertical stack now: dial, readout, bar,
+  status. Same lesson as the plugin's tab layout, which learned it four times.
+
+`tools/screenshot_loader.mjs` shoots it at three moments — loading, ready and
+mid-dismissal — and throttles the connection through CDP, because on a local
+server the state worth photographing lasts under a second.
+
+Note that `tools/screenshot_site.mjs` now has to **click through the boot
+screen** before it can scroll, or every picture it takes is of the loader.
+
 ---
 
 ## Dropping in a 3D model

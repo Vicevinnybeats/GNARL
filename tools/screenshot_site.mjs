@@ -44,6 +44,25 @@ for (const device of DEVICES) {
   page.on('pageerror', (e) => errors.push(`${device.name}: ${e}`));
 
   await page.goto(URL, { waitUntil: 'networkidle' });
+
+  /*  THROUGH THE BOOT SCREEN FIRST. It covers the page and locks the scroll
+      until someone clicks, so without this every shot below is a picture of
+      the loader. Waiting for the journey to exist is waiting for the real
+      thing the loader is waiting for - a fixed delay here would race the
+      first-frame shader compile on a slow runner. */
+  await page.waitForFunction(() => window.__gnarlJourney !== undefined, null, {
+    timeout: 60000,
+  });
+  await page.waitForTimeout(400);
+  await page.mouse.click(device.viewport.width / 2, device.viewport.height / 2);
+  await page
+    .waitForFunction(
+      () => !document.documentElement.classList.contains('gn-booting'),
+      null,
+      { timeout: 15000 },
+    )
+    .catch(() => errors.push(`${device.name}: boot screen never dismissed`));
+  await page.waitForTimeout(1500);
   // The pointer parked in a corner leaves the lattice unlit; put it where a
   // reader's would be. Same lesson as the plugin's hover-glow shot.
   await page.mouse.move(device.viewport.width * 0.62, device.viewport.height * 0.45);
@@ -80,10 +99,35 @@ for (const device of DEVICES) {
       errors.push(`${device.name}: could not scroll to ${stop} (off by ${landed}px)`);
     }
 
-    /*  Long enough for the camera's chase to settle AND the longest decoding
-        line. The camera LAGS on purpose, so a shot taken early is a picture
-        of it still catching up rather than of the composition. */
-    await page.waitForTimeout(2600);
+    /*  ASK the scene whether it has settled; do not guess at it with a
+        fixed wait. The camera lags on purpose, and the easing is a function
+        of TIME with the per-frame step clamped at 0.1s - so under software
+        GL, at a few frames a second, easing advances at most 0.1s per frame
+        and a 2.6s wait bought five frames of a two-second move. Every shot
+        taken that way was of the camera still closing on its mark, and the
+        composition it appeared to show was never the one that ships.
+
+        Then a beat more for the decoding text, which the scene knows
+        nothing about and which runs on its own timers - at 900ms the copy
+        still photographed half-scrambled. */
+    /*  A beat BEFORE asking, because isSettled() is still reporting the
+        PREVIOUS stop until ScrollTrigger has fired and unsettled the scene.
+        Without this the wait returns instantly on a stale true and the shot
+        is of where the camera was, not where it is going - the same class of
+        mistake as reading scrollY in the evaluate that set it. */
+    await page.waitForTimeout(700);
+
+    const settled = await page
+      .waitForFunction(() => window.__gnarlJourney?.isSettled?.() === true, null, {
+        timeout: 40000,
+        polling: 200,
+      })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!settled) errors.push(`${device.name}: scene never settled at ${stop}`);
+
+    await page.waitForTimeout(2400);
 
     const label = `${device.name}-${String(Math.round(stop * 100)).padStart(3, '0')}`;
     await page.screenshot({ path: `${OUT}/${label}.png` });

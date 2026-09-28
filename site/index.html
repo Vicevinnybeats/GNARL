@@ -15,6 +15,11 @@
     <canvas id="stage" aria-hidden="true"></canvas>
     <canvas id="rain" aria-hidden="true"></canvas>
 
+    <!-- The boot screen. Everything on it is drawn in three.js: the dial, the
+         wordmark and the readout are all line geometry, so it carries no font
+         file and no image and can be painted before anything is fetched. -->
+    <canvas id="boot" aria-label="Loading GNARL" role="progressbar"></canvas>
+
     <!-- Filled by chrome.ts: one nav, in one place. -->
     <header class="nav"></header>
 

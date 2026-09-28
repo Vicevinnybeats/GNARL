@@ -1124,13 +1124,83 @@ cd site && npm run build
 node ../tools/screenshot_site.mjs <output-directory>
 ```
 
-That script drives **both sizes to the top AND the foot of all five pages** —
-the foot is where the dissolve has finished burning and where the interface
-resolves, and a picture of only the top says nothing about either. It
-re-reads `scrollY` in a separate `evaluate` to check where it landed, because
+That script drives **both sizes to six fractions of the one page's scroll** —
+the interesting stops fall *between* sections, where no element sits, which
+is why it scrolls by absolute offset rather than into view. It re-reads
+`scrollY` in a separate `evaluate` to check where it landed, because
 Playwright's phone emulation briefly reports a viewport four times too tall,
 the browser clamps `scrollTop` against it, and an earlier version photographed
 the wrong section entirely while the check passed.
+
+**A fixed wait before a screenshot is a GUESS AT THE FRAME RATE, and it was
+wrong.** The easing here is a function of time with the per-frame step
+clamped at 0.1s — correct, so a backgrounded tab does not fling the camera
+across the world on its first frame back — but it means that under software
+GL, at a few frames a second, easing advances *at most 0.1s per frame*. The
+tool's 2.6s wait therefore bought five frames of a two-second camera move,
+and **every picture was of the camera still closing on its mark**. Two
+compositional faults were diagnosed and "fixed" from those pictures before
+the pictures themselves turned out to be the problem.
+
+The scene now reports whether it has settled (`Journey.isSettled`) and the
+tool asks. It also waits 700ms **before** asking, because `isSettled()` still
+describes the previous stop until ScrollTrigger has fired — without that the
+wait returns instantly on a stale `true`, which is the same mistake as
+reading `scrollY` in the `evaluate` that set it.
+
+**A composition is a fraction of the frustum, never a number of world
+units** — and the journey broke this twice over. The camera's pull-back was a
+constant 22 units, so how large a formation appeared was decided by whatever
+radius that formation happened to be built at: the hero filled 45% of the
+frame and everything after it 10–20%, so the page appeared to be running away
+from the viewer. Each formation declares a radius now and the distance is
+solved from it. The *panel's* declared radius is deliberately not its
+bounding sphere: it is a wide flat rectangle, so framing its half-diagonal
+against the frame's **height** left the width two thirds empty and the
+instrument arrived as a postage stamp at the one moment the page asks you to
+look at it.
+
+**And the schedule that maps sections to objects is MEASURED.** It was
+`scroll / 0.82`, a constant with nothing behind it; the sections actually
+centre at 0, 0.244, 0.489, 0.733 and 0.977, so the interface was landing on
+the FX section and the dissolve on PRESETS — every object one section early.
+`boot.ts` measures the last section's centre, which also means it cannot
+drift the next time a paragraph gets longer.
+
+### The boot screen
+
+`site/src/loader.ts` — a HUD dial that fills while the page loads, the
+wordmark inside it, drawn **entirely in three.js**: no DOM text, no font
+file, no image. Every glyph is a polyline from a small stroke font in that
+file, and the percentage is seven-segment digits switched through a buffer
+attribute rather than re-tessellated.
+
+**The number is the real load**, from `THREE.DefaultLoadingManager` and the
+stages either side of it, and it never reaches 100 before a frame has
+actually been *drawn* — not merely before the objects exist, because the
+first frame is where the shaders compile and on a slow machine that is the
+longest pause of the load. `journey.ts` is reached through a **dynamic
+import**, which is the whole reason the loader is worth having: a static one
+puts the scene in the first chunk and the browser parses every byte of it
+before a frame of the loader can be drawn.
+
+**A clear colour is not a background.** `OutputPass` converts the frame to
+sRGB on the way out, so `setClearColor(0x05030e)` — picked as a near-black —
+came back out a visible violet-grey, several stops brighter than the site it
+introduces. The backdrop is a CSS gradient on `#boot`; CSS is not in that
+pipeline. And the first layout put all four elements at the origin, so the
+bar ran through the dial's lower arc and the wordmark measured 0.735 across
+inside a ring 0.60 wide. Both were invisible in the diff and unmissable in
+the picture, which is §6's rule about this repository's other UI as well.
+
+```bash
+node ../tools/screenshot_loader.mjs <output-directory>
+```
+
+It throttles the connection through CDP, because on a local server the state
+worth photographing lasts under a second. `screenshot_site.mjs` now has to
+**click through the boot screen** before it can scroll, or every picture it
+takes is of the loader.
 
 ---
 

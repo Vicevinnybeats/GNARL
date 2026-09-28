@@ -40,6 +40,9 @@ export interface Journey {
   resize(): void;
   render(elapsed: number, delta: number): void;
   dispose(): void;
+  /** Whether the camera and the scroll have finished easing. See the
+      assignment in the render loop for why the screenshot tool needs it. */
+  isSettled(): boolean;
 }
 
 /** The plugin's own aspect ratio, so the last formation is its shape. */
@@ -47,6 +50,41 @@ const PANEL_ASPECT = 1180 / 720;
 
 /** Orbits, wave, helix, driver, panel. */
 const FORMS = 5;
+
+/*  THE CHARACTERISTIC RADIUS OF EACH FORMATION, in the same units the GLSL
+    above builds them in. Read off the formation functions: the orbits' ring
+    reaches 5.4 + 2.6, the wave spans 22 across, the helix is 20 tall, the
+    driver's cone reaches 5.75 - though the dust thrown off the dissolve
+    carries well past it, so it is entered larger - and the panel is
+    13 x 13/aspect.
+
+    The panel's is deliberately its half-HEIGHT rather than its half
+    diagonal. It is a flat wide rectangle, so framing its diagonal against
+    the frame's height leaves the width two thirds empty and the instrument
+    ends up a postage stamp at the one moment the page is asking you to
+    look at it. A radius here means "what should fill the frame", which for
+    a wide object is not its bounding sphere.
+
+    These exist because the camera's pull-back is DERIVED from them rather
+    than being a constant. A constant pull-back frames whatever the formation
+    happens to be sized at: the hero filled 45% of the frame and everything
+    after it 10-20%, so the journey appeared to be running away from the
+    viewer. Same reasoning as the lateral offset below - a composition is a
+    fraction of the frustum, never a number of world units. */
+const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 6.2] as const;
+
+/** Clamped, so an index off either end frames rather than throwing. */
+function formRadius(index: number): number {
+  return FORM_RADII[Math.max(0, Math.min(FORM_RADII.length - 1, index))] ?? FORM_RADII[0];
+}
+
+/*  How much of the frame's HEIGHT the subject spans. Height rather than
+    width because it is the dimension that does not move with the aspect
+    ratio. On a phone the card owns the lower half, so the subject is about a
+    quarter of the frame and rides above it; beside a card on desktop it can
+    be most of the height. */
+const SUBJECT_FRACTION_DESKTOP = 0.80;
+const SUBJECT_FRACTION_MOBILE = 0.34;
 
 /** Curves in the line figure. Enough that the orbits read as a woven ball. */
 const CURVES = 120;
@@ -758,8 +796,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   const behind = new THREE.Vector3();
   const ahead = new THREE.Vector3();
   const desired = new THREE.Vector3();
+  let settled = false;
   const lookTarget = new THREE.Vector3();
   const forward = new THREE.Vector3();
+  const back = new THREE.Vector3();
   const right = new THREE.Vector3();
 
   // Seeded from the path so the first frame is not a lurch from the origin.
@@ -793,6 +833,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       pointer.set(x, y);
     },
 
+    isSettled() {
+      return settled;
+    },
+
     resize,
 
     render(elapsed: number, delta: number) {
@@ -815,10 +859,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         pointerEase.lerp(pointer, ease(2.5));
       }
 
-      /*  The journey finishes before the document does: scroll progress
-          reaches 1 only at the very bottom, which is never where the last
-          thing worth looking at is. */
-      const u = Math.min(1, scrollEase / 0.82);
+      /*  Already normalised by boot.ts against the LAST SECTION's centre
+          rather than the bottom of the document, so u = 1 is the download
+          section arriving and not the foot of the page. */
+      const u = Math.min(1, Math.max(0, scrollEase));
 
       // --- where the traveller is, and where the camera is chasing from --
       path.getPointAt(u, here);
@@ -832,20 +876,52 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           somebody following. The pointer leans the offset, which is the
           whole of the interactivity - it is the viewer nudging a camera
           that is already busy, not driving it. */
-      desired.copy(behind);
-      desired.y += 5.5 + (pointerEase.y - 0.5) * -6.0;
-      desired.x += (pointerEase.x - 0.5) * 10.0;
+      /*  The DIRECTION the camera hangs in: back along the chord from ahead
+          to behind, lifted, and leaned by the pointer. A chord rather than
+          the exact tangent on purpose - on a bend it points slightly wide,
+          which is what makes the camera swing outside a corner the way one
+          being carried does. */
+      back.subVectors(behind, ahead).normalize().multiplyScalar(0.86);
+      back.y += 0.21 + (pointerEase.y - 0.5) * -0.16;
+      back.x += (pointerEase.x - 0.5) * 0.24;
+      back.normalize();
 
-      // Pushed back along the direction of travel so the traveller is never
-      // clipped by the near plane on a tight corner.
-      forward.subVectors(ahead, behind).normalize();
-      desired.addScaledVector(forward, -22);
+      /*  And the DISTANCE, derived so the subject spans the same fraction of
+          the frame whichever formation it currently is. Interpolated on the
+          same uForm the shader morphs on, so the framing eases through a
+          transition exactly as the shape does rather than stepping at it. */
+      const form = u * (FORMS - 1);
+      const lower = Math.min(FORMS - 1, Math.floor(form));
+      const upper = Math.min(FORMS - 1, lower + 1);
+      const radius = THREE.MathUtils.lerp(
+        formRadius(lower),
+        formRadius(upper),
+        form - lower,
+      );
+
+      const fraction = mobile ? SUBJECT_FRACTION_MOBILE : SUBJECT_FRACTION_DESKTOP;
+      // visibleHeight = 2 d tan(fov/2), and we want 2r = fraction x that.
+      const framing = radius / (fraction * Math.tan((camera.fov * Math.PI) / 360));
+
+      desired.copy(here).addScaledVector(back, framing);
 
       /*  Damped on top of the lag. Without this the camera is rigidly tied
           to a point on the curve and inherits every wobble in the spline;
           with it, it swings wide on the corners the way a chase camera
           does. */
       camera.position.lerp(desired, reduced ? 1 : ease(2.2));
+
+      /*  Whether everything has finished easing. This exists for
+          `tools/screenshot_site.mjs`, and it is not a debugging leftover: a
+          fixed wait before a shot is a GUESS at the frame rate, and under
+          software GL in CI the page runs at a few frames a second. The delta
+          clamp below means easing then advances at most 0.1s per frame, so a
+          2.6s wait bought five frames of a two-second ease and every picture
+          was taken with the camera still closing on its mark. The tool asks
+          instead of assuming. */
+      settled =
+        Math.abs(scroll - scrollEase) < 0.0005 &&
+        camera.position.distanceTo(desired) < 0.05;
 
       lookTarget.copy(here);
 
@@ -868,8 +944,9 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
       camera.lookAt(lookTarget);
 
+
       // --- which object, and the cross-fades between them ----------------
-      figureUniforms.uForm.value = u * (FORMS - 1);
+      figureUniforms.uForm.value = form;
 
       /*  NOTHING EVER CUTS. The solid driver fades in over the line rings
           that already have its shape, burns, and the interface fades up
