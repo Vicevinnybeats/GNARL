@@ -46,6 +46,14 @@ export interface Loader {
    * drawn image - a half-faded loader sitting over the page for good.
    */
   onDismissed(callback: () => void): void;
+  /**
+   * How far through the exit it is, 0 until the click and 1 when the dial has
+   * gone. `boot.ts` drives the page's own zoom from this so the two halves
+   * are one continuous move rather than two animations that happen to
+   * overlap — and it is a frame-driven number for the same reason everything
+   * else here is.
+   */
+  entryProgress(): number;
   render(now: number, delta: number): void;
   resize(): void;
   dispose(): void;
@@ -517,7 +525,13 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
     `,
   });
   disposables.push(dustMaterial);
-  scene.add(new THREE.Points(dustGeometry, dustMaterial));
+
+  /*  Its own group, so the dismissal can sweep it past WIDER than the dial.
+      Nearer things move faster across the eye; without that difference the
+      whole screen scales as one flat card. */
+  const dustGroup = new THREE.Group();
+  dustGroup.add(new THREE.Points(dustGeometry, dustMaterial));
+  scene.add(dustGroup);
 
   // --- post ---------------------------------------------------------------
   const composer = new EffectComposer(renderer);
@@ -627,6 +641,10 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
       dismissedCallback = callback;
     },
 
+    entryProgress() {
+      return dismissing;
+    },
+
     render(now: number, delta: number) {
       const step = Math.min(delta, 0.1);
       const ease = (rate: number) => 1 - Math.exp(-rate * step);
@@ -667,11 +685,26 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
       }
 
       if (entered) {
-        dismissing = Math.min(1, dismissing + step * 1.9);
+        dismissing = Math.min(1, dismissing + step * (reduced ? 4.0 : 1.35));
 
-        const out = dismissing * dismissing;
-        rig.scale.setScalar(1 + out * 0.9);
-        const fade = 1 - out;
+        /*  THE DIAL RUSHES PAST THE CAMERA rather than fading on the spot.
+            Cubic, so it barely moves for the first instant and then goes -
+            a linear scale reads as a thing being resized, an accelerating
+            one reads as a thing coming at you. The journey behind it is
+            dollying in on the same number (boot.ts drives both from
+            `entryProgress`), so the two halves are one move: the HUD flies
+            over your shoulder as the world arrives. */
+        const rush = dismissing * dismissing * dismissing;
+        rig.scale.setScalar(1 + rush * 7.5);
+
+        // The dust drifts past WIDER than the dial, which is the parallax
+        // that sells the depth: nearer things sweep by faster.
+        dustGroup.scale.setScalar(1 + rush * 11.0);
+
+        /*  Brightness holds through the first third and then goes quickly.
+            Fading it in step with the scale makes it evaporate politely in
+            place instead of leaving the frame. */
+        const fade = 1 - THREE.MathUtils.smoothstep(dismissing, 0.3, 1.0);
 
         dialUniforms.uOpacity.value = fade;
         digitUniforms.uOpacity.value = fade;
@@ -680,7 +713,11 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
         statusMaterial.opacity = Math.min(statusMaterial.opacity, fade);
         idleMaterial.opacity = 0.3 * fade;
 
-        canvas.style.opacity = String(fade);
+        // The backdrop clears sooner than the geometry, so the page is
+        // already showing through while the dial is still on its way out.
+        canvas.style.opacity = String(
+          1 - THREE.MathUtils.smoothstep(dismissing, 0.18, 0.82),
+        );
 
         if (dismissing >= 1 && !announcedDismissal) {
           announcedDismissal = true;

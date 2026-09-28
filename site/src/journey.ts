@@ -43,6 +43,25 @@ export interface Journey {
   /** Whether the camera and the scroll have finished easing. See the
       assignment in the render loop for why the screenshot tool needs it. */
   isSettled(): boolean;
+  /**
+   * The arrival dolly, 1 = far back and 0 = the composition proper.
+   *
+   * `boot.ts` walks this down from 1 as the boot screen's dial rushes past,
+   * so the two are one move: the HUD leaves over your shoulder while the
+   * world comes to meet you. It multiplies the framing distance rather than
+   * moving the camera directly, so it composes with the per-formation
+   * framing instead of fighting it.
+   */
+  setEntry(amount: number): void;
+  /**
+   * The figure's build, 0 = strokes scattered and inbound, 1 = assembled.
+   *
+   * Each stroke flies in along its own line from its own side, on its own
+   * slice of the window, so the figure converges from all around rather than
+   * expanding out of a point. Driven from the same clock as the page's own
+   * pieces in `assemble.ts`, so the two are one event.
+   */
+  setAssemble(amount: number): void;
 }
 
 /** The plugin's own aspect ratio, so the last formation is its shape. */
@@ -85,6 +104,14 @@ function formRadius(index: number): number {
     be most of the height. */
 const SUBJECT_FRACTION_DESKTOP = 0.80;
 const SUBJECT_FRACTION_MOBILE = 0.34;
+
+/*  How much further back the camera sits at the start of the arrival dolly,
+    as a multiple of the framing distance. 2.4 puts the hero at roughly a
+    third of its final size, which is far enough to read as travel and close
+    enough that it is recognisably the same object throughout - much beyond
+    this and the orbits arrive as a dot, which reads as a fade-in rather than
+    as a move. */
+const ENTRY_PUSH = 2.4;
 
 /** Curves in the line figure. Enough that the orbits read as a woven ball. */
 const CURVES = 120;
@@ -251,13 +278,23 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
   let mobile = window.innerWidth < 860;
 
+  /*  MSAA OFF ON A PHONE. Multisampling costs fill rate on every pass, and
+      fill rate is what a phone runs out of first here - the scene is a
+      bloomed full-screen composite, not a polygon count. The bloom's own
+      blur softens the line edges anyway, which is most of what the
+      multisampling was buying. */
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: !mobile,
     powerPreference: 'high-performance',
   });
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.5 : 2));
+  /*  1.25 rather than 1.5. A modern phone reports a device pixel ratio of 3,
+      so even 1.5 is rendering 2.25x the pixels of the panel it will be shown
+      on, through a bloom chain that touches every one of them several times.
+      The difference is invisible through the glow and it is the single
+      largest lever on whether this runs at 60. */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.25 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
 
@@ -444,6 +481,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
     uForm: { value: 0 },
     uTime: { value: 0 },
     uFade: { value: 1 },
+    // 0 = scattered and inbound, 1 = assembled. Starts scattered, because
+    // the scene is built behind the boot screen and must not be found
+    // already finished the moment the loader clears.
+    uAssemble: { value: 0 },
     uAccent: { value: new THREE.Color(0x7de6ff) },
     uAccent2: { value: new THREE.Color(0xb98cff) },
   };
@@ -462,11 +503,29 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
       uniform float uForm;
       uniform float uTime;
+      uniform float uAssemble;
 
       varying float vGlow;
       varying float vDepth;
+      varying float vBuild;
 
       ${FORMATIONS}
+
+      /*  WHERE EACH STROKE COMES IN FROM. A direction off the seed rather
+          than a scatter of absolute positions, so every stroke flies in
+          along its own line from its own side and the figure converges from
+          all around instead of expanding out of a point - which is what
+          makes it read as being BUILT rather than zoomed. */
+      vec3 approach(vec3 s) {
+        float theta = s.x * 6.2831853;
+        float phi   = s.y * 3.14159265;
+
+        return vec3(
+          sin(phi) * cos(theta),
+          cos(phi),
+          sin(phi) * sin(theta)
+        ) * (26.0 + s.z * 46.0);
+      }
 
       void main() {
         float f = clamp(uForm, 0.0, ${(FORMS - 1).toFixed(1)});
@@ -487,10 +546,33 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           te
         );
 
+        /*  THE BUILD. Each stroke has its own slice of the window, keyed off
+            its seed, so they land over a period rather than all at once - a
+            figure whose every stroke arrives on the same frame is a figure
+            that pops into being, which is the thing this exists to avoid.
+            The last strokes are still settling as the first are already
+            holding, and that overlap is the whole effect. */
+        float bDelay = aSeed.y * 0.42 + aSeed.z * 0.12;
+        float bt = clamp((uAssemble - bDelay) / 0.46, 0.0, 1.0);
+
+        // Cubic ease out: fast out of the dark, decelerating onto the mark.
+        float be = 1.0 - pow(1.0 - bt, 3.0);
+
+        vec3 from = p + approach(aSeed);
+
+        // A little spin on the way in, unwinding to nothing as it lands.
+        float swirl = (1.0 - be) * (aSeed.x - 0.5) * 2.4;
+        float cs = cos(swirl);
+        float sn = sin(swirl);
+        from = vec3(from.x * cs - from.z * sn, from.y, from.x * sn + from.z * cs);
+
+        p = mix(from, p, be);
+
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
 
         vGlow  = 1.0 - abs(te * 2.0 - 1.0);
         vDepth = clamp((length(p) - 2.0) / 12.0, 0.0, 1.0);
+        vBuild = be;
 
         gl_Position = projectionMatrix * mv;
       }
@@ -504,6 +586,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
       varying float vGlow;
       varying float vDepth;
+      varying float vBuild;
 
       void main() {
         if (uFade <= 0.001) discard;
@@ -512,7 +595,14 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         // accents, in the roles they hold there: cyan is what is live.
         vec3 colour = mix(uAccent, uAccent2, vDepth) + vGlow * 0.7;
 
-        gl_FragColor = vec4(colour, (0.26 + vGlow * 0.34) * uFade);
+        /*  A stroke still travelling is brighter and thinner than one that
+            has landed, so the incoming ones read as live and the settled
+            ones sit back. Without this the build is only movement; with it
+            the figure looks like it is being drawn. */
+        float arriving = 1.0 - vBuild;
+        colour += arriving * 0.55;
+
+        gl_FragColor = vec4(colour, (0.26 + vGlow * 0.34) * uFade * (0.35 + vBuild * 0.65));
       }
     `,
   });
@@ -797,6 +887,11 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   const ahead = new THREE.Vector3();
   const desired = new THREE.Vector3();
   let settled = false;
+
+  /*  Starts FAR. The scene is built while the boot screen is still up, so
+      its first drawn frame is already at the end of the arrival dolly rather
+      than jumping there once the loader clears. */
+  let entry = 1;
   const lookTarget = new THREE.Vector3();
   const forward = new THREE.Vector3();
   const back = new THREE.Vector3();
@@ -814,7 +909,14 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
     renderer.setSize(width, height, false);
     composer.setSize(width, height);
-    bloom.setSize(width, height);
+
+    /*  The bloom runs at HALF resolution on a phone. It is a blur: its whole
+        output is low frequency, so the mip chain it builds from a half-size
+        target is very nearly the same picture for a quarter of the pixels
+        touched. This and the pixel ratio above are the two numbers that
+        decide whether a phone holds 60. */
+    const bloomScale = mobile ? 0.5 : 1;
+    bloom.setSize(width * bloomScale, height * bloomScale);
 
     starUniforms.uPixelRatio.value = renderer.getPixelRatio();
     moteUniforms.uPixelRatio.value = renderer.getPixelRatio();
@@ -835,6 +937,14 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
     isSettled() {
       return settled;
+    },
+
+    setEntry(amount: number) {
+      entry = Math.max(0, Math.min(1, amount));
+    },
+
+    setAssemble(amount: number) {
+      figureUniforms.uAssemble.value = Math.max(0, Math.min(1, amount));
     },
 
     resize,
@@ -901,7 +1011,12 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
       const fraction = mobile ? SUBJECT_FRACTION_MOBILE : SUBJECT_FRACTION_DESKTOP;
       // visibleHeight = 2 d tan(fov/2), and we want 2r = fraction x that.
-      const framing = radius / (fraction * Math.tan((camera.fov * Math.PI) / 360));
+      const base = radius / (fraction * Math.tan((camera.fov * Math.PI) / 360));
+
+      /*  The arrival dolly MULTIPLIES that distance rather than adding to it,
+          so it scales with whatever the current formation needs and cannot
+          shove the camera inside a small one or leave a large one a speck. */
+      const framing = base * (1 + entry * ENTRY_PUSH);
 
       desired.copy(here).addScaledVector(back, framing);
 
@@ -921,7 +1036,13 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           instead of assuming. */
       settled =
         Math.abs(scroll - scrollEase) < 0.0005 &&
-        camera.position.distanceTo(desired) < 0.05;
+        camera.position.distanceTo(desired) < 0.05 &&
+        // The arrival dolly and the figure's build BOTH count as unsettled,
+        // or the screenshot tool photographs the page mid-arrival and calls
+        // it the composition. The build outlasts the dolly, so leaving it
+        // out here would let a shot through with strokes still inbound.
+        entry < 0.001 &&
+        figureUniforms.uAssemble.value > 0.999;
 
       lookTarget.copy(here);
 

@@ -3,7 +3,13 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
 
 import { SECTIONS, mountChrome, trackSections } from './chrome';
+import { type Assembly, createAssembly } from './assemble';
 import { decodeOnReveal } from './decode';
+/*  TYPE ONLY. `import type` is erased at build, so naming the Journey
+    interface here does not drag journey.ts into the first chunk and undo the
+    dynamic import below - which is the whole reason the boot screen can be
+    drawn before the scene is parsed. */
+import type { Journey } from './journey';
 import { createLoader } from './loader';
 
 import './styles.css';
@@ -47,11 +53,29 @@ if (loader) document.documentElement.classList.add('gn-booting');
 
 loader?.setProgress(0.08);
 
-type Renderable = { render(elapsed: number, delta: number): void };
-
-let journey: (Renderable & { resize(): void }) | null = null;
+let journey: Journey | null = null;
 let rain: { render(now: number): void; resize(): void } | null = null;
 let loaderAlive = loader !== null;
+let entering = false;
+let assembly: Assembly | null = null;
+
+function finishBuild() {
+  entering = false;
+
+  /*  Snapped to the end rather than left wherever the last frame reached,
+      then every inline style taken off. See assemble.ts: a left-behind
+      transform is a compositing layer kept alive for the rest of the
+      session for an animation that has finished. */
+  applyBuild(1);
+  assembly?.clear();
+
+  root.classList.remove('gn-entering');
+  root.classList.remove('gn-booting');
+
+  // The page just changed size on the way in, and ScrollTrigger measured it
+  // mid-build.
+  ScrollTrigger.refresh();
+}
 
 /*  ONE LOOP for both, measuring its own step. Everything downstream eases as
     a function of that number rather than of "one frame". Clamped, because a
@@ -60,6 +84,38 @@ let loaderAlive = loader !== null;
     frame. */
 let previous = performance.now();
 let framesRendered = 0;
+
+const root = document.documentElement;
+
+/*  ONE CLOCK DRIVES THE WHOLE ARRIVAL. The loader's dial rushing past the
+    camera, the journey's dolly, the figure's strokes flying in from every
+    side and the page's own pieces sliding in from theirs are all views of
+    one event. Anything easing on its own timer would drift out of step with
+    the rest on exactly the slow machine where the transition is most
+    visible - the loader's exit advances on the same clamped frame step this
+    does, which is what keeps them together.
+
+    It runs for BUILD_SECONDS, which outlasts the loader: the dial is gone
+    about a third of the way through and the page spends the rest of it
+    assembling. That ordering is the point - the boot screen leaves and the
+    home page is visibly put together behind it, rather than being revealed
+    already finished. */
+const BUILD_SECONDS = 2.1;
+
+let build = 0;
+
+const applyBuild = (progress: number) => {
+  /*  The camera arrives FASTER than the parts assemble, and finishes first.
+      A dolly still running while the last strokes land makes two things move
+      at once and reads as drift; landing the camera first gives the build
+      something still to be built against. */
+  const camera = 1 - Math.pow(1 - Math.min(1, progress / 0.55), 3);
+
+  journey?.setEntry(1 - camera);
+  journey?.setAssemble(Math.min(1, progress / 0.92));
+
+  assembly?.apply(progress);
+};
 
 const frame = (now: number) => {
   const delta = Math.min((now - previous) / 1000, 0.1);
@@ -71,7 +127,14 @@ const frame = (now: number) => {
     framesRendered += 1;
   }
 
-  if (loaderAlive) loader?.render(now / 1000, delta);
+  if (loaderAlive && loader) loader.render(now / 1000, delta);
+
+  if (entering) {
+    build = Math.min(1, build + delta / BUILD_SECONDS);
+    applyBuild(build);
+
+    if (build >= 1) finishBuild();
+  }
 
   requestAnimationFrame(frame);
 };
@@ -98,11 +161,7 @@ async function start() {
 
   rain = rainCanvas ? createMatrixRainDeferred(rainCanvas) : null;
 
-  const journeyRef = journey as unknown as {
-    setScroll(v: number): void;
-    setPointer(x: number, y: number): void;
-    resize(): void;
-  };
+  const journeyRef = journey;
 
   /*  WHERE THE JOURNEY ENDS IS MEASURED, NOT ASSUMED. The five formations
       belong to the five sections, so the last formation has to arrive when
@@ -177,7 +236,32 @@ async function start() {
   loader.ready();
 
   loader.onEnter(() => {
-    document.documentElement.classList.remove('gn-booting');
+    /*  Collected HERE, not at module scope: `.nav__mark` and the rest are
+        injected by mountChrome, and the hero's lines only exist once the
+        markup has been parsed. Querying for them earlier finds nothing and
+        the build silently animates an empty list. */
+    assembly = createAssembly();
+    assembly.apply(0);
+
+    build = 0;
+    entering = true;
+    root.classList.add('gn-entering');
+
+    /*  Reduced motion gets the destination, not the journey. The CSS half
+        already opts out, but the figure's strokes flying in from every side
+        is motion too, and leaving that running would honour the preference
+        in the DOM and ignore it in the part that actually moves. */
+    if (reduced) {
+      build = 1;
+      finishBuild();
+      return;
+    }
+
+    /*  The scroll stays LOCKED through the zoom. The page is mid-transform
+        and the journey is mid-dolly; letting the wheel in here would drive
+        the scroll position of a composition that is not in place yet, and
+        the first thing the viewer did would fight the arrival. It is under
+        a second. */
   });
 
   /*  Torn down when the dismissal has finished DRAWING, never on a timer.
@@ -185,6 +269,11 @@ async function start() {
       frame rate, and at a few frames a second the 1400ms this used to wait
       disposed the renderer a third of the way through - leaving the canvas
       frozen on a half-faded loader over the page, permanently. */
+  /*  The loader's own exit finishes long before the build does, so this only
+      tears the loader down. The page is still assembling behind it and the
+      frame loop keeps running - which is exactly the ordering asked for:
+      the boot screen leaves, and the home page is visibly put together
+      rather than found already made. */
   loader.onDismissed(() => {
     loaderAlive = false;
     loader.dispose();

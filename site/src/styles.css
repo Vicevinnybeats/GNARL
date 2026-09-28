@@ -100,10 +100,45 @@ body {
 
 /*  Held still underneath. A loader you can scroll behind is a decoration
     over a page that already started - and the scroll drives the whole
-    journey here, so scrolling past it would skip the opening. */
+    journey here, so scrolling past it would skip the opening. The lock
+    stays on through the zoom, because the composition is not in place yet.
+
+    `overscroll-behavior: none` as well: without it a trackpad flick during
+    the lock hands the gesture to the browser, which answers with the
+    rubber-band or a pull-to-refresh on a phone. */
 html.gn-booting,
 html.gn-booting body {
   overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/*  THE ZOOM THROUGH. The page comes in slightly over-size and settles onto
+    its marks while the boot screen's dial rushes past the camera - one move
+    seen from both sides, driven from one number in boot.ts.
+
+    Only the content scales. The canvases are fixed siblings rather than
+    descendants, so the journey behind is untouched and keeps doing its own
+    arrival dolly in 3D - which is what stops this reading as a flat card
+    being pushed forward. */
+html.gn-entering main,
+html.gn-entering .nav,
+html.gn-entering .foot {
+  transform: scale(var(--gn-enter-scale, 1));
+  transform-origin: 50% 46%;
+  opacity: var(--gn-enter-opacity, 1);
+  will-change: transform, opacity;
+}
+
+/*  No transition property on those rules on purpose: the value is rewritten
+    every frame from the render loop, so a CSS transition would be a second
+    easing fighting the first. */
+@media (prefers-reduced-motion: reduce) {
+  html.gn-entering main,
+  html.gn-entering .nav,
+  html.gn-entering .foot {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 /* ---------------------------------------------------------------- nav -- */

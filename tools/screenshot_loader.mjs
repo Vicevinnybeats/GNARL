@@ -63,11 +63,28 @@ for (const device of DEVICES) {
   await page.screenshot({ path: `${OUT}/${device.name}-boot-ready.png` });
   console.log(`  ${device.name}-boot-ready.png`);
 
-  // Mid-dismissal, which is the one frame that says whether it leaves well.
+  /*  THE ZOOM THROUGH, in three frames. One picture of a transition says
+      nothing about whether it is a move or a cut - what matters is that the
+      dial is still recognisably leaving while the page is already arriving,
+      and that only shows in a sequence.
+
+      The waits are wall-clock while the build is frame-driven with a clamped
+      step, so under software GL the build stretches and these land earlier
+      in it than they would on real hardware. That is fine here - the
+      question is what the frames look like, not exactly when. */
   await page.mouse.click(device.viewport.width / 2, device.viewport.height / 2);
-  await page.waitForTimeout(260);
-  await page.screenshot({ path: `${OUT}/${device.name}-boot-leaving.png` });
-  console.log(`  ${device.name}-boot-leaving.png`);
+
+  for (const [index, wait] of [420, 500, 600, 700].entries()) {
+    await page.waitForTimeout(wait);
+    const label = `${device.name}-zoom-${index + 1}`;
+    await page.screenshot({ path: `${OUT}/${label}.png` });
+    console.log(`  ${label}.png`);
+  }
+
+  // And where it lands.
+  await page.waitForTimeout(4500);
+  await page.screenshot({ path: `${OUT}/${device.name}-zoom-landed.png` });
+  console.log(`  ${device.name}-zoom-landed.png`);
 
   await context.close();
 }
