@@ -68,7 +68,7 @@ export interface Journey {
 const PANEL_ASPECT = 1180 / 720;
 
 /** Orbits, wave, helix, driver, panel. */
-const FORMS = 5;
+const FORMS = 6;
 
 /*  THE CHARACTERISTIC RADIUS OF EACH FORMATION, in the same units the GLSL
     above builds them in. Read off the formation functions: the orbits' ring
@@ -90,7 +90,7 @@ const FORMS = 5;
     after it 10-20%, so the journey appeared to be running away from the
     viewer. Same reasoning as the lateral offset below - a composition is a
     fraction of the frustum, never a number of world units. */
-const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 5.8] as const;
+const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 8.4, 5.8] as const;
 
 /*  And their HALF-WIDTHS, which is a different question from the one above.
     The radii say what should fill the frame vertically; these say what must
@@ -100,7 +100,7 @@ const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 5.8] as const;
     alone it ran off both edges and the thing the page ends on could not be
     read. The distance is solved for BOTH and the further of the two wins,
     so a subject is never clipped by the axis nobody checked. */
-const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 6.5] as const;
+const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 7.2, 6.5] as const;
 
 /*  How much of the frame's width the subject may span before it is pushed
     back. 0.78 rather than 0.86: at 0.86 the instrument measured 79% of a
@@ -311,11 +311,69 @@ const FORMATIONS = /* glsl */ `
     return vec3(p, (s.z - 0.5) * 0.25);
   }
 
+  /*  THE CRYSTAL. What the dissolve's dust settles back into, and the
+      section where the thing stops being a process and becomes a product -
+      so it is the one formation here with flat facets and hard edges rather
+      than swept curves. A polygon, not a circle: the exact regular-polygon
+      radius, so the rings are octagons and read as cut faces.
+
+      It sits between the dissolve and the interface for that reason. Dust,
+      then something faceted, then the instrument. */
+  vec3 formCrystal(float c, float t, vec3 s) {
+    const float FACETS = 8.0;
+    const float SEG = TAU / FACETS;
+
+    // Exact regular polygon of FACETS sides, radius 1 at its vertices.
+    float a = t * TAU;
+    float poly = cos(SEG * 0.5) / cos(mod(a, SEG) - SEG * 0.5);
+
+    float ring = step(0.5, fract(c * 2.0));
+    float lane = floor(c * 14.0) / 13.0;
+
+    /*  A gem's profile: a point at the bottom, the widest band a quarter of
+        the way up, and a flat table on top. The girdle sits low because a
+        stone with its widest point in the middle reads as a ball. */
+    float h = (lane - 0.5) * 2.0;
+    float girdle = 0.25;
+    float radius = h < girdle
+      ? (h + 1.0) / (1.0 + girdle)
+      : 1.0 - (h - girdle) / (1.0 - girdle) * 0.55;
+
+    radius = max(radius, 0.04) * 7.2;
+
+    if (ring > 0.5) {
+      // A horizontal facet edge.
+      return vec3(cos(a) * radius * poly, h * 6.0, sin(a) * radius * poly);
+    }
+
+    /*  A vertical facet: girdle vertex up to the table, or down to the
+        point. t runs the whole edge, so the stroke is one straight line
+        rather than something that has to be chased around the shape.
+
+        No backticks anywhere in this block: FORMATIONS is a template
+        literal, so one inside a GLSL comment ends the string and the rest
+        of the shader is parsed as TypeScript. */
+    float vertex = floor(c * FACETS * 2.0);
+    float va = (vertex / FACETS) * SEG * FACETS / FACETS;
+    va = floor(mod(vertex, FACETS)) * SEG;
+
+    float upper = step(0.5, fract(vertex / 2.0));
+    float wide = 7.2;
+
+    vec3 girdlePoint = vec3(cos(va) * wide, girdle * 6.0, sin(va) * wide);
+    vec3 tip = upper > 0.5
+      ? vec3(cos(va) * wide * 0.45, 6.0, sin(va) * wide * 0.45)
+      : vec3(0.0, -6.0, 0.0);
+
+    return mix(girdlePoint, tip, t);
+  }
+
   vec3 formation(int id, float c, float t, vec3 s) {
     if (id <= 0) return formOrbits(c, t, s);
     if (id == 1) return formWave(c, t, s);
     if (id == 2) return formHelix(c, t, s);
     if (id == 3) return formDriver(c, t, s);
+    if (id == 4) return formCrystal(c, t, s);
     return formPanel(c, t, s);
   }
 `;
@@ -1075,7 +1133,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       const widthFraction = THREE.MathUtils.lerp(
         SUBJECT_WIDTH_FRACTION,
         SUBJECT_WIDTH_FRACTION_END,
-        THREE.MathUtils.smoothstep(form, 3.2, 4.0),
+        THREE.MathUtils.smoothstep(form, 4.2, 5.0),
       );
 
       const forWidth =
@@ -1148,7 +1206,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         const rise = THREE.MathUtils.lerp(
           MOBILE_RISE,
           MOBILE_RISE_END,
-          THREE.MathUtils.smoothstep(form, 3.0, 4.0),
+          THREE.MathUtils.smoothstep(form, 4.0, 5.0),
         );
 
         lookTarget.addScaledVector(upVector, -visibleHeight * rise);
@@ -1165,8 +1223,13 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           inside the rectangle the lines have become. Each overlap is wide
           enough that both are visible together for a moment - which is what
           makes it read as one object changing rather than two swapping. */
-      const solid = THREE.MathUtils.smoothstep(u, 0.60, 0.70);
-      const gone = THREE.MathUtils.smoothstep(u, 0.80, 0.88);
+      /*  RE-KEYED FOR SIX SECTIONS. u maps to the form index by u * 5 now,
+          not u * 4, so the driver arrives at u = 0.6 and the burn has to be
+          finished before the crystal at u = 0.8 rather than after it. These
+          are the numbers that decide whether the dissolve happens on the FX
+          section or on top of the one after it. */
+      const solid = THREE.MathUtils.smoothstep(u, 0.58, 0.66);
+      const gone = THREE.MathUtils.smoothstep(u, 0.70, 0.78);
 
       dissolveUniforms.uFade.value = solid * (1 - gone);
 
@@ -1175,14 +1238,14 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       dissolveUniforms.uThreshold.value = THREE.MathUtils.lerp(
         -0.05,
         1.5,
-        THREE.MathUtils.smoothstep(u, 0.68, 0.90),
+        THREE.MathUtils.smoothstep(u, 0.62, 0.80),
       );
 
       // The lines dim while the solid owns the frame, and come back to rule
       // the rectangle the interface arrives in.
       figureUniforms.uFade.value = 1 - solid * (1 - gone) * 0.75;
 
-      const resolve = THREE.MathUtils.smoothstep(u, 0.88, 0.99);
+      const resolve = THREE.MathUtils.smoothstep(u, 0.90, 0.995);
       panelMaterial.opacity = resolve * 0.95;
       panel.visible = resolve > 0.001;
 

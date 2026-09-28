@@ -17,6 +17,7 @@ export const SECTIONS: readonly Section[] = [
   { id: 'engine', label: 'ENGINE' },
   { id: 'presets', label: 'PRESETS' },
   { id: 'fx', label: 'FX' },
+  { id: 'pricing', label: 'PRICING' },
   { id: 'download', label: 'DOWNLOAD' },
 ];
 
