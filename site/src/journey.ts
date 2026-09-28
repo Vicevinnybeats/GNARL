@@ -102,14 +102,31 @@ const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 6.2] as const;
     so a subject is never clipped by the axis nobody checked. */
 const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 6.5] as const;
 
-/** How much of the frame's width the subject may span before it is pushed back. */
-const SUBJECT_WIDTH_FRACTION = 0.86;
+/*  How much of the frame's width the subject may span before it is pushed
+    back. 0.78 rather than 0.86: at 0.86 the instrument measured 79% of a
+    phone's width with about a tenth of the frame either side, and it was
+    still reported as running off the edge - a margin that thin has nothing
+    left for the line formation still spread around the panel while the morph
+    finishes, or for a phone whose aspect is narrower than the ones tested. A
+    subject that fits with room to spare reads as placed; one that fits
+    exactly reads as cropped the moment anything moves. */
+const SUBJECT_WIDTH_FRACTION = 0.78;
 
 /*  How high the subject rides on a phone, as a fraction of the visible
-    height. The card owns the lower part of the screen there, so the subject
-    sits above it - as a fraction of the frustum and not a number of world
-    units, because the distance changes with every formation. */
-const MOBILE_RISE = 0.19;
+    height, measured along the camera's own up vector rather than in world
+    units - the distance changes with every formation, so a fixed number of
+    units means a different amount of screen each time.
+
+    Two values, because the LAST section's layout is genuinely different. Every
+    other card is one screen of copy sitting in the upper middle, so the
+    subject rides above it. The download card carries the FAQ, is most of a
+    screen tall, and is the one people scroll past the end of - so there the
+    subject sits just BELOW centre, in the gap the section leaves under the
+    card, which is where it stays visible once the card has scrolled up. One
+    value cannot do both: the rise that clears a short card puts the subject
+    inside the tall one. */
+const MOBILE_RISE = 0.17;
+const MOBILE_RISE_END = -0.05;
 
 /** Clamped, so an index off either end frames rather than throwing. */
 function formRadius(index: number): number {
@@ -1114,7 +1131,15 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         right.crossVectors(forward, camera.up).normalize();
         upVector.crossVectors(right, forward).normalize();
 
-        lookTarget.addScaledVector(upVector, -visibleHeight * MOBILE_RISE);
+        // Eased across the last transition rather than switched at it, or the
+        // subject would jump the moment the form index crossed 3.
+        const rise = THREE.MathUtils.lerp(
+          MOBILE_RISE,
+          MOBILE_RISE_END,
+          THREE.MathUtils.smoothstep(form, 3.0, 4.0),
+        );
+
+        lookTarget.addScaledVector(upVector, -visibleHeight * rise);
       }
 
       camera.lookAt(lookTarget);

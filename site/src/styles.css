@@ -230,6 +230,42 @@ main { position: relative; z-index: 2; }
     padding-top: 40svh;
     padding-bottom: 64px;
   }
+
+  /*  ROOM UNDER THE LAST CARD, so the instrument is still on screen when the
+      page is scrolled to its end. Without this the download card and the
+      footer fill a phone between them, and the thing the whole journey
+      travels towards is behind the card at exactly the moment somebody
+      arrives at it. The scene's position is fixed once the journey completes
+      and only the card moves, so the space has to go BELOW the card rather
+      than above it. */
+  .panel--download {
+    padding-bottom: 50svh;
+  }
+
+  /*  NO BACKDROP BLUR ON A PHONE, and this is the scroll jank rather than a
+      refinement.
+
+      `backdrop-filter` makes the compositor re-sample and blur everything
+      behind the element, over the element's whole area, on every frame the
+      element MOVES - and these move on every frame of a scroll, over a WebGL
+      canvas that is itself changing on every frame, so nothing can be cached.
+      Two of them: every card, and the fixed header, which re-blurs the live
+      scene beneath it continuously whether the page is scrolling or not.
+
+      It costs nothing to look at. The cards are already 96-97% opaque, so the
+      blur was only ever acting on the three per cent of backdrop showing
+      through; taking it to fully opaque loses a effect that was close to
+      invisible and gives the frame budget back to the thing the page is
+      actually for. */
+  .slab {
+    backdrop-filter: none;
+    background: linear-gradient(160deg, rgb(13, 8, 36), rgb(5, 4, 18));
+  }
+
+  .nav {
+    backdrop-filter: none;
+    background: linear-gradient(to bottom, rgba(5, 4, 15, 0.95), rgba(5, 4, 15, 0.7) 70%, transparent);
+  }
 }
 
 /*  Content sits on one side and the panel occupies the other - which is the

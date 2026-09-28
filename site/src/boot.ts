@@ -125,7 +125,7 @@ let end = 1;
     card has slid up over the instrument. */
 function publishEnd() {
   const w = window as unknown as Record<string, unknown>;
-  const max = document.body.scrollHeight - window.innerHeight;
+  const max = maxScroll;
 
   w.__gnarlJourneyEnd = end;
 
@@ -140,13 +140,50 @@ function publishEnd() {
   w.__gnarlJourneyEndPx = Math.max(0, Math.round(end * max));
 }
 
+/*  The document's scrollable height, MEASURED WHEN THE LAYOUT CHANGES and not
+    on every frame. Two separate faults came from reading it in the render
+    loop, and both are worst on a phone, which is where they were reported:
+
+    reading `scrollHeight` forces a synchronous LAYOUT, so the loop paid for a
+    full reflow on every frame it drew, competing with the WebGL scene for the
+    same budget;
+
+    and on a phone the address bar collapses as you scroll, which changes
+    `innerHeight` and therefore `max` MID-GESTURE - so the normalised position
+    jumped discontinuously while the raw scroll was perfectly smooth. That is
+    the "it jumps between objects" that survived fixing the scroll sampling:
+    the sampling was fine by then, and the thing being divided by was moving. */
+let maxScroll = 0;
+
+/*  Queried from `document.scrollingElement`, which is the element the window
+    actually scrolls, rather than from `body`. In this document the two happen
+    to report the same height, so this is correctness rather than a fix for
+    anything observed - `body` is simply not guaranteed to be the scrolling
+    box and there is no reason to ask the wrong element.
+
+    MEASURED HERE AND NOT IN THE RENDER LOOP, which is the part that mattered.
+    Reading `scrollHeight` forces a synchronous LAYOUT, so sampling it every
+    frame made the loop pay for a full reflow per frame, competing with the
+    WebGL scene for the same budget - worst on a phone, which is where the
+    jank was reported. And on a phone the address bar collapses as you scroll,
+    changing `innerHeight` and therefore this number MID-GESTURE: the
+    normalised position then jumped while the raw scroll was perfectly smooth,
+    which is the "it jumps between objects" that survived fixing the scroll
+    sampling. The sampling was right by then; the thing being divided by was
+    moving. */
+function measureScroll() {
+  const scroller = document.scrollingElement ?? document.documentElement;
+
+  maxScroll = Math.max(0, scroller.scrollHeight - window.innerHeight);
+}
+
+measureScroll();
+
 /** The live scroll position, normalised so the journey ends at 1. */
 const readScroll = () => {
-  const max = document.body.scrollHeight - window.innerHeight;
+  if (maxScroll <= 0) return 0;
 
-  if (max <= 0) return 0;
-
-  return Math.min(1, window.scrollY / max / end);
+  return Math.min(1, window.scrollY / maxScroll / end);
 };
 
 const applyBuild = (progress: number) => {
@@ -243,7 +280,9 @@ async function start() {
       every object one section early. Measuring it also means it cannot drift
       the next time a paragraph gets longer. */
   const journeyEnd = () => {
-    const max = document.body.scrollHeight - window.innerHeight;
+    // `maxScroll`, not body.scrollHeight - see measureScroll for why those
+    // are different numbers and which one the browser actually honours.
+    const max = maxScroll;
     const last = document.getElementById(SECTIONS[SECTIONS.length - 1]?.id ?? '');
 
     if (!last || max <= 0) return 1;
@@ -288,11 +327,16 @@ async function start() {
     start: 'top top',
     end: 'bottom bottom',
     onRefresh: () => {
+      // Re-measured together: `end` is a fraction OF `maxScroll`, so a stale
+      // one paired with a fresh one is worse than either being old.
+      measureScroll();
       end = journeyEnd();
       publishEnd();
     },
   });
 
+  measureScroll();
+  end = journeyEnd();
   publishEnd();
 
   window.addEventListener(
@@ -307,6 +351,7 @@ async function start() {
   );
 
   window.addEventListener('resize', () => {
+    measureScroll();
     journeyRef.resize();
     rain?.resize();
     loader?.resize();
