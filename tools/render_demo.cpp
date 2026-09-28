@@ -351,10 +351,13 @@ void renderBankAudition (const juce::File& outputDirectory)
     edit and keep beside their own patches. A bank that exists only inside an
     executable is a bank you cannot do any of that with.
 
-    ONE FOLDER PER CATEGORY, because a flat directory of 150 files is a list
-    nobody scrolls. The categories are the ones in `preset::categories`, so
-    the folders match what the browser shows rather than inventing a second
-    taxonomy.
+    ONE FLAT FOLDER, not one folder per category. Category subfolders were the
+    first version and they were wrong for what this is: nobody browses these
+    files, they browse the plugin's own browser, which already filters by
+    category. What the folder has to be good at is being COPIED - to a backup,
+    a shared drive, another machine - and nine nested folders make that a
+    thing you can do partially and not notice. The category is in INDEX.txt,
+    which is where you look when you want to know it.
 
     THE FILENAME IS NUMBERED. `sanitiseFilename` strips what a filename cannot
     hold, and two presets could in principle sanitise to the same text -
@@ -371,14 +374,18 @@ void writePresetLibrary (const juce::File& outputDirectory)
     const auto bank = preset::FactoryBank::build (
         builder.getValueTreeState(), builder.getValueTreeState().copyState());
 
-    const auto root = outputDirectory.getChildFile ("GNARL Factory");
+    const auto root = outputDirectory.getChildFile ("Presets");
     root.createDirectory();
 
     juce::StringArray index;
     index.add ("# GNARL factory preset library");
     index.add ("# " + juce::String (static_cast<int> (bank.size()))
-               + " presets, .gnarl format");
+               + " presets, .gnarl format, one flat folder");
+    index.add ("#");
+    index.add ("# These are ALREADY IN THE PLUGIN. This folder is a copy to");
+    index.add ("# back up or share, not something to install.");
     index.add ("");
+    index.add ("file                                  category   name");
 
     int written = 0;
 
@@ -386,14 +393,10 @@ void writePresetLibrary (const juce::File& outputDirectory)
     {
         const auto metadata = preset::readMetadata (bank[i]);
 
-        const auto folder = root.getChildFile (
-            metadata.category.isNotEmpty() ? metadata.category : juce::String ("Bass"));
-        folder.createDirectory();
-
         const auto name = juce::String (static_cast<int> (i) + 1).paddedLeft ('0', 3)
                         + " " + preset::sanitiseFilename (metadata.name);
 
-        const auto file = folder.getChildFile (name + "." + preset::kFileExtension);
+        const auto file = root.getChildFile (name + "." + preset::kFileExtension);
 
         /*  replaceWithText, not appendText: this tool is re-run over an
             existing directory whenever the bank changes, and appending would
@@ -401,7 +404,8 @@ void writePresetLibrary (const juce::File& outputDirectory)
         if (file.replaceWithText (preset::toText (bank[i])))
         {
             ++written;
-            index.add (metadata.category.paddedRight (' ', 10) + "  " + metadata.name);
+            index.add ((name + ".gnarl").paddedRight (' ', 38)
+                       + metadata.category.paddedRight (' ', 11) + metadata.name);
         }
         else
         {
