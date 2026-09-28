@@ -1200,7 +1200,37 @@ node ../tools/screenshot_loader.mjs <output-directory>
 It throttles the connection through CDP, because on a local server the state
 worth photographing lasts under a second. `screenshot_site.mjs` now has to
 **click through the boot screen** before it can scroll, or every picture it
-takes is of the loader.
+takes is of the loader — and it clicks *repeatedly* until the canvas is gone,
+because the loader ignores a click until a frame has been drawn and the
+`gn-booting` class comes off while the fade still has frames to run.
+
+**The page is ASSEMBLED out of the boot screen, not cut to.** Clicking
+through starts one arrival: the dial rushes past the camera, the camera
+dollies in from 2.4× the framing distance, the figure's strokes fly in from
+every side and converge — each along its own line, on its own slice of the
+window, brighter while still travelling — and the header, the hero's lines
+and the footer slide in from the edges they belong to.
+
+**One clock drives all of it**, a clamped frame step in `boot.ts` — the same
+step the loader's exit advances on. A CSS transition or a GSAP tween would be
+a second easing on a different clock, and *this repository has now made that
+mistake five times*: the meter that read the block size, the text decode that
+counted frames, the scroll damping, the screenshot tool's fixed wait, and the
+loader torn down on a 1400ms timer while its fade advanced per frame — which
+left a half-faded boot screen frozen over a live page, permanently, because a
+disposed renderer keeps whatever it last drew.
+
+`isSettled()` waits on the figure's build as well as the dolly, since the
+build finishes later. Reduced motion skips the build **in the 3D half as well
+as the CSS half**.
+
+**A phone runs out of FILL RATE here, not geometry** — the scene is a bloomed
+full-screen composite. Three levers, in order: the pixel ratio caps at 1.25
+(a phone reports 3, so even 1.5 rendered 2.25× the panel's pixels through a
+chain touching each several times), the bloom runs at half resolution (its
+output is entirely low frequency, so a half-size target is very nearly the
+same picture for a quarter of the pixels), and MSAA is off (the bloom's blur
+was buying most of what it was for).
 
 ---
 

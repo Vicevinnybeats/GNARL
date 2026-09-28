@@ -84,9 +84,55 @@ Two things the screenshots caught that code review did not:
   the L sat on the ring. It is a vertical stack now: dial, readout, bar,
   status. Same lesson as the plugin's tab layout, which learned it four times.
 
-`tools/screenshot_loader.mjs` shoots it at three moments — loading, ready and
-mid-dismissal — and throttles the connection through CDP, because on a local
-server the state worth photographing lasts under a second.
+### Arriving on the page
+
+Clicking through does not cut to a finished page. It starts one arrival that
+the loader, the 3D scene and the DOM all take part in: the dial **rushes past
+the camera** (cubic, so it accelerates out of frame rather than being politely
+resized in place, with the dust sweeping wider than it for parallax), the
+camera dollies in from 2.4× the framing distance, the figure's strokes fly in
+from every side and converge, and the header, the hero's lines and the footer
+slide in from the edges they belong to while the card they sit on fades
+without moving.
+
+**Each stroke flies in along its own line, on its own slice of the window**,
+with a swirl that unwinds as it lands and extra brightness while it is still
+travelling. Converging from all around rather than expanding out of a point is
+what makes it read as being *built*; the per-stroke stagger is what stops it
+popping into being on one frame.
+
+**One clock drives all of it** — a clamped frame step in `boot.ts`, the same
+step the loader's exit advances on. A CSS transition or a GSAP tween here
+would be a second easing on a different clock, and it drifts out of step with
+the 3D half on exactly the slow machine where the whole thing is most visible.
+The build deliberately outlasts the loader: the dial is gone about a third of
+the way through and the page spends the rest assembling behind it.
+
+`isSettled()` waits on the figure's build as well as the dolly. The build
+finishes later, so leaving it out let the screenshot tool photograph the page
+with strokes still inbound and call it the composition.
+
+Reduced motion gets the destination and not the journey **in the 3D half as
+well as the CSS half** — opting out in the DOM while the strokes still fly in
+from every side would honour the preference everywhere except the part that
+actually moves.
+
+### Making it smooth on a phone
+
+The scene is a bloomed full-screen composite, so a phone runs out of **fill
+rate** long before geometry. Three levers, in order of how much they matter:
+
+- **Pixel ratio caps at 1.25** (not 1.5). A phone reports 3, so even 1.5 was
+  rendering 2.25× the panel's pixels through a chain that touches each of them
+  several times. This is the single largest lever.
+- **The bloom runs at half resolution.** Its entire output is low frequency, so
+  the mip chain built from a half-size target is very nearly the same picture
+  for a quarter of the pixels touched.
+- **MSAA off.** The bloom's own blur was buying most of what it was for.
+
+`tools/screenshot_loader.mjs` shoots it loading, ready, four frames across the
+arrival and where it lands, and throttles the connection through CDP, because
+on a local server the state worth photographing lasts under a second.
 
 Note that `tools/screenshot_site.mjs` now has to **click through the boot
 screen** before it can scroll, or every picture it takes is of the loader.
