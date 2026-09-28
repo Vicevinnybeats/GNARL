@@ -214,12 +214,57 @@ unsigned installer warns the customer anyway.
 
 ## 9. Ship
 
-- [ ] Tag the commit `v<version>`.
-- [ ] Upload the signed installers.
-- [ ] Publish release notes, including **any compatibility event from step
-      1**, in plain language: "presets from 0.9 load correctly" or "the decay
-      curve parameter now means X; older presets are migrated on load".
+**CI publishes; a person does not upload zips by hand.** The `release` job in
+[`.github/workflows/build.yml`](../.github/workflows/build.yml) runs the whole
+pipeline first and attaches the result only if every platform, the test suite
+and pluginval pass — `needs` is what makes that true, so a tag pushed onto a
+red commit produces no release rather than a broken one.
+
+Two ways to trigger it, and they exist for different situations:
+
+```bash
+# On the default branch: push the tag.
+git tag -a v<version> -m "GNARL v<version>" && git push origin v<version>
+```
+
+From a feature branch, **a tag push may be refused** — a branch-scoped
+credential can write `refs/heads/<that branch>` and nothing else, and a tag is
+not a branch. Run the workflow with the version as an input instead; `gh
+release create` makes the tag server-side, at the commit the run built:
+
+```
+Actions > build > Run workflow > release_version: v<version>
+```
+
+- [ ] Trigger one of the two above, and **watch it go green** — the release
+      appears only at the end of a run that passed.
+- [ ] Check the assets: a `-Windows.zip`, a `-macOS.zip` and the bank
+      audition. The job fails rather than publishing a platform short, but
+      confirm it anyway.
+- [ ] **A version with a suffix (`v1.0.0-rc1`) publishes as a prerelease, and
+      `/releases/latest` SKIPS prereleases.** The site's download button
+      points at that URL, so a suffix is the difference between a working
+      button and a 404. Deliberate for a release candidate; a mistake for a
+      release.
+- [ ] Unzip **the published asset** on a clean machine and install from it.
+      Not the build tree, not a CI artifact — the thing a customer gets.
+- [ ] Release notes: [`.github/release-notes.md`](../.github/release-notes.md)
+      is the standing text. Add **any compatibility event from step 1** in
+      plain language — "presets from 0.9 load correctly", or "the decay curve
+      parameter now means X; older presets are migrated on load" — and commit
+      it *before* triggering, because the job reads the file out of the
+      checkout.
 - [ ] Update the manual ([`manual.md`](manual.md)) for anything that changed.
+- [ ] **While the repository is private, `/releases/latest` 404s for anybody
+      without access**, however green the run was. The button on the site is
+      correct and simply not yet useful to strangers; making the repository
+      public is what changes that.
+
+> Signing and notarisation are **not** in this job. CI publishes an unsigned
+> build, which is right for a beta and wrong for a sale: an unsigned plugin
+> needs right-click-Open on macOS and shows a SmartScreen warning on Windows.
+> The signed path is step 7's, and the day the plugin is sold the assets
+> attached here have to be the signed ones.
 
 ## 10. After
 
