@@ -25,11 +25,25 @@ failed scan in FL Studio, so the order is reversed. The single file is still
 there, in a subfolder, for any host that prefers it — the same binary, byte
 for byte. Use one or the other, never both.
 
-**FL Studio not finding it?** Options → Manage plugins → tick **"Rescan
+**Windows — put it in the right folder. This is the usual cause of "my DAW
+cannot see it":**
+
+```
+C:\Program Files\Common Files\VST3\      ← VST3 goes HERE
+C:\Program Files\VSTPlugins\             ← this is VST2. Not here.
+```
+
+`Common Files` is in the middle of that path and it is the part everybody
+misses. A `.vst3` dropped in a VST2 folder is never found, and rescanning
+will not help: a DAW looks for `.dll` in the VST2 paths and `.vst3` in the
+VST3 path. That folder needs administrator rights, which is another way it
+fails quietly.
+
+**FL Studio still not finding it?** Options → Manage plugins → tick **"Rescan
 previously verified plugins"** → *Find more plugins*. FL caches scan results
-per folder and skips folders it has already seen, so without that tickbox a
-newly added plugin is never looked at. It then appears under *Generators →
-New* — it is a synth, not an effect. `INSTALL.txt` has the full checklist.
+per folder and skips folders it has already seen. It then appears under
+*Generators → New* — it is a synth, not an effect. `INSTALL.txt` has the full
+checklist.
 
 **Windows: right-click the .zip → Properties → tick Unblock → Apply, before
 you extract.** This build is unsigned, and Windows marks downloaded archives

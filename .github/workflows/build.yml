@@ -427,24 +427,43 @@ jobs:
             That is the quickest check that the build works at all. It is
             NOT the plugin - a DAW cannot load an .exe. For that, read on.
 
-          WINDOWS - the plugin
+          WINDOWS - where the plugin goes. THIS IS THE WHOLE TRICK.
 
-            GNARL.vst3 is a FOLDER, and that is correct - a VST3 is a
-            "bundle", a folder with the actual binary inside it. Copy the
-            WHOLE FOLDER, not its contents, into:
+            Copy the GNARL.vst3 FOLDER into
 
                 C:\Program Files\Common Files\VST3\
 
-            You should end up with
+            so that you end up with
 
                 C:\Program Files\Common Files\VST3\GNARL.vst3\Contents\...
 
-            Copying only the inner file is the single most common way to get
-            a plugin a DAW cannot find.
+            READ THAT PATH AGAIN. "Common Files" is in the middle of it, and
+            it is the part everybody misses.
+
+                C:\Program Files\Common Files\VST3     <- VST3 lives HERE
+                C:\Program Files\VSTPlugins            <- this is VST2. NOT here.
+                C:\Program Files\Steinberg\VSTPlugins  <- also VST2. NOT here.
+
+            A .vst3 dropped in a VST2 folder is not found, and no amount of
+            rescanning changes that: a DAW looks for .dll files in the VST2
+            paths and for .vst3 in the VST3 path, and adding a folder to the
+            search paths does not make it scan for the other kind.
+
+            That folder needs administrator rights. If Windows refuses the
+            paste, that is why - and it is another way this fails quietly.
+
+            GNARL.vst3 is a FOLDER, and that is correct: a VST3 is a
+            "bundle", a folder with the binary inside it. Copy the WHOLE
+            FOLDER, not its contents. Copying only the inner file is the
+            other most common way to get a plugin a DAW cannot find.
 
           FL STUDIO WILL NOT FIND IT - work through these in order
 
-            1. RESCAN PROPERLY. This is nearly always the answer.
+            1. IS IT IN "Common Files\VST3"? See the path above. This is
+               the most common cause by a distance, and the symptom is
+               exactly "it is not in the list at all".
+
+            2. RESCAN PROPERLY.
                Options > Manage plugins
                Tick "Rescan previously verified plugins"   <- the important one
                Click "Find more plugins"
@@ -453,20 +472,20 @@ jobs:
                skips a folder it has seen before, so a plugin added after the
                last scan is never looked at.
 
-            2. LOOK UNDER GENERATORS, NOT EFFECTS. GNARL is a synth.
+            3. LOOK UNDER GENERATORS, NOT EFFECTS. GNARL is a synth.
                Plugin database > Generators > New
                A freshly found plugin lands in "New", not in the alphabetical
                list, until you sort it.
 
-            3. IF YOU PUT IT SOMEWHERE ELSE, TELL FL WHERE.
+            4. IF YOU PUT IT SOMEWHERE ELSE, TELL FL WHERE.
                Options > Manage plugins > "Plugin search paths" > the folder
                icon > add the folder. VST2 and VST3 paths are the same list,
                but the plugin must actually be in a folder on it.
 
-            4. CHECK THE BITNESS. FL must be the 64-bit build. There is no
+            5. CHECK THE BITNESS. FL must be the 64-bit build. There is no
                32-bit GNARL and a 32-bit FL will not list it.
 
-            5. STILL NOTHING? Try the single file instead. The subfolder
+            6. STILL NOTHING? Try the single file instead. The subfolder
                "Single file VST3" holds the same plugin as one .vst3 file
                rather than a folder - the same binary, byte for byte. A few
                hosts prefer one form over the other. Copy that file into the
@@ -475,7 +494,7 @@ jobs:
                Use one or the other, never both, or the DAW lists GNARL
                twice and you will not know which one you loaded.
 
-            6. IF IT FINDS IT AND THEN FAILS, it is not a scan problem - see
+            7. IF IT FINDS IT AND THEN FAILS, it is not a scan problem - see
                "IF THE PLUGIN WINDOW IS BLANK" at the bottom.
 
             ABLETON LIVE
