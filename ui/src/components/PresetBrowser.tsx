@@ -37,6 +37,17 @@ interface Props {
   /** Called after anything that changes the patch, so the header can re-read
       the current name. */
   onPatchChanged: () => void;
+  /*  EMBEDDED IN A TAB rather than hanging off the header. One component,
+      two homes: the popover for a quick jump between two patches without
+      leaving the panel you are working in, and the LIBRARY tab for actually
+      auditioning a bank. A second implementation would be two things to keep
+      in step and two places for a bug to hide.
+
+      It changes three things and no behaviour: no absolute positioning, no
+      close button, and Escape does not dismiss - navigating away is the
+      dismiss, and swallowing Escape in a tab would break the browser's own
+      search field, where Escape means "clear what I typed". */
+  embedded?: boolean;
 }
 
 const ALL_CATEGORIES = 'All';
@@ -54,7 +65,7 @@ const SOURCES: ReadonlyArray<{ id: Source; label: string; title: string }> = [
   { id: 'user', label: 'USER', title: 'Presets you saved' },
 ];
 
-export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
+export function PresetBrowser({ open, onClose, onPatchChanged, embedded = false }: Props) {
   const [rows, setRows] = useState<PresetRow[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [category, setCategory] = useState(ALL_CATEGORIES);
@@ -87,10 +98,13 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
     void refresh();
   }, [open, refresh]);
 
-  // Escape and click-outside, as the settings popover has. Listeners only
-  // exist while the panel is open.
+  /*  Escape and click-outside, as the settings popover has. Listeners only
+      exist while the panel is open - and never when embedded in a tab, which
+      has nothing to dismiss to. Registering them there would also make
+      Escape in the search field close nothing and clear nothing, which is
+      worse than either. */
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || embedded) return undefined;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -117,7 +131,7 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('pointerdown', onPointerDown);
     };
-  }, [open, onClose]);
+  }, [open, onClose, embedded]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -217,7 +231,16 @@ export function PresetBrowser({ open, onClose, onPatchChanged }: Props) {
     index === null ? '—' : (rows.find((row) => row.index === index)?.name ?? '—');
 
   return (
-    <div className="gn-browser" ref={panelRef} role="dialog" aria-label="Presets">
+    <div
+      className={'gn-browser' + (embedded ? ' gn-browser--embedded' : '')}
+      ref={panelRef}
+      /*  A tab is not a dialog. role="dialog" tells a screen reader that
+          everything behind it is inert and that Escape returns you - both
+          untrue here, and the second is actively wrong now that Escape is
+          not handled. */
+      role={embedded ? 'region' : 'dialog'}
+      aria-label="Presets"
+    >
       <header className="gn-browser__head">
         <input
           className="gn-browser__search"

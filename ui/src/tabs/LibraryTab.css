@@ -1,0 +1,11 @@
+/*  The tab is a frame for the browser and nothing else - no panel chrome, no
+    heading. A heading saying "Library" above a tab labelled LIBRARY is a row
+    of pixels spent restating the tab you just clicked, and the vertical
+    budget here is exact (CLAUDE.md section 6): 720 less the 58px header,
+    22px status bar and 16px padding leaves 624. */
+.gn-library {
+  display: flex;
+  height: 100%;
+  min-height: 0;   /* or the browser's content sizes the tab and overflows it */
+  padding: 0;
+}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
+import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
 import { LicenseBanner } from './components/LicenseBanner';
@@ -24,7 +25,15 @@ import { THEMES, updateSettings, useSettings } from './settings';
 import { getPresetStatus, type PresetStatus } from './bridge/presets';
 import './App.css';
 
-const TABS = ['OSC', 'MOD', 'FX', 'AI'] as const;
+/*  LIBRARY sits FIRST, before OSC. You pick a sound and then shape it, so
+    the leftmost tab is the one you use first; putting the browser at the end
+    puts the start of the workflow at the end of the row.
+
+    CLAUDE.md section 6 says "the four tabs are the only nesting allowed" and
+    this is a fifth. That rule guards against the interface growing a
+    HIERARCHY you have to navigate - and a library is not a fifth category of
+    controls, it is the door into all of them. It adds no depth. */
+const TABS = ['LIBRARY', 'OSC', 'MOD', 'FX', 'AI'] as const;
 type Tab = (typeof TABS)[number];
 
 /*  Module scope on purpose. An arrow written inline in the JSX is a new
@@ -231,6 +240,8 @@ export function App() {
       </header>
 
       <main className="gn-body">
+        {tab === 'LIBRARY' && <LibraryTab onPatchChanged={refreshPreset} />}
+
         {tab === 'OSC' && <OscTab />}
 
         {tab === 'MOD' && <ModTab />}

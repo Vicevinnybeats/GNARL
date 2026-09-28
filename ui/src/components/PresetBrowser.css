@@ -354,3 +354,40 @@
   font-size: 9px;
   margin-left: 3px;
 }
+
+/*  EMBEDDED IN THE LIBRARY TAB. The popover is absolutely positioned under
+    the header with a fixed size; in a tab it is simply the content, so the
+    positioning, the drop shadow and the width cap all come off and it fills
+    what it is given.
+
+    Written as overrides of the popover rather than as a separate block,
+    because the two must not drift: one browser, one set of rules, one place
+    a change lands. */
+.gn-browser--embedded {
+  position: static;
+  inset: auto;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+  box-shadow: none;
+  /*  The tab already sits inside the body's padding, so a second border
+      would draw a box inside a box. */
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/*  The list is the part that should grow. Without this the rows size the
+    panel and the whole tab scrolls, which puts the search field and the
+    filters off-screen the moment you scroll - and they are exactly what you
+    reach for while scrolling. */
+.gn-browser--embedded .gn-browser__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.gn-browser--embedded .gn-browser__list {
+  max-height: none;
+}
