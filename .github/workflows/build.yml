@@ -11,6 +11,16 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: >
+          Publish a release at this version (e.g. v0.1.0). Leave empty for
+          an ordinary build. The TAG IS CREATED BY THE RELEASE JOB, at the
+          commit this run was started from - `gh release create` makes it
+          server-side - so publishing needs no tag push and no write access
+          to refs beyond the token this workflow already has.
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -420,7 +430,7 @@ jobs:
   release:
     name: publish the release
     needs: [plugin, tests-linux, audition]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release_version != ''
     runs-on: ubuntu-latest
     permissions:
       # The default token is read-only on this repository; creating a
@@ -442,7 +452,7 @@ jobs:
       - name: Package
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME}"
+          version="${{ inputs.release_version || github.ref_name }}"
           mkdir -p dist
 
           for platform in macOS Windows; do
@@ -470,7 +480,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME}"
+          version="${{ inputs.release_version || github.ref_name }}"
 
           # `--prerelease` for anything carrying a suffix (v0.1.0-beta).
           # /releases/latest SKIPS prereleases, so this is not cosmetic: it
@@ -485,7 +495,11 @@ jobs:
           #  the end of the script looking for it - and even where it works,
           #  every line arrives with ten leading spaces, which markdown
           #  renders as a code block. A file is also reviewable in a diff.
+          # --target pins the tag to THIS run's commit. Without it the tag
+          # would be created at the default branch's head, which is not what
+          # was built and tested here.
           gh release create "$version" dist/*.zip \
+            --target "${GITHUB_SHA}" \
             --title "GNARL $version" \
             --notes-file .github/release-notes.md \
             $extra
