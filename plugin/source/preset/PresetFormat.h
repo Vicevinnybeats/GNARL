@@ -72,7 +72,7 @@ struct Metadata
     string and not an index.
 */
 inline const juce::StringArray categories {
-    "Bass", "Growl", "Lead", "Pluck", "Pad", "Keys",
+    "Bass", "Sub", "Growl", "Lead", "Pluck", "Pad", "Keys",
     "Drums", "FX", "Sequence", "Texture"
 };
 

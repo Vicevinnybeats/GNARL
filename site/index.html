@@ -9,6 +9,83 @@
       content="A wavetable synthesizer for riddim and dubstep. Drawable LFOs on a triplet grid, a formant filter that growls, and fourteen effects you can reorder."
     />
     <meta name="color-scheme" content="dark" />
+
+    <!--  THE CANONICAL URL IS THE ONE THING HERE THAT CHANGES WITH THE DOMAIN.
+          Every absolute URL below is built from it by hand, so moving to a real
+          domain is a find-and-replace of one string rather than a hunt through
+          the head. It is absolute and not relative because a crawler resolves
+          og:image and the canonical against the page it FETCHED, and this page
+          is served from several hostnames (the vercel.app alias, every preview
+          deployment) - a relative one would make each of those a separate,
+          competing copy of the same page.  -->
+    <link rel="canonical" href="https://gnarl.vercel.app/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="GNARL" />
+    <meta property="og:title" content="GNARL — Wavetable Synthesizer for Riddim" />
+    <meta
+      property="og:description"
+      content="A wavetable synthesizer built for one sound. Drawable LFOs on a triplet grid, a formant filter that growls, fourteen effects in any order, and 150 factory presets."
+    />
+    <meta property="og:url" content="https://gnarl.vercel.app/" />
+    <meta property="og:image" content="https://gnarl.vercel.app/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="GNARL — a wavetable synthesizer for riddim and dubstep." />
+    <meta property="og:locale" content="en" />
+
+    <!--  summary_large_image, not summary: the card is 1200x630, and the small
+          variant would centre-crop it to a square and cut the wordmark in
+          half.  -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="GNARL — Wavetable Synthesizer for Riddim" />
+    <meta
+      name="twitter:description"
+      content="Triplet growls, formant wobbles, and fourteen effects you can put in any order. 150 factory presets. VST3, AU and standalone."
+    />
+    <meta name="twitter:image" content="https://gnarl.vercel.app/og.png" />
+
+    <!--  The words somebody actually types. "Riddim" and "dubstep" are the
+          genre, "wavetable" and "formant" are the mechanism, and the DAW names
+          are how a producer asks whether it will run for them - which is the
+          question the FAQ at the bottom of this page answers. No keyword list:
+          search engines stopped reading <meta name="keywords"> two decades ago,
+          and stuffing one now only marks the page as spam.  -->
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="GNARL" />
+
+    <!--  JSON-LD, not microdata scattered through the markup: the page is built
+          by three.js and the copy moves around, so structured data attached to
+          elements would break the first time a section is re-laid-out. A block
+          in the head is independent of the DOM it describes.
+
+          No `offers`. The price is not decided (the pricing section says so in
+          as many words), and a made-up number in structured data is a price a
+          search engine will PRINT in a result - a wrong one is worse than
+          none.  -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "GNARL",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "Audio Plugin",
+        "description": "A wavetable synthesizer for riddim and dubstep. Two wavetable/graintable oscillators, a twelve-type zero-delay filter bank with a drivable vowel space, four drawable LFOs on a triplet grid, fourteen reorderable effects and 150 factory presets. VST3, AU and standalone.",
+        "operatingSystem": "Windows 10, Windows 11, macOS",
+        "url": "https://gnarl.vercel.app/",
+        "image": "https://gnarl.vercel.app/og.png",
+        "featureList": [
+          "Two wavetable and graintable oscillators",
+          "Sixteen-voice unison with per-voice detune",
+          "Twelve-type zero-delay filter bank with a formant vowel space",
+          "Four LFOs with drawable curves on a triplet grid",
+          "Fourteen effects in any order",
+          "150 factory presets",
+          "2x and 4x oversampling on the voice section"
+        ],
+        "softwareRequirements": "A VST3 or AU host, or none for the standalone. WebView2 on Windows."
+      }
+    </script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
   </head>
   <body>
@@ -138,14 +215,17 @@
             that needs no DAW at all.
           </p>
           <div class="row">
-            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/actions" rel="noreferrer">LATEST BUILD</a>
-            <a class="button button--ghost" href="https://github.com/Vicevinnybeats/GNARL" rel="noreferrer">SOURCE</a>
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest" rel="noreferrer">DOWNLOAD</a>
           </div>
 
-          <!-- The page is public and both links are not. Saying so is the
-               difference between a dead button and a private beta. -->
+          <!-- SOURCE is gone: a link to a private repository is a dead button
+               for everybody who is not signed in as its owner, and the page is
+               public. The remaining one points at RELEASES rather than at the
+               Actions tab - a release is a stable, linkable URL with the files
+               attached to it, where an Actions run is a build log whose
+               artifacts expire and which needs an account to reach at all. -->
           <p class="note" data-decode data-decode-delay="240">
-            BOTH LINKS ARE PRIVATE WHILE THIS IS A PERSONAL BUILD.
+            PRIVATE BETA &mdash; THE LINK NEEDS AN INVITE FOR NOW.
           </p>
 
           <div class="faq">

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- One URL, because it is one page. The in-page anchors (#engine, #presets,
+     #fx, #pricing, #download) are NOT listed: a fragment is not a separate
+     document, and listing them would ask a crawler to index five copies of
+     the same page and then pick a winner between them. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://gnarl.vercel.app/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

@@ -172,10 +172,45 @@ let maxScroll = 0;
     which is the "it jumps between objects" that survived fixing the scroll
     sampling. The sampling was right by then; the thing being divided by was
     moving. */
+/*  THE VIEWPORT HEIGHT THIS WAS MEASURED AT. A phone's address bar collapses
+    as you scroll down and comes back as you scroll UP, which changes
+    `innerHeight` by around a tenth without the layout meaning anything
+    different - and `maxScroll` is derived from it, so the same scrollY
+    normalised to a different position on the way up than on the way down.
+    Every object was a slightly different size going back than coming, which
+    is exactly what it looked like.
+
+    So a height-only change is IGNORED unless it is large enough to be a real
+    one - a rotation, a desktop window being dragged, a keyboard opening. A
+    width change is always real. */
+let measuredWidth = 0;
+let measuredHeight = 0;
+
 function measureScroll() {
   const scroller = document.scrollingElement ?? document.documentElement;
 
   maxScroll = Math.max(0, scroller.scrollHeight - window.innerHeight);
+  measuredWidth = window.innerWidth;
+  measuredHeight = window.innerHeight;
+}
+
+/*  The tolerance applies ONLY where the chrome moves. A desktop window has no
+    collapsing address bar, and it can be resized by its bottom edge alone -
+    which changes the height without the width and is a completely real layout
+    change. Swallowing that there would leave the journey mapped to a window
+    size that no longer exists. */
+const hasCollapsingChrome = window.matchMedia('(pointer: coarse)').matches;
+
+/** Whether a resize changed the layout, or only the browser's own chrome. */
+function layoutChanged() {
+  if (window.innerWidth !== measuredWidth) return true;
+  if (!hasCollapsingChrome) return window.innerHeight !== measuredHeight;
+
+  // 25%: comfortably past an address bar (~10-15%) and comfortably under a
+  // rotation, which changes the width as well and is caught above anyway.
+  const drift = Math.abs(window.innerHeight - measuredHeight);
+
+  return drift > measuredHeight * 0.25;
 }
 
 measureScroll();
@@ -367,7 +402,17 @@ async function start() {
   );
 
   window.addEventListener('resize', () => {
-    measureScroll();
+    /*  The canvas always resizes - it has to fill whatever the viewport now
+        is - but the SCROLL MAPPING only re-measures when the layout really
+        changed. Re-measuring it on an address-bar collapse is what made the
+        objects change size on the way back up. */
+    if (layoutChanged()) {
+      measureScroll();
+      end = journeyEnd();
+      publishEnd();
+      ScrollTrigger.refresh();
+    }
+
     journeyRef.resize();
     rain?.resize();
     loader?.resize();

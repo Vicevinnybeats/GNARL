@@ -109,8 +109,12 @@ function splitTags(value: unknown): string[] {
     against something realistic. Not the real thing - the real one comes from
     the plugin - but a list of three rows tells you nothing about how a bank
     of fifty scrolls. */
+/*  The browser preview's stand-in for what the plugin sends at runtime.
+    Kept in step with `preset::categories` by hand - there is no generated
+    mirror for it, because the real list crosses the bridge as data rather
+    than being compiled into the UI. */
 const MOCK_CATEGORIES = [
-  'Bass', 'Growl', 'Lead', 'Pluck', 'Pad', 'Keys',
+  'Bass', 'Sub', 'Growl', 'Lead', 'Pluck', 'Pad', 'Keys',
   'Drums', 'FX', 'Sequence', 'Texture',
 ];
 
