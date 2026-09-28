@@ -28,7 +28,29 @@ export function useAppScale(): void {
         window.innerHeight / DESIGN_HEIGHT,
       );
 
-      document.documentElement.style.setProperty('--gn-scale', String(scale));
+      /*  CENTRED IN WHATEVER IS LEFT OVER.
+       *
+       *  The app scales from `top left`, so a window whose aspect does not
+       *  match 1180x720 leaves the difference as dead space at the right and
+       *  bottom. Inside a plugin the editor fixes the aspect and there is
+       *  never any, which is why this went unnoticed - but a browser window
+       *  is any shape at all, and a phone in landscape is 844x390 against a
+       *  design that wants 1.64:1, so the interface sat against the left
+       *  edge with a black column beside it.
+       *
+       *  Offsets rather than `transform-origin: center`, because the origin
+       *  decides where the scale pivots and the layout's pixel budgets are
+       *  measured from the top left corner. Moving the pivot would move
+       *  every absolutely positioned popover with it.
+       */
+      const offsetX = Math.max(0, (window.innerWidth - DESIGN_WIDTH * scale) / 2);
+      const offsetY = Math.max(0, (window.innerHeight - DESIGN_HEIGHT * scale) / 2);
+
+      const root = document.documentElement.style;
+
+      root.setProperty('--gn-scale', String(scale));
+      root.setProperty('--gn-offset-x', `${Math.round(offsetX)}px`);
+      root.setProperty('--gn-offset-y', `${Math.round(offsetY)}px`);
     };
 
     apply();

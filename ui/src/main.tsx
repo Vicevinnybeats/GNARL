@@ -3,12 +3,16 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App';
 import { seedMockBackend } from './bridge/mockBackend';
+import { registerServiceWorker } from './bridge/serviceWorker';
 import { initialiseSettings } from './settings';
 import './styles/tokens.css';
 
 // Before the first render, so no control flashes at zero. A no-op when a real
 // plugin is behind the page.
 seedMockBackend();
+
+//  Offline support for the installable app. A no-op inside the plugin.
+registerServiceWorker();
 
 // Also before the first render: publishes the stored theme and the motion and
 // glow settings onto <html>. Doing it in an effect instead would paint one

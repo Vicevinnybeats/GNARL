@@ -1,0 +1,97 @@
+/*  Hidden by default and shown only by the query below, so the desktop and
+    the plugin never pay for it - not even a hidden element in the tree. */
+.gn-rotate {
+  display: none;
+}
+
+/*  PORTRAIT AND SHORT. Both conditions, because a tall portrait window on a
+    desktop is fine at this scale and should not be nagged; it is the lack of
+    VERTICAL room that makes the layout unreadable.
+
+    900px rather than a device class: a phone in portrait is 640-930 tall and
+    a tablet is 1024+, so this catches the machines that cannot render the
+    interface and leaves alone the ones that can. */
+@media (orientation: portrait) and (max-height: 900px) and (pointer: coarse) {
+  .gn-rotate {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: grid;
+    place-items: center;
+    padding: 32px;
+    background: var(--gn-bg-deep, #05040f);
+    color: var(--gn-text, #efeaff);
+    text-align: center;
+    /*  Under the notch as well: the app declares viewport-fit=cover, so an
+        overlay that stops at the safe area leaves a bright strip. */
+    padding-top: max(32px, env(safe-area-inset-top));
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+
+  /*  The interface underneath is not merely covered but STOPPED. A canvas
+      animating at 60fps behind a full-screen overlay is pure battery cost,
+      and the wavetable display and LFO editor both run animation loops that
+      only pause on document visibility - which a rotation does not change. */
+  .gn-app {
+    display: none;
+  }
+}
+
+.gn-rotate__inner {
+  max-width: 24rem;
+}
+
+.gn-rotate__icon {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 20px;
+  fill: none;
+  stroke: var(--gn-accent, #64e6ff);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.gn-rotate__arc,
+.gn-rotate__head {
+  stroke: var(--gn-accent-2, #a678ff);
+}
+
+.gn-rotate__title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--gn-accent, #64e6ff);
+}
+
+.gn-rotate__body {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--gn-text-dim, #b9aede);
+}
+
+/*  TOUCH TARGETS. A pointer that is a fingertip needs about 44px; this
+    interface is drawn for a mouse and several of its controls are 16-20px.
+    Padding rather than size, so the LAYOUT does not move - the hit area grows
+    outside the drawn control and every row keeps its exact height, which is
+    the budget the whole layout rests on. */
+@media (pointer: coarse) {
+  .gn-tabs button,
+  .gn-preset__arrow,
+  .gn-browser__source-btn,
+  .gn-header button {
+    position: relative;
+  }
+
+  .gn-tabs button::after,
+  .gn-preset__arrow::after,
+  .gn-browser__source-btn::after,
+  .gn-header button::after {
+    content: '';
+    position: absolute;
+    /*  Symmetric, and only outward. A negative inset grows the hit area
+        without affecting layout or paint. */
+    inset: -10px;
+  }
+}

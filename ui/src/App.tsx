@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
+import { RotatePrompt } from './components/RotatePrompt';
 import { listPresets, loadPreset } from './bridge/presets';
 import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
@@ -172,7 +173,13 @@ export function App() {
   const clearStatus = useCallback(() => setStatus(''), []);
 
   return (
-    <div className="gn-app">
+    <>
+      {/*  Always rendered; a media query decides whether it is shown. A
+           JavaScript orientation check would race the rotation animation and
+           flash the wrong state. */}
+      <RotatePrompt />
+
+      <div className="gn-app">
       <header className="gn-header">
         <div className="gn-logo">GNARL</div>
 
@@ -348,6 +355,7 @@ export function App() {
         </span>
       </footer>
       <Splash />
-    </div>
+      </div>
+    </>
   );
 }

@@ -26,7 +26,12 @@
   height: var(--gn-design-height);
 
   transform-origin: top left;
-  transform: scale(var(--gn-scale, 1));
+  /*  The translate CENTRES the scaled box in a window whose aspect does not
+      match the design's; `useAppScale` computes both offsets, and they are 0
+      inside the plugin where the editor fixes the aspect. Applied before the
+      scale so it is measured in screen pixels rather than design pixels. */
+  transform: translate(var(--gn-offset-x, 0px), var(--gn-offset-y, 0px))
+             scale(var(--gn-scale, 1));
 
   background: var(--gn-bg);
 

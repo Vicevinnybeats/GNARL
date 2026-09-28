@@ -45,6 +45,27 @@ juce_add_plugin(GNARL
 
 gnarl_add_web_ui(GNARL_WEB_UI_TARGET)
 
+#  THE AUv3 EXTENSION AND UIApplication.
+#
+#  An AUv3 is an APP EXTENSION, and Xcode sets APPLICATION_EXTENSION_API_ONLY
+#  on one automatically - which turns every NS_EXTENSION_UNAVAILABLE API into
+#  a compile error. JUCE 8.0.4 calls [UIApplication sharedApplication] in
+#  juce_UIViewComponentPeer_ios.mm and juce_Windowing_ios.mm with no guard, so
+#  the extension target fails to build while the standalone beside it succeeds.
+#  That is JUCE's limitation and not this project's code.
+#
+#  Turning the flag off compiles it. BE CLEAR ABOUT WHAT THAT COSTS: Apple
+#  rejects an extension that links extension-unavailable API, so this is fine
+#  for a build to run on your own device and is NOT enough for the App Store.
+#  Shipping there needs those two call sites guarded in JUCE - a patch to a
+#  pinned dependency, which is a deliberate decision rather than a build flag,
+#  and there is no Apple Developer account to submit with yet anyway.
+if (TARGET GNARL_AUv3)
+    set_target_properties(GNARL_AUv3 PROPERTIES
+        XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY NO)
+endif()
+
+
 target_sources(GNARL PRIVATE
     source/PluginProcessor.cpp
     source/PluginProcessor.h
