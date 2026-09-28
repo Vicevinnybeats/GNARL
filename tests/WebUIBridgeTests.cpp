@@ -1,3 +1,4 @@
+#include <string_view>
 #include <catch2/catch_test_macros.hpp>
 
 #include "WebUIResourceProvider.h"
@@ -129,4 +130,65 @@ TEST_CASE ("The image MIME types cover the formats artwork may ship as",
     CHECK (WebUIResourceProvider::mimeTypeFor ("a.jpeg").toStdString() == "image/jpeg");
     CHECK (WebUIResourceProvider::mimeTypeFor ("a.webp").toStdString() == "image/webp");
     CHECK (WebUIResourceProvider::mimeTypeFor ("a.avif").toStdString() == "image/avif");
+}
+
+/*  THE EMBEDDED BUNDLE IS THE REAL ONE, NOT THE DEV-MODE FALLBACK.
+
+    JUCE's JavaScript frontend is not on npm; it lives inside the JUCE
+    checkout and `ui/scripts/sync-juce-frontend.mjs` copies it out at build
+    time. With no checkout present the script writes a FALLBACK instead -
+    in-memory parameter state, no native backend - so that the UI still
+    builds and runs in a plain browser while somebody works on components.
+
+    A binary built against that fallback is the worst failure this project
+    can produce, because it is not a crash and not a blank window: the plugin
+    loads, draws its entire interface, responds to every click, and is
+    completely disconnected from the audio engine. Presets do not load, the
+    FX toggles do nothing, and every patch sounds identical - four symptoms
+    that look like four bugs and are one.
+
+    It shipped. Every release up to v0.1.3 embedded the fallback, because CI
+    built the web bundle on a runner that had never configured CMake, and
+    nothing anywhere asserted otherwise. CLAUDE.md said of the fallback "it
+    is never what ships"; a comment is not a check.
+
+    SO THE ASSERTION IS ON THE EMBEDDED BYTES, not on the build that produced
+    them. Anything earlier in the chain - a CI step, a CMake condition - can
+    be bypassed by building another way, and this has to hold for every
+    binary however it was made.
+
+    Both directions are checked. "Does not contain the fallback marker"
+    passes trivially on an empty or truncated bundle, so the real backend's
+    own symbols have to be present as well. */
+TEST_CASE ("The embedded UI bundle has a native backend", "[webui]")
+{
+    auto bundle = WebUIResourceProvider::get ("/assets/index.js");
+
+    REQUIRE (bundle.has_value());
+    REQUIRE (bundle->data.size() > 0);
+
+    /*  A string_view over the bytes, NOT a juce::String built from them. The
+        bundle is ~680 KB of minified JavaScript that is not null-terminated
+        and is not guaranteed to be valid UTF-8 at an arbitrary cut point;
+        constructing a juce::String from it trips an assertion inside
+        juce_String.cpp and copies the whole thing to do it. A view searches
+        the bytes in place, which is what the question actually is. */
+    const std::string_view source (reinterpret_cast<const char*> (bundle->data.data()),
+                                   bundle->data.size());
+
+    const auto holds = [&source] (std::string_view needle)
+    {
+        return source.find (needle) != std::string_view::npos;
+    };
+
+    /*  The fallback's own warning text, which it logs from every native call
+        it cannot make. Matching on this rather than on its absence of
+        features is deliberate: it is a string the real implementation has no
+        reason to contain, so it cannot drift into a false pass. */
+    CHECK_FALSE (holds ("called with no plugin backend"));
+
+    /*  And the positive case. Vite mangles local names but not the property
+        names it reads off the injected JUCE global, so these survive
+        minification. */
+    CHECK ((holds ("getNativeFunction") || holds ("__JUCE__")));
 }

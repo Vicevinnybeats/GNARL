@@ -57,6 +57,40 @@ jobs:
           cache: npm
           cache-dependency-path: ui/package-lock.json
 
+      #  JUCE'S JAVASCRIPT FRONTEND IS NOT ON NPM. It lives inside the JUCE
+      #  checkout, and `ui/scripts/sync-juce-frontend.mjs` copies it out on
+      #  every build. With no checkout present it writes a DEV-MODE FALLBACK
+      #  instead - in-memory parameter state, no native backend - so the UI
+      #  still builds and runs in a plain browser.
+      #
+      #  This job never configured CMake, so JUCE was never fetched, so every
+      #  binary this pipeline has ever produced embedded that fallback. The
+      #  plugin looked right and nothing it did reached the engine: presets
+      #  did not load, the FX toggles did nothing, every patch sounded the
+      #  same. CLAUDE.md says of the fallback "it is never what ships", and
+      #  it shipped, because nothing checked.
+      #
+      #  Sparse and blobless: the whole of JUCE is a large checkout and this
+      #  needs one directory of it. The tag MUST match the version the plugin
+      #  links against - the relay wire protocol is versioned with the
+      #  framework - so it is read out of Dependencies.cmake rather than
+      #  written here a second time.
+      - name: Fetch JUCE's JavaScript frontend
+        run: |
+          set -euo pipefail
+          tag=$(grep -A2 'juce-framework/JUCE.git' cmake/Dependencies.cmake \
+                | grep 'GIT_TAG' | awk '{print $2}')
+          test -n "$tag" || { echo "::error::could not read the JUCE tag"; exit 1; }
+          echo "JUCE $tag"
+
+          git clone --depth 1 --branch "$tag" --filter=blob:none --sparse \
+            https://github.com/juce-framework/JUCE.git JUCE
+          git -C JUCE sparse-checkout set modules/juce_gui_extra/native/javascript
+
+          test -d JUCE/modules/juce_gui_extra/native/javascript \
+            || { echo "::error::JUCE frontend directory missing after clone"; exit 1; }
+          ls JUCE/modules/juce_gui_extra/native/javascript
+
       - name: Install
         working-directory: ui
         run: npm ci
@@ -80,6 +114,29 @@ jobs:
           for f in index.html assets/index.js assets/index.css; do
             test -s "dist/$f" || { echo "::error::missing dist/$f"; exit 1; }
           done
+
+      #  THE GUARD. A bundle carrying the fallback builds, loads, draws the
+      #  whole interface and is completely inert, which is the worst possible
+      #  failure: it looks like a working plugin. Nothing downstream can tell
+      #  the difference, so the check has to be here, on the artifact itself.
+      - name: Refuse to ship the dev-mode fallback
+        working-directory: ui
+        run: |
+          set -euo pipefail
+
+          if grep -q "called with no plugin backend" dist/assets/index.js; then
+            echo "::error::the UI bundle is the DEV-MODE FALLBACK - it has no native backend"
+            echo "The sync script found no JUCE checkout. The plugin would build,"
+            echo "draw its interface, and be entirely disconnected from the engine."
+            exit 1
+          fi
+
+          # And the positive case, not only the negative: an empty or
+          # truncated bundle passes a "does not contain X" test trivially.
+          grep -q "getNativeFunction\|__JUCE__" dist/assets/index.js \
+            || { echo "::error::no JUCE bridge symbols in the bundle"; exit 1; }
+
+          echo "UI bundle carries the real JUCE backend"
 
       - uses: actions/upload-artifact@v4
         with:
