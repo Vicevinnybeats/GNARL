@@ -33,7 +33,7 @@ const DEVICES = [
     documents. Six of them, because the journey changes what it is five
     times and a picture taken BETWEEN two stages says more about whether the
     transition works than either end does. */
-const STOPS = [0, 0.2, 0.4, 0.6, 0.78, 1];
+const STOPS = [0, 0.2, 0.4, 0.6, 0.78, 'journey-end', 1];
 
 const errors = [];
 
@@ -94,11 +94,29 @@ for (const device of DEVICES) {
         scrollTop against that. */
     let landed = -1;
 
+    /*  'journey-end' is resolved from the page rather than written down
+        here, because on a phone the journey finishes ABOVE the download
+        card and that fraction depends on how tall the card happens to be.
+        It is the frame where the instrument resolves, so it is the one
+        frame of the last section actually worth photographing. */
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      const target = await page.evaluate((fraction) => {
-        const max = document.body.scrollHeight - window.innerHeight;
-        const top = Math.round(max * fraction);
+      const target = await page.evaluate((stop) => {
         document.documentElement.style.scrollBehavior = 'auto';
+
+        const max = document.body.scrollHeight - window.innerHeight;
+
+        /*  The journey's end comes back as an ABSOLUTE offset the page
+            worked out itself. Resolving it here from a fraction would mean
+            multiplying by this `max`, and under phone emulation
+            `innerHeight` is transiently several times too tall - so the
+            fraction lands somewhere else entirely while the check below
+            still passes, because it only verifies the browser reached the
+            target it was handed. */
+        const top =
+          stop === 'journey-end'
+            ? Math.round(window.__gnarlJourneyEndPx ?? max)
+            : Math.round(max * stop);
+
         window.scrollTo(0, top);
         return top;
       }, stop);
@@ -143,7 +161,10 @@ for (const device of DEVICES) {
 
     await page.waitForTimeout(2400);
 
-    const label = `${device.name}-${String(Math.round(stop * 100)).padStart(3, '0')}`;
+    const label =
+      stop === 'journey-end'
+        ? `${device.name}-end`
+        : `${device.name}-${String(Math.round(stop * 100)).padStart(3, '0')}`;
     await page.screenshot({ path: `${OUT}/${label}.png` });
     console.log(`  ${label}.png`);
   }

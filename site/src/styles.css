@@ -75,6 +75,21 @@ body {
   #rain { display: none; }
 }
 
+/*  NO BLUR AND NO BLEND MODE ON A PHONE. Both are per-frame, full-screen
+    compositor work sitting directly on top of a WebGL canvas that is already
+    the most expensive thing on the page - and they are competing for the
+    same budget during a scroll, which is exactly when it shows. The rain is
+    a faint texture either way; losing the half-pixel blur and the screen
+    blend costs almost nothing to look at and gives the scene its frame time
+    back. */
+@media (max-width: 860px) {
+  #rain {
+    filter: none;
+    mix-blend-mode: normal;
+    opacity: 0.16;
+  }
+}
+
 /* ------------------------------------------------------------ boot -- */
 /*  Above everything, including the nav, because a loader the header shows
     through is a page that has half-started. Its own background is opaque

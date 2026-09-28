@@ -92,9 +92,33 @@ const FORMS = 5;
     fraction of the frustum, never a number of world units. */
 const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 6.2] as const;
 
+/*  And their HALF-WIDTHS, which is a different question from the one above.
+    The radii say what should fill the frame vertically; these say what must
+    not be cut off horizontally. On a wide screen the two rarely disagree,
+    but a phone's frustum is far narrower than it is tall, and the last
+    formation is the instrument's own 13-wide rectangle: framed by height
+    alone it ran off both edges and the thing the page ends on could not be
+    read. The distance is solved for BOTH and the further of the two wins,
+    so a subject is never clipped by the axis nobody checked. */
+const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 6.5] as const;
+
+/** How much of the frame's width the subject may span before it is pushed back. */
+const SUBJECT_WIDTH_FRACTION = 0.86;
+
+/*  How high the subject rides on a phone, as a fraction of the visible
+    height. The card owns the lower part of the screen there, so the subject
+    sits above it - as a fraction of the frustum and not a number of world
+    units, because the distance changes with every formation. */
+const MOBILE_RISE = 0.19;
+
 /** Clamped, so an index off either end frames rather than throwing. */
 function formRadius(index: number): number {
   return FORM_RADII[Math.max(0, Math.min(FORM_RADII.length - 1, index))] ?? FORM_RADII[0];
+}
+
+function formHalfWidth(index: number): number {
+  const i = Math.max(0, Math.min(FORM_HALF_WIDTHS.length - 1, index));
+  return FORM_HALF_WIDTHS[i] ?? FORM_HALF_WIDTHS[0];
 }
 
 /*  How much of the frame's HEIGHT the subject spans. Height rather than
@@ -896,6 +920,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   const forward = new THREE.Vector3();
   const back = new THREE.Vector3();
   const right = new THREE.Vector3();
+  const upVector = new THREE.Vector3();
 
   // Seeded from the path so the first frame is not a lurch from the origin.
   path.getPointAt(0, camera.position);
@@ -1009,9 +1034,25 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         form - lower,
       );
 
+      const halfWidth = THREE.MathUtils.lerp(
+        formHalfWidth(lower),
+        formHalfWidth(upper),
+        form - lower,
+      );
+
       const fraction = mobile ? SUBJECT_FRACTION_MOBILE : SUBJECT_FRACTION_DESKTOP;
+      const halfFov = Math.tan((camera.fov * Math.PI) / 360);
+
       // visibleHeight = 2 d tan(fov/2), and we want 2r = fraction x that.
-      const base = radius / (fraction * Math.tan((camera.fov * Math.PI) / 360));
+      const forHeight = radius / (fraction * halfFov);
+
+      /*  visibleWidth = visibleHeight x aspect, so the same solve with the
+          aspect divided back out. The FURTHER of the two wins: whichever
+          axis would clip decides the distance. */
+      const forWidth =
+        halfWidth / (SUBJECT_WIDTH_FRACTION * halfFov * Math.max(0.1, camera.aspect));
+
+      const base = Math.max(forHeight, forWidth);
 
       /*  The arrival dolly MULTIPLIES that distance rather than adding to it,
           so it scales with whatever the current formation needs and cannot
@@ -1059,8 +1100,21 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         right.crossVectors(forward, camera.up).normalize();
         lookTarget.addScaledVector(right, -visibleWidth * 0.2);
       } else {
-        // On a phone the card owns the bottom, so the subject rides high.
-        lookTarget.y -= 6.0;
+        /*  On a phone the card owns the lower part of the screen, so the
+            subject rides above it - as a FRACTION of the frustum, measured
+            along the camera's own up vector. It was a flat `y -= 6.0`, which
+            is a fixed number of world units against a distance that changes
+            with every formation: the same offset that lifted the orbits
+            clear of the card barely moved the instrument, which sits three
+            times further away. */
+        const distance = camera.position.distanceTo(here);
+        const visibleHeight = 2 * distance * Math.tan((camera.fov * Math.PI) / 360);
+
+        forward.subVectors(here, camera.position).normalize();
+        right.crossVectors(forward, camera.up).normalize();
+        upVector.crossVectors(right, forward).normalize();
+
+        lookTarget.addScaledVector(upVector, -visibleHeight * MOBILE_RISE);
       }
 
       camera.lookAt(lookTarget);

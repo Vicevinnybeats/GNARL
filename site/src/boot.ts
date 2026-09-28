@@ -85,6 +85,14 @@ function finishBuild() {
 let previous = performance.now();
 let framesRendered = 0;
 
+/*  Returning to a backgrounded tab is the one case the clamp above cannot
+    tell apart from a slow frame, so it is handled at the source: reset the
+    clock, and the first frame back measures from now rather than from
+    whenever the tab was last drawn. */
+document.addEventListener('visibilitychange', () => {
+  previous = performance.now();
+});
+
 const root = document.documentElement;
 
 /*  ONE CLOCK DRIVES THE WHOLE ARRIVAL. The loader's dial rushing past the
@@ -104,6 +112,43 @@ const BUILD_SECONDS = 2.1;
 
 let build = 0;
 
+/*  Where the journey finishes, as a fraction of the document's scroll. Set
+    once the layout is known and re-measured on every ScrollTrigger refresh;
+    1 until then, so a frame drawn before the measurement simply reads the
+    raw scroll rather than dividing by something meaningless. */
+let end = 1;
+
+/*  Published for `tools/screenshot_site.mjs`. The journey no longer finishes
+    at the foot of the document - on a phone it ends above the download card,
+    so the last section's composition is at THIS fraction of the scroll and
+    not at 1. A tool that only photographs 1 photographs the page after the
+    card has slid up over the instrument. */
+function publishEnd() {
+  const w = window as unknown as Record<string, unknown>;
+  const max = document.body.scrollHeight - window.innerHeight;
+
+  w.__gnarlJourneyEnd = end;
+
+  /*  And the ABSOLUTE pixel offset, which is the one the tool should use.
+      A fraction has to be multiplied back out by the document's scrollable
+      height, and Playwright's phone emulation transiently reports a viewport
+      several times too tall - so `scrollHeight - innerHeight` computed on
+      that side is wrong, the fraction resolves to the wrong pixel, and the
+      landing check passes because it verifies the browser reached the target
+      it was given rather than that the target was right. Computed here, it
+      is self-consistent with the numbers the journey itself measured. */
+  w.__gnarlJourneyEndPx = Math.max(0, Math.round(end * max));
+}
+
+/** The live scroll position, normalised so the journey ends at 1. */
+const readScroll = () => {
+  const max = document.body.scrollHeight - window.innerHeight;
+
+  if (max <= 0) return 0;
+
+  return Math.min(1, window.scrollY / max / end);
+};
+
 const applyBuild = (progress: number) => {
   /*  The camera arrives FASTER than the parts assemble, and finishes first.
       A dolly still running while the last strokes land makes two things move
@@ -118,10 +163,34 @@ const applyBuild = (progress: number) => {
 };
 
 const frame = (now: number) => {
-  const delta = Math.min((now - previous) / 1000, 0.1);
+  const elapsed = (now - previous) / 1000;
   previous = now;
 
+  /*  A QUARTER SECOND, not a tenth. During a stutter a tenth advances the
+      scene by less time than actually passed, so it falls behind the scroll
+      and then catches up in a rush when the frames return - which reads as
+      the page JUMPING to the next object rather than travelling to it.
+
+      Still clamped, because a backgrounded tab hands over a delta measured
+      in seconds and easing through that in one step flings the camera across
+      the world. That case is handled by resetting the clock on
+      `visibilitychange` below, so the clamp here only ever has to cover a
+      genuinely slow frame.
+
+      It must never be ZERO. An earlier attempt made a long gap snap by
+      zeroing the step, and on a renderer slow enough to exceed the threshold
+      every frame that froze the whole page: the build never advanced, the
+      boot screen never dismissed, and the site sat behind it. A long gap is
+      not "no time passed". */
+  const delta = Math.min(elapsed, 0.25);
+
   if (journey) {
+    /*  SAMPLED EVERY FRAME, not driven from a scroll event. Mobile browsers
+        throttle or withhold scroll events during momentum, so a handler-fed
+        position goes stale mid-flick and then arrives all at once - the
+        scene sits still and then jumps. `scrollY` read here is whatever the
+        compositor is showing right now, on every frame it draws. */
+    journey.setScroll(readScroll());
     journey.render(now / 1000, delta);
     rain?.render(now);
     framesRendered += 1;
@@ -180,23 +249,51 @@ async function start() {
     if (!last || max <= 0) return 1;
 
     const rect = last.getBoundingClientRect();
-    const centre = rect.top + window.scrollY + rect.height / 2 - window.innerHeight / 2;
+    const top = rect.top + window.scrollY;
 
-    // Never 0, or the first scroll event divides by it.
+    /*  ON A PHONE THE JOURNEY ENDS ABOVE THE CARD, NOT AT THE SECTION'S
+        CENTRE. The download card carries the FAQ and is most of a screen
+        tall, so centring that section puts the card over the middle of the
+        viewport and the instrument - the thing the whole page has been
+        travelling towards - ends up behind it. Ending when the card's TOP
+        edge sits low instead leaves the upper two thirds of the screen
+        clear, which is where the instrument resolves; the card is then read
+        by scrolling the last stretch, with the journey already complete. */
+    if (window.innerWidth < 860) {
+      const slab = last.querySelector('.slab');
+      const slabTop = slab
+        ? slab.getBoundingClientRect().top + window.scrollY
+        : top;
+
+      return Math.max(
+        0.1,
+        Math.min(1, (slabTop - window.innerHeight * 0.66) / max),
+      );
+    }
+
+    const centre = top + rect.height / 2 - window.innerHeight / 2;
+
+    // Never 0, or the first sample divides by it.
     return Math.max(0.1, Math.min(1, centre / max));
   };
 
-  let end = journeyEnd();
+  end = journeyEnd();
 
+  /*  ScrollTrigger no longer drives the journey - the render loop samples
+      `scrollY` itself every frame (see `readScroll`). It is still what
+      re-measures the end point when the layout changes, because that is a
+      layout event rather than a per-frame one. */
   ScrollTrigger.create({
     trigger: document.body,
     start: 'top top',
     end: 'bottom bottom',
-    onUpdate: (self) => journeyRef.setScroll(Math.min(1, self.progress / end)),
     onRefresh: () => {
       end = journeyEnd();
+      publishEnd();
     },
   });
+
+  publishEnd();
 
   window.addEventListener(
     'pointermove',
