@@ -53,6 +53,28 @@ body {
     var(--bg-deep);
 }
 
+/*  The glyph rain sits BETWEEN the universe and the content, blurred and
+    dimmed. Above the particles so it reads as a layer of its own rather than
+    as more of them; below the cards, because it is atmosphere and they are
+    the thing to read. It is drawn at a third of device resolution, so the
+    blur here is also what hides that it is upscaled. */
+#rain {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: block;
+  opacity: 0.22;
+  filter: blur(0.6px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #rain { display: none; }
+}
+
 /* ---------------------------------------------------------------- nav -- */
 .nav {
   position: fixed;
@@ -138,8 +160,13 @@ main { position: relative; z-index: 2; }
   padding: 26px 28px;
   border: 1px solid var(--line);
   border-radius: 5px;
-  background: linear-gradient(160deg, rgba(21, 12, 54, 0.88), rgba(8, 6, 26, 0.82));
-  backdrop-filter: blur(10px);
+  /*  Nearly opaque, and that is not a style choice. The figure behind it is
+      bright moving line-work, and copy set over that is unreadable however
+      good the type is - measured in a screenshot, the FX paragraph had
+      vortex strokes running through every line of it. The blur is what
+      keeps it feeling like glass rather than like a box. */
+  background: linear-gradient(160deg, rgba(13, 8, 36, 0.97), rgba(5, 4, 18, 0.96));
+  backdrop-filter: blur(18px);
 }
 
 .slab--hero { width: min(54ch, 100%); }
