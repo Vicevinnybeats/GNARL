@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
+import { listPresets, loadPreset } from './bridge/presets';
 import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
 import { Meter } from './components/Meter';
@@ -71,6 +72,11 @@ export function App() {
   const [browserOpen, setBrowserOpen] = useState(false);
   const [preset, setPreset] = useState<PresetStatus | null>(null);
 
+  /*  A ref, because stepPreset is declared before refreshPreset and naming it
+      directly would either be a use-before-declare or force the two to swap,
+      which puts the stepper's long comment above the thing it refreshes. */
+  const refreshPresetRef = useRef<(() => void) | null>(null);
+
   /*  The theme lives in the settings store rather than in component state,
       because it has to survive the plugin window closing - and because it now
       has two ways in: the swatch button cycles it, the settings panel picks it
@@ -98,9 +104,58 @@ export function App() {
       are still generating, not continuously: an idle editor should cost no
       bridge traffic at all, which is the same rule the modulation frames
       follow. */
+  /*  THE ARROWS. They were markup with no handler at all - two buttons that
+      drew a chevron and did nothing, which is what "the arrows next to Init
+      are not working" meant. Nothing to do with the bridge; they were never
+      wired.
+
+      Stepping needs the CURRENT POSITION, and the status the plugin reports
+      does not carry one - it has a name, not an index. So the list is read
+      and the current patch located in it by name, which is what the browser
+      does to highlight a row.
+
+      RE-READ ON EVERY CLICK rather than cached. The list changes when the
+      user saves or deletes, a stale copy would step to the wrong patch or
+      off the end, and this is a click - once per human action, not once per
+      frame. `listPresets` is a bridge call, not a file read.
+
+      A patch the user has edited has the same name as the one it came from,
+      so stepping from an edited "Triplet Growl" moves to the patch after the
+      real one. That is what somebody means by "next" - the alternative is
+      refusing to step at all once anything is touched. */
+  const stepPreset = useCallback(
+    (delta: number) => {
+      void (async () => {
+        const { presets } = await listPresets();
+
+        if (presets.length === 0) return;
+
+        const current = presets.findIndex((row) => row.name === preset?.name);
+
+        //  Not found (a patch loaded from a file, or nothing loaded yet)
+        //  starts at the beginning going forward and the end going back,
+        //  so both arrows do something from any state.
+        const start = current >= 0 ? current : delta > 0 ? -1 : 0;
+        const next = (start + delta + presets.length) % presets.length;
+
+        const row = presets[next];
+
+        if (!row) return;
+
+        await loadPreset(row.index);
+        refreshPresetRef.current?.();
+      })();
+    },
+    [preset?.name],
+  );
+
   const refreshPreset = useCallback(() => {
     void getPresetStatus().then(setPreset);
   }, []);
+
+  useEffect(() => {
+    refreshPresetRef.current = refreshPreset;
+  }, [refreshPreset]);
 
   useEffect(() => {
     refreshPreset();
@@ -123,7 +178,13 @@ export function App() {
 
         <div className="gn-preset-group">
           <div className="gn-preset">
-          <button className="gn-preset__arrow" type="button" aria-label="Previous preset">
+          <button
+            className="gn-preset__arrow"
+            type="button"
+            aria-label="Previous preset"
+            title="Previous preset"
+            onClick={() => stepPreset(-1)}
+          >
             ‹
           </button>
           <button
@@ -141,7 +202,13 @@ export function App() {
             {preset?.modified && <span className="gn-preset__dirty">*</span>}
             {preset?.loadingTables && <span className="gn-preset__loading">…</span>}
           </button>
-          <button className="gn-preset__arrow" type="button" aria-label="Next preset">
+          <button
+            className="gn-preset__arrow"
+            type="button"
+            aria-label="Next preset"
+            title="Next preset"
+            onClick={() => stepPreset(1)}
+          >
             ›
           </button>
           </div>

@@ -433,6 +433,218 @@ void writePresetLibrary (const juce::File& outputDirectory)
         std::printf ("  WARNING: %d file(s) did not parse back\n", written - verified);
 }
 
+/*  MEASURE THE BANK THE SAME WAY THE REFERENCES WERE MEASURED.
+
+    The client's tracks were analysed for band balance, crest factor and the
+    modulation rate of the 220-1200 Hz band. Those numbers are the target, and
+    until now there was no way to ask what the BANK measures - so "this patch
+    does not sound like the reference" could only ever be answered by ear, one
+    patch at a time, by somebody who had both in front of them.
+
+    This renders each preset at the note its category implies and prints the
+    same columns. It does not say whether a patch is good; taste is not
+    measurable. It says whether a patch is in the same PLACE as the material,
+    which is a different question and one that has an answer.
+
+    The band energies are SUMMED over their bins, never averaged - a mean
+    divides out the band's width, and narrow low bands then come back as
+    thousands of per cent. That error was made once already on the reference
+    side and is easy to repeat here.
+
+    The wobble rate needs a hop that can SEE it: a 1/8 triplet at 150 BPM is
+    7.5 Hz, so a hop of 8192 samples (Nyquist 1.35 Hz) reports the band edge
+    instead of the music, which is exactly what happened the first time. 256
+    gives a Nyquist near 94 Hz.  */
+void measureBank (const juce::File& outputDirectory, int stride)
+{
+    GnarlProcessor builder;
+    builder.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
+    builder.prepareToPlay (kSampleRate, kBlockSize);
+
+    const auto bank = preset::FactoryBank::build (
+        builder.getValueTreeState(), builder.getValueTreeState().copyState());
+
+    const auto definitions = preset::FactoryBank::getDefinitions();
+    const auto count = std::min (bank.size(), definitions.size());
+
+    constexpr int kFftOrder = 15;                 // 32768, ~1.5 Hz per bin
+    constexpr int kFftSize = 1 << kFftOrder;
+
+    juce::dsp::FFT fft { kFftOrder };
+    std::vector<float> window (kFftSize);
+
+    for (int i = 0; i < kFftSize; ++i)
+        window[static_cast<std::size_t> (i)] =
+            0.5f - 0.5f * std::cos (juce::MathConstants<float>::twoPi * i / (kFftSize - 1));
+
+    struct Band { const char* name; float lo; float hi; };
+    const Band bands[] = { { "sub", 20.0f, 80.0f }, { "low", 80.0f, 220.0f },
+                           { "growl", 220.0f, 1200.0f }, { "upper", 1200.0f, 5000.0f },
+                           { "air", 5000.0f, 16000.0f } };
+
+    std::printf ("%-26s %6s %6s %6s %6s %6s %6s %8s\n",
+                 "preset", "sub", "low", "growl", "upper", "air", "crest", "wobble");
+
+    std::vector<double> subs, growls, crests, rates;
+
+    for (std::size_t i = 0; i < count; i += static_cast<std::size_t> (stride))
+    {
+        const auto tree = bank[i];
+        const auto meta = preset::readMetadata (tree);
+        const auto note = preset::FactoryBank::getAuditionNote (meta.category);
+
+        auto rendered = renderToBuffer (4.0,
+            [&tree] (GnarlProcessor& p) { p.getPresets().apply (tree); },
+            [note] (juce::MidiBuffer& midi, int blockIndex) { holdNote (midi, blockIndex, note); },
+            [] (GnarlProcessor&, double) {});
+
+        const auto n = rendered.getNumSamples();
+
+        if (n < kFftSize)
+            continue;
+
+        //  Mono sum, skipping the attack so this measures the sustained patch.
+        const auto skip = static_cast<int> (0.5 * kSampleRate);
+        std::vector<float> mono (static_cast<std::size_t> (n - skip));
+
+        for (int j = skip; j < n; ++j)
+            mono[static_cast<std::size_t> (j - skip)] =
+                0.5f * (rendered.getSample (0, j) + rendered.getSample (1, j));
+
+        //  ---- band balance, averaged over overlapping frames -------------
+        std::vector<float> power (static_cast<std::size_t> (kFftSize / 2 + 1), 0.0f);
+        int frames = 0;
+
+        for (std::size_t off = 0; off + kFftSize < mono.size(); off += kFftSize / 2)
+        {
+            std::vector<float> fftData (static_cast<std::size_t> (2 * kFftSize), 0.0f);
+
+            for (int j = 0; j < kFftSize; ++j)
+                fftData[static_cast<std::size_t> (j)] =
+                    mono[off + static_cast<std::size_t> (j)] * window[static_cast<std::size_t> (j)];
+
+            fft.performFrequencyOnlyForwardTransform (fftData.data());
+
+            for (std::size_t b = 0; b < power.size(); ++b)
+                power[b] += fftData[b] * fftData[b];
+
+            ++frames;
+        }
+
+        if (frames == 0)
+            continue;
+
+        double total = 0.0;
+
+        for (auto& v : power)
+        {
+            v /= static_cast<float> (frames);
+            total += v;
+        }
+
+        if (total <= 0.0)
+            continue;
+
+        double pct[5] {};
+
+        for (int b = 0; b < 5; ++b)
+        {
+            const auto loBin = static_cast<std::size_t> (bands[b].lo * kFftSize / kSampleRate);
+            const auto hiBin = std::min (static_cast<std::size_t> (bands[b].hi * kFftSize / kSampleRate),
+                                         power.size() - 1);
+            double sum = 0.0;
+
+            for (auto k = loBin; k < hiBin; ++k)   // SUMMED, not averaged
+                sum += power[k];
+
+            pct[b] = 100.0 * sum / total;
+        }
+
+        //  ---- crest ------------------------------------------------------
+        double sumSq = 0.0;
+        float peak = 0.0f;
+
+        for (auto v : mono)
+        {
+            sumSq += static_cast<double> (v) * v;
+            peak = std::max (peak, std::abs (v));
+        }
+
+        const auto rms = std::sqrt (sumSq / static_cast<double> (mono.size()));
+        const auto crest = rms > 0.0 ? 20.0 * std::log10 (peak / rms) : 0.0;
+
+        //  ---- wobble rate of the growl band ------------------------------
+        //  A one-pole band-pass is enough here: the question is how fast the
+        //  envelope moves, not its exact shape.
+        double bp = 0.0, lp = 0.0;
+        constexpr int kHop = 256;
+        std::vector<double> env;
+        double acc = 0.0;
+        int accN = 0;
+
+        for (auto v : mono)
+        {
+            lp += 0.035 * (v - lp);           // ~270 Hz
+            bp += 0.28 * (lp - bp);           // envelope of the low-mid
+            acc += std::abs (lp - bp);
+            if (++accN == kHop) { env.push_back (acc / kHop); acc = 0.0; accN = 0; }
+        }
+
+        double rate = 0.0;
+
+        if (env.size() > 64)
+        {
+            double mean = 0.0;
+            for (auto v : env) mean += v;
+            mean /= static_cast<double> (env.size());
+            for (auto& v : env) v -= mean;
+
+            //  Goertzel over the musical wobble range, which is cheaper and
+            //  clearer than an FFT of 200 points.
+            const auto envRate = kSampleRate / kHop;
+            double best = 0.0;
+
+            for (double f = 1.5; f <= 16.0; f += 0.05)
+            {
+                const auto w = juce::MathConstants<double>::twoPi * f / envRate;
+                double s1 = 0.0, s2 = 0.0;
+                const auto c = 2.0 * std::cos (w);
+
+                for (auto v : env) { const auto s0 = v + c * s1 - s2; s2 = s1; s1 = s0; }
+
+                const auto mag = s1 * s1 + s2 * s2 - c * s1 * s2;
+
+                if (mag > best) { best = mag; rate = f; }
+            }
+        }
+
+        std::printf ("%-26s %6.1f %6.1f %6.1f %6.1f %6.1f %6.1f %7.2fHz\n",
+                     meta.name.substring (0, 25).toRawUTF8(),
+                     pct[0], pct[1], pct[2], pct[3], pct[4], crest, rate);
+
+        subs.push_back (pct[0]);
+        growls.push_back (pct[2]);
+        crests.push_back (crest);
+        rates.push_back (rate);
+    }
+
+    const auto report = [] (const char* label, std::vector<double> v, const char* target)
+    {
+        if (v.empty()) return;
+        std::sort (v.begin(), v.end());
+        std::printf ("%-8s min %6.2f   max %6.2f   median %6.2f      reference: %s\n",
+                     label, v.front(), v.back(), v[v.size() / 2], target);
+    };
+
+    std::printf ("\n");
+    report ("sub",   subs,   "58-85%, median 70");
+    report ("growl", growls, "3.7-35%, median 9.9");
+    report ("crest", crests, "8.9-14.5 dB, median 11");
+    report ("rate",  rates,  "2.35-7.10 Hz, clustered at 2.35 and 4.65");
+
+    juce::ignoreUnused (outputDirectory);
+}
+
 int main (int argc, char* argv[])
 {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -450,6 +662,10 @@ int main (int argc, char* argv[])
     /*  --presets writes the bank as .gnarl FILES rather than as audio: a
         library to back up, share or load on another machine. */
     auto presetsOnly = false;
+    /*  --measure prints the band balance, crest and wobble rate of the bank
+        in the same columns the reference tracks were measured in. */
+    auto measureOnly = false;
+    auto measureStride = 7;
     juce::File outputDirectory = juce::File::getCurrentWorkingDirectory();
 
     for (int i = 1; i < argc; ++i)
@@ -462,11 +678,21 @@ int main (int argc, char* argv[])
             auditionOnly = true;
         else if (argument == "--presets")
             presetsOnly = true;
+        else if (argument == "--measure")
+            measureOnly = true;
+        else if (argument.startsWith ("--stride="))
+            measureStride = std::max (1, argument.fromFirstOccurrenceOf ("=", false, false).getIntValue());
         else
             outputDirectory = juce::File (argument);
     }
 
     outputDirectory.createDirectory();
+
+    if (measureOnly)
+    {
+        measureBank (outputDirectory, measureStride);
+        return 0;
+    }
 
     if (presetsOnly)
     {

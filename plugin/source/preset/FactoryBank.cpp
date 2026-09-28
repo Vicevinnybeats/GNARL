@@ -287,7 +287,7 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::osc[0].enabled, 0.0f },
               { pid::sub.enabled, 1.0f },
               { pid::sub.level, 1.0f },
-              { pid::sub.octave, -2.0f },
+              { pid::sub.octave, -1.0f },   // -2 is 16 Hz at this root: inaudible
               { pid::envelope[0].attack, 0.004f },
               { pid::envelope[0].decay, 0.9f },
               { pid::envelope[0].sustain, 0.6f },
@@ -566,7 +566,7 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::osc[0].sendFilter1, 1.0f },
               { pid::sub.enabled, 1.0f },
               { pid::sub.level, 0.45f },
-              { pid::sub.octave, -2.0f },
+              { pid::sub.octave, -1.0f },   // -2 is 16 Hz at this root: inaudible
               { pid::sub.sendDirect, 1.0f },
               { pid::filter[0].enabled, 1.0f },
               { pid::filter[0].type, kFilterFormant },
@@ -1258,8 +1258,23 @@ int FactoryBank::getAuditionNote (const juce::String& category)
         contains - the low-pass at 140-380 Hz removes the note - and the bank
         test would then fail it for being inaudible when the only thing wrong
         was the question. */
+    /*  MIDI 39, WHICH IS WHERE THE CLIENT ACTUALLY PLAYS. Asked where the
+        bank sits in a piano roll, the answer was "D#3 or D#2" - and FL
+        Studio labels middle C as C5 where most hosts call it C4, so their
+        D#3 is MIDI 39 (77.8 Hz) and their D#2 is MIDI 27 (38.9 Hz).
+
+        Auditioning at 36 was a semitone-and-a-half below the top of that and
+        an interval above the bottom: close, and not the note. A preset is
+        judged at the pitch it is played at or it is judged at the wrong
+        question - which is the lesson `getAuditionNote` exists for.
+
+        NOTE THE CONSEQUENCE FOR THE SUB. At 77.8 Hz a sub an octave down is
+        38.9 Hz, which is right. At their LOWER note, 38.9 Hz, that same sub
+        is 19.4 Hz - under the bottom of hearing, the exact fault just fixed
+        one level up. A patch played that low wants its sub at the root, and
+        no preset can know which note it will be given. */
     if (category == "Bass" || category == "Growl" || category == "Sub")
-        return 36;                          // C1 - where a riddim patch lives.
+        return 39;                          // D#2 in C4=60 naming; D#3 in FL.
 
     if (category == "Pluck" || category == "FX" || category == "Sequence")
         return 48;                          // C2.

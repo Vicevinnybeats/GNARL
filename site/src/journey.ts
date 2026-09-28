@@ -1007,6 +1007,12 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   path.getPointAt(0, camera.position);
   camera.position.z += 26;
 
+  /*  The aspect the FRAMING solve uses - see the note at the end of resize().
+      Separate from camera.aspect, which must follow the canvas exactly. */
+  let framingAspect = 1;
+  let framingWidth = 0;
+  let framingHeight = 0;
+
   function resize(): void {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
@@ -1030,6 +1036,37 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
     camera.aspect = width / height;
     camera.fov = mobile ? 66 : 52;
     camera.updateProjectionMatrix();
+
+    /*  THE FRAMING ASPECT IS NOT THE CAMERA'S ASPECT, and that separation is
+        the whole point of it.
+
+        `camera.aspect` has to track the canvas exactly or the picture
+        stretches, so it cannot be frozen. But the framing solve DIVIDES by
+        it - the distance that puts an object at a given fraction of the
+        frame's width depends on how wide the frame is - so every change to
+        it moves the camera and resizes the object.
+
+        On a phone the address bar collapses as you scroll DOWN and returns
+        as you scroll UP. The viewport gets about a tenth taller and then a
+        tenth shorter, the aspect narrows and widens with it, and the object
+        shrank on the way down and grew on the way back. Same cause as the
+        scroll mapping fixed in boot.ts, reached by a different route, and
+        left behind when that one was fixed.
+
+        So the SOLVE uses a stable aspect that ignores a height-only change
+        small enough to be the browser's own chrome. The picture is then
+        framed for an aspect a few per cent off the real one while the bar is
+        in motion, which is invisible; an object that changes size is not. */
+    const widthChanged = width !== framingWidth;
+    const heightDrift = Math.abs(height - framingHeight);
+
+    // 25%: past an address bar (~10-15%), under a rotation - which changes
+    // the width as well and is caught by the first test anyway.
+    if (widthChanged || heightDrift > framingHeight * 0.25 || framingHeight === 0) {
+      framingWidth = width;
+      framingHeight = height;
+      framingAspect = width / Math.max(1, height);
+    }
   }
 
   return {
@@ -1136,8 +1173,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         THREE.MathUtils.smoothstep(form, 4.2, 5.0),
       );
 
+      //  framingAspect, NOT camera.aspect: an address bar sliding in and out
+      //  must not resize the subject. See the note in resize().
       const forWidth =
-        halfWidth / (widthFraction * halfFov * Math.max(0.1, camera.aspect));
+        halfWidth / (widthFraction * halfFov * Math.max(0.1, framingAspect));
 
       const base = Math.max(forHeight, forWidth);
 

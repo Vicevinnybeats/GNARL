@@ -34,6 +34,8 @@ namespace
     constexpr auto kRandomStep = static_cast<float> (choices::LfoShape::randomStep);
 
     constexpr auto kQuarter = static_cast<float> (choices::LfoRateDivision::quarter);
+    constexpr auto kQuarterT =
+        static_cast<float> (choices::LfoRateDivision::quarterTriplet);
     constexpr auto kEighth = static_cast<float> (choices::LfoRateDivision::eighth);
     constexpr auto kEighthT = static_cast<float> (choices::LfoRateDivision::eighthTriplet);
     constexpr auto kEighthD = static_cast<float> (choices::LfoRateDivision::eighthDotted);
@@ -271,11 +273,27 @@ namespace
     /*  THE SUB IS THE PATCH, on the evidence. It carries 50-81% of the energy
         in every reference track measured, so a bass patch here ships with it
         on and loud rather than treating it as a garnish under the growl. */
+    /*  THE SUB OCTAVE IS -1, NOT -2, AND THAT IS ARITHMETIC RATHER THAN
+        TASTE.
+
+        A Bass, Growl or Sub patch is played at MIDI 36 - 65.4 Hz, which is
+        where the genre sits and what `getAuditionNote` returns. Two octaves
+        below that is 16.35 Hz: under the 20 Hz bottom of the sub band, under
+        the bottom of human hearing, and gone on every speaker ever built. It
+        is not a quiet sub, it is no sub, and it still costs the headroom.
+
+        A quarter of the generated presets were drawing it, and so was
+        "Chainsaw Riddim" - which is why that patch measured 0.3% of its
+        energy in the sub band while the reference tracks measure 58-85%.
+        The patch had a sub the whole time; it was an octave and a half below
+        anything that could reproduce it.
+
+        One octave down is 32.7 Hz, which is low and audible. */
     void addSub (std::vector<Setting>& s, Rng& rng, float lo, float hi)
     {
         s.push_back ({ pid::sub.enabled, 1.0f });
         s.push_back ({ pid::sub.level, rng.range (lo, hi) });
-        s.push_back ({ pid::sub.octave, rng.chance (0.25f) ? -2.0f : -1.0f });
+        s.push_back ({ pid::sub.octave, -1.0f });
         s.push_back ({ pid::sub.waveform, rng.chance (0.7f) ? kSubSine : kSubTriangle });
         s.push_back ({ pid::sub.sendDirect, 1.0f });
     }
@@ -297,20 +315,37 @@ namespace
         s.push_back ({ pid::modSlot[static_cast<std::size_t> (slot)].depth, depth });
     }
 
-    /*  ARTICULATION SITS AT 1/8 AND 1/8 TRIPLET, measured: the 220-1200 Hz
-        band of the reference tracks is modulated at 4.7-8.2 Hz, and at the
-        ~144 BPM they run that is an eighth (4.8 Hz) and an eighth triplet
-        (7.2 Hz). The faster divisions are here as the minority they are in
-        the material rather than as an equal choice. */
+    /*  ARTICULATION SITS AT 1/4 AND 1/8, AND THIS IS A CORRECTION.
+
+        The first measurement said 1/8 and 1/8 triplet, 4.7-8.2 Hz, and the
+        table was weighted there: 34% eighth-triplet, 18% sixteenth, 12%
+        sixteenth-triplet - so nearly two thirds of the growls wobbled at
+        7.2 Hz or faster.
+
+        Twelve reference tracks measured at the DROP (from 0:35, where the
+        client pointed) put the 220-1200 Hz band's modulation at 2.35 Hz or
+        4.65 Hz in ten of them. At the 140-150 BPM these run, those are a
+        QUARTER (2.4 Hz) and an EIGHTH (4.8 Hz). Exactly one track reaches
+        eighth-triplet, and none is faster.
+
+        So the bank was running at roughly double the genre's articulation,
+        which is the single measurable reason a correct-sounding patch does
+        not sound like the reference: everything else can be right and a
+        growl at twice the rate is a different sound. It reads as busy and
+        thin where the material is slow and heavy.
+
+        The two clusters are even, because the measurement is even: five
+        tracks each. The faster divisions stay, as the minority they now
+        actually are rather than as the majority they were. */
     float growlDivision (Rng& rng)
     {
         const auto roll = rng.unit();
 
-        if (roll < 0.34f) return kEighthT;
-        if (roll < 0.62f) return kEighth;
-        if (roll < 0.80f) return kSixteenth;
-        if (roll < 0.92f) return kSixteenthT;
-        return kEighthD;
+        if (roll < 0.34f) return kQuarter;        // 2.4 Hz  - 5 of 12 tracks
+        if (roll < 0.68f) return kEighth;         // 4.8 Hz  - 5 of 12
+        if (roll < 0.80f) return kQuarterT;       // 3.6 Hz  - the 3.50 Hz one
+        if (roll < 0.91f) return kEighthT;        // 7.2 Hz  - the 7.10 Hz one
+        return kSixteenth;                        // 9.6 Hz  - none, kept sparse
     }
 } // namespace
 
@@ -594,7 +629,8 @@ std::vector<Definition> generateVariations()
 
         s.push_back ({ pid::sub.enabled, 1.0f });
         s.push_back ({ pid::sub.level, rng.range (0.86f, 1.0f) });
-        s.push_back ({ pid::sub.octave, rng.chance (0.35f) ? -2.0f : -1.0f });
+        //  -1 only: see addSub above. At a 65.4 Hz root, -2 is 16 Hz.
+        s.push_back ({ pid::sub.octave, -1.0f });
         s.push_back ({ pid::sub.waveform,
                        rng.chance (0.75f) ? kSubSine
                                           : (rng.chance (0.5f) ? kSubTriangle : kSubSquare) });
@@ -702,7 +738,12 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::osc[0].enabled, 1.0f });
         s.push_back ({ pid::osc[0].wavetable, rng.pick (kBrightTables) });
         s.push_back ({ pid::osc[0].tablePos, rng.quantised (0.50f, 0.95f, 0.05f) });
-        s.push_back ({ pid::osc[0].level, rng.range (0.72f, 0.88f) });
+        /*  0.82-0.95, raised from 0.72-0.88. A screech has no sub under it
+            and gets its level from the oscillator alone, so it has the least
+            margin of any archetype here - one variant measured -31.7 dBFS
+            against the bank's -30 floor. The floor is not a mix decision;
+            it is the line under which a patch is not usable at all. */
+        s.push_back ({ pid::osc[0].level, rng.range (0.82f, 0.95f) });
         s.push_back ({ pid::osc[0].unisonVoices, static_cast<float> (3 + rng.index (4)) });
         s.push_back ({ pid::osc[0].unisonDetune, rng.range (0.08f, 0.26f) });
         s.push_back ({ pid::osc[0].unisonSpread, rng.range (0.4f, 0.9f) });
@@ -740,7 +781,10 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::fxDistortion[0].drive, rng.range (6.0f, 16.0f) });
         s.push_back ({ pid::fxDistortion[0].tone, rng.range (0.45f, 0.75f) });
 
-        addGlue (s, rng, rng.range (0.30f, 0.52f));
+        //  More OTT than before for the same reason: it lifts the quiet
+        //  part of a bright, transient sound, which is where a screech's
+        //  perceived level lives.
+        addGlue (s, rng, rng.range (0.44f, 0.66f));
 
         cached.push_back ({ name (kScreechFirst, kScreechSecond, i + 1),
                             "Lead",
@@ -824,7 +868,22 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::fxDistortion[0].drive, rng.range (10.0f, 18.0f) });
         s.push_back ({ pid::fxDistortion[0].tone, rng.range (0.45f, 0.70f) });
 
-        addGlue (s, rng, rng.range (0.42f, 0.58f));
+        /*  MORE OTT, AND A MASTER TRIM, because this archetype has the
+            least level of any here and one variant measured -31.7 dBFS
+            against the bank's -30 floor.
+
+            It is not the oscillator - that already runs at 0.88-0.96. It is
+            what happens after: a band-pass takes the low end off, and the
+            hyper spreads the signal over several detuned taps whose partial
+            cancellation is the effect working as intended (CLAUDE.md's
+            root-n note). Raising the source would only clip the peaks
+            before the losses.
+
+            OTT lifts the quiet part of a bright sustained sound, which is
+            where a lead's perceived level lives, and the master trim covers
+            the rest without touching the balance inside the patch. */
+        addGlue (s, rng, rng.range (0.56f, 0.72f));
+        s.push_back ({ pid::masterGain, rng.range (2.0f, 3.5f) });   // dB
 
         cached.push_back ({ name (kScreechFirst, kScreechSecond, 100 + i),
                             "Lead",
@@ -967,7 +1026,26 @@ std::vector<Definition> generateVariations()
         s.push_back ({ pid::fxDimension.enabled, 1.0f });
         s.push_back ({ pid::fxDimension.amount, rng.range (0.3f, 0.7f) });
 
-        addGlue (s, rng, rng.range (0.18f, 0.34f));
+        /*  A TEXTURE HAS NO DRIVE STAGE, so it has no gain staging either -
+            the same reason the graintable pack arrived 40 dB under the
+            riddim bank, and the same reason the pluck archetype needed a
+            sub. Nothing here is a bug: a reverb at 25-50% wet spreads the
+            energy in time, the band-pass takes the extremes off, and the
+            legitimate costs stack until "Drone Haze 1" measures -35 dBFS.
+
+            More OTT and a master trim, for the reason they work on the
+            hyper lead above: OTT lifts the quiet part of a sustained sound,
+            and the trim covers the rest without changing the balance
+            inside the patch. A texture is quiet BY DESIGN relative to a
+            growl; the floor is about being usable, not about being loud. */
+        addGlue (s, rng, rng.range (0.34f, 0.52f));
+        /*  5.5-7.5, not 3.5-5.5. The first range fixed the worst variant
+            and left "Ether Field 1" at -30.33 dBFS - a third of a decibel
+            under, because the trim is drawn per patch and that one drew
+            the bottom of the range. A floor has to hold for the WHOLE
+            range, not for its median, which is the same reason the drive
+            stage's loose threshold hid a +15 dB bug. */
+        s.push_back ({ pid::masterGain, rng.range (5.5f, 7.5f) });   // dB
 
         cached.push_back ({ name (kTextureFirst, kTextureSecond, i + 1),
                             "Pad",
