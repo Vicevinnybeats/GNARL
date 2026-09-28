@@ -6,6 +6,7 @@
 #include "params/ParameterIDs.h"
 #include "preset/FactoryBank.h"
 
+#include <algorithm>
 #include <cmath>
 
 using namespace gnarl;
@@ -464,4 +465,157 @@ TEST_CASE ("The factory bank round-trips through the preset file format", "[fact
     unique.removeDuplicates (true);   // ignoring case: Windows filenames do
 
     CHECK (unique.size() == filenames.size());
+}
+
+/*  DIFFERENT PRESETS SOUND DIFFERENT.
+
+    This is the assertion that was missing when the shipped plugin embedded a
+    UI with no backend: every preset sounded identical, because none of them
+    ever reached the engine, and nothing in the suite said they had to.
+
+    It goes through PresetManager - `loadByIndex`, the same call the browser's
+    rows and the header's arrows make - rather than through FactoryBank
+    directly. Testing the bank proves the definitions differ; this has to
+    prove that the path a USER takes changes what comes out, which is a
+    different claim and the one that broke.
+
+    WHY RMS AND SPECTRAL CENTROID, not sample equality: two presets could
+    differ in one sample and be indistinguishable, which would pass a
+    bit-comparison and fail a listener. Level and brightness are the two
+    coarsest things an ear separates instantly, so a pair matching on both is
+    a pair somebody would call "the same sound".
+
+    A pair is allowed to match - "Sub Drop" and a quieter sub genuinely sit
+    close - so the assertion is on the POPULATION: across a spread of the bank
+    the great majority must be distinguishable. A run where nearly everything
+    collides is the bug this is here for, and it does not care which pair. */
+TEST_CASE ("Loading different factory presets produces different audio", "[factory]")
+{
+    constexpr double kRate = 48000.0;
+    constexpr int kBlock = 256;
+
+    struct Fingerprint
+    {
+        juce::String name;
+        float rms = 0.0f;
+        float centroid = 0.0f;
+    };
+
+    GnarlProcessor processor;
+    processor.setPlayConfigDetails (0, 2, kRate, kBlock);
+    processor.prepareToPlay (kRate, kBlock);
+
+    auto& presets = processor.getPresets();
+    const auto rows = presets.list();
+
+    /*  THE LISTING ITSELF IS PART OF THE CLAIM. An empty list would make
+        every loop below vacuous and the test would pass having asserted
+        nothing - which is exactly how a browser showing no presets went
+        unnoticed. */
+    REQUIRE (rows.size() >= static_cast<std::size_t> (preset::FactoryBank::getCount()));
+
+    const auto factoryRows = static_cast<int> (
+        std::count_if (rows.begin(), rows.end(),
+                       [] (const preset::Entry& e) { return e.isFactory; }));
+
+    CHECK (factoryRows == preset::FactoryBank::getCount());
+
+    const auto fingerprint = [&] (int index) -> Fingerprint
+    {
+        REQUIRE (presets.loadByIndex (index));
+        processor.prepareToPlay (kRate, kBlock);
+
+        juce::AudioBuffer<float> buffer (2, kBlock);
+        const auto note = preset::FactoryBank::getAuditionNote (
+            presets.getCurrent().category);
+
+        double sumSq = 0.0, weighted = 0.0, total = 0.0;
+        int counted = 0;
+
+        for (int block = 0; block < 160; ++block)
+        {
+            juce::MidiBuffer midi;
+
+            if (block == 0)
+                midi.addEvent (juce::MidiMessage::noteOn (1, note, 1.0f), 0);
+
+            buffer.clear();
+            processor.processBlock (buffer, midi);
+
+            if (block < 40)     // past the attack
+                continue;
+
+            /*  Zero crossings stand in for a spectral centroid here: a real
+                FFT per preset would make this test minutes long, and the
+                question is only "is this a brighter sound than that one",
+                which the crossing rate answers for a fraction of the cost. */
+            for (int i = 1; i < kBlock; ++i)
+            {
+                const auto a = buffer.getSample (0, i - 1);
+                const auto b = buffer.getSample (0, i);
+
+                sumSq += static_cast<double> (b) * b;
+
+                if ((a < 0.0f) != (b < 0.0f))
+                    weighted += 1.0;
+
+                total += 1.0;
+                ++counted;
+            }
+        }
+
+        Fingerprint f;
+        f.name = presets.getCurrent().name;
+        f.rms = counted > 0 ? static_cast<float> (std::sqrt (sumSq / counted)) : 0.0f;
+        f.centroid = total > 0.0 ? static_cast<float> (weighted / total) : 0.0f;
+        return f;
+    };
+
+    /*  A SPREAD THROUGH THE BANK rather than the first N. The first rows are
+        the hand-written presets, which differ from each other by
+        construction; sampling across the whole list reaches the generated
+        variants too, where near-duplicates would actually live. */
+    std::vector<Fingerprint> prints;
+
+    //  `loadByIndex` indexes INTO list(), so a row's index is its position.
+    //  The factory rows come first, which PresetManager::list() guarantees.
+    for (int i = 0; i < factoryRows; i += 7)
+        prints.push_back (fingerprint (i));
+
+    REQUIRE (prints.size() >= 8);
+
+    int distinct = 0, pairs = 0;
+
+    for (std::size_t a = 0; a < prints.size(); ++a)
+        for (std::size_t b = a + 1; b < prints.size(); ++b)
+        {
+            ++pairs;
+
+            const auto levelDiff = std::abs (prints[a].rms - prints[b].rms);
+            const auto toneDiff = std::abs (prints[a].centroid - prints[b].centroid);
+
+            //  Audibly apart on level (about 0.5 dB at these amplitudes) OR
+            //  on brightness. Either alone is enough to tell two patches
+            //  apart; requiring both would fail on a pair that differs only
+            //  in timbre, which is most of this bank.
+            if (levelDiff > 0.002f || toneDiff > 0.004f)
+                ++distinct;
+        }
+
+    const auto ratio = static_cast<double> (distinct) / static_cast<double> (pairs);
+
+    INFO ("distinct pairs: " << distinct << " of " << pairs);
+
+    /*  0.9, not 1.0. Some collision is real and is not a defect; total
+        collision is the failure. With the bug present this measures 0.0,
+        because every render is byte-identical - so the threshold is set by
+        the separation, not by today's figure. */
+    CHECK (ratio > 0.9);
+
+    //  And not silence dressed up as variety.
+    for (const auto& p : prints)
+    {
+        INFO ("preset: " << p.name);
+        CHECK (p.rms > 0.0001f);
+    }
 }
