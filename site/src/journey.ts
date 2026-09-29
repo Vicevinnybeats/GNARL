@@ -1012,6 +1012,31 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       its first drawn frame is already at the end of the arrival dolly rather
       than jumping there once the loader clears. */
   let entry = 1;
+  /*  ADAPTIVE QUALITY.
+   *
+   *  The mobile budget here - 4,500 stars, half-resolution bloom, pixel
+   *  ratio capped at 1.25 - was chosen against one class of device and then
+   *  applied to every phone ever made. A four-year-old midrange Android and
+   *  a current iPhone differ by more than an order of magnitude in fill
+   *  rate, and no constant is right for both.
+   *
+   *  So the scene MEASURES ITSELF and steps down when it cannot hold a
+   *  readable frame rate. Two steps, cheapest-looking first: bloom off, then
+   *  a lower pixel ratio. Bloom goes first because it is the single most
+   *  expensive thing here (a five-pass blur chain over the whole frame) and
+   *  the one whose absence reads as "slightly less glow" rather than as
+   *  "blurry".
+   *
+   *  ONE WAY ONLY. Quality never climbs back, and that is deliberate: a
+   *  scene that improves the moment it gets cheap and degrades the moment it
+   *  gets dear oscillates visibly on exactly the device that needs help,
+   *  because the frame rate depends on the quality it is being used to
+   *  choose. A downgrade is a decision, not a setting.
+   */
+  let quality = 0;                 // 0 = full, 1 = no bloom, 2 = also coarser
+  let slowFrames = 0;
+  let sampledFrames = 0;
+
   //  The lateral truck. See setLateral in the Journey interface.
   let lateral = 0;
   const lookTarget = new THREE.Vector3();
@@ -1313,6 +1338,32 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
       dissolveUniforms.uFade.value = solid * (1 - gone);
 
+      /*  CULLED WHEN THEY ARE NOT IN THE STORY.
+       *
+       *  The dust is 22,000 additively-blended points and the driver is a
+       *  full solid mesh, and BOTH were drawn on every frame of the entire
+       *  page - all the way through the hero, the engine section and the
+       *  presets - despite only being visible between u=0.58 and u=0.78.
+       *  `frustumCulled = false` on the dust (correct: it is positioned in
+       *  a vertex shader, so its bounding box is a lie) meant three.js
+       *  could not skip them either.
+       *
+       *  An alpha of zero still costs everything except the final blend: the
+       *  vertex shader runs per point, every fragment is rasterised, and on
+       *  a phone the cost here is FILL RATE. That is most of a phone's
+       *  budget spent drawing two invisible objects for four fifths of the
+       *  page, which is why the scene teleports rather than moves - at 8fps
+       *  you see eight positions a second, and time-based easing cannot make
+       *  eight positions look like motion.
+       *
+       *  `panel.visible` below already did exactly this. These two were
+       *  simply never given the same treatment.
+       */
+      const dissolveActive = dissolveUniforms.uFade.value > 0.001;
+
+      driver.visible = dissolveActive;
+      dust.visible = dissolveActive;
+
       // The burn runs well past 1: the field tops out there, and it must
       // clear it by more than the motes' fade window.
       dissolveUniforms.uThreshold.value = THREE.MathUtils.lerp(
@@ -1343,6 +1394,45 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       // A slow turn, so the burn is seen crossing the form.
       driver.rotation.y = elapsed * 0.12;
       dust.rotation.y = driver.rotation.y;
+
+      /*  MEASURE, THEN DEGRADE. `delta` is the step this frame was given, so
+          it already IS the frame time - no separate clock needed.
+
+          45ms is the threshold (about 22fps). Below that the time-based
+          easing is still arithmetically correct and still unwatchable: you
+          see twenty-two positions a second, and no amount of correct
+          interpolation makes twenty-two positions read as motion. That is
+          the "teleporting" this exists to fix.
+
+          Sampled over 90 frames rather than reacting to one: a single slow
+          frame is a garbage collection or a texture upload, not a verdict on
+          the device. A downgrade on that would fire during the arrival
+          animation on hardware that is otherwise fine. */
+      if (quality < 2) {
+        sampledFrames += 1;
+
+        if (delta > 0.045) slowFrames += 1;
+
+        if (sampledFrames >= 90) {
+          //  A third of the window too slow: this device cannot hold it.
+          if (slowFrames > 30) {
+            quality += 1;
+
+            if (quality === 1) {
+              //  Bloom off. The composer keeps the pass but stops it doing
+              //  the work; removing it would rebuild the chain mid-scroll.
+              bloom.enabled = false;
+            } else {
+              renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.8));
+              starUniforms.uPixelRatio.value = renderer.getPixelRatio();
+              moteUniforms.uPixelRatio.value = renderer.getPixelRatio();
+            }
+          }
+
+          slowFrames = 0;
+          sampledFrames = 0;
+        }
+      }
 
       composer.render();
     },
