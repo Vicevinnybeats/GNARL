@@ -25,6 +25,9 @@ import { useModulationFrame } from '../bridge/useModulation';
 import { useParameter } from '../bridge/useParameter';
 import { useChoiceParameter, useToggleParameter } from '../bridge/useDiscreteParameter';
 import { CompactSections } from '../components/CompactSections';
+import {
+  refreshPreviewModState, setPreviewCurve, setPreviewDestination,
+} from '../bridge/previewModState';
 import './ModTab.css';
 
 /**
@@ -58,6 +61,9 @@ export function ModTab() {
 
       setCurves(state.curves);
       setDestinations(state.destinations);
+      //  And the audio path's own copy, which is read synchronously on a
+      //  note-on and cannot await this.
+      refreshPreviewModState();
       setAvailable(state.available);
       setPreviewCurves(state.curves);
       setPreviewDestinations(state.destinations);
@@ -74,6 +80,9 @@ export function ModTab() {
         const next = [...previous];
         next[index] = points;
         setPreviewCurves(next);
+        //  Slot 0 drives the preview voice's LFO; drawing has to be audible
+        //  on the very next note, not after a round trip.
+        if (index === 0) setPreviewCurve(points);
         return next;
       });
 
@@ -90,6 +99,7 @@ export function ModTab() {
         const next = [...previous];
         next[slot] = parameterId;
         setPreviewDestinations(next);
+        if (slot === 0) setPreviewDestination(parameterId);
         return next;
       });
 

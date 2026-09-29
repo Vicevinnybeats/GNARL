@@ -1,4 +1,6 @@
 import { getSliderState, getComboBoxState } from '../juce/index.js';
+import { buildLfoBuffer, divisionToHz } from './previewLfo';
+import { previewCurve, modDestination } from './previewModState';
 import defaults from './parameterDefaults.json';
 import { denormalise } from './formatters';
 import { getPluginInfo } from './pluginInfo';
@@ -220,7 +222,15 @@ export class AudioPreview {
       const decay = read('env1_decay', 0.4);
       const sustain = read('env1_sustain', 0.7);
       const release = read('env1_release', 0.25);
-      const lfoRate = read('lfo1_rate', 4.0);
+      /*  `lfo1_rate_hz`, not `lfo1_rate`. The old ID is not a parameter, so
+          every read fell back to the hardcoded 4 and the rate control did
+          nothing at all. */
+      const lfoRate = read('lfo1_rate_hz', 4.0);
+      const lfoShape = readChoice('lfo1_shape', 0);
+      const syncEnabled = read('lfo1_sync_enabled', 1);
+      const rateDivision = readChoice('lfo1_rate_division', 8);
+      const lfoBipolar = read('lfo1_bipolar', 1);
+      const modDepth = read('mod1_depth', 1);
 
       if (this.shaper) this.shaper.curve = driveCurve(Math.min(1, Math.max(0, drive)));
 
@@ -315,17 +325,59 @@ export class AudioPreview {
       sub.start(now);
       stopped.push(sub);
 
-      /*  THE LFO ON THE CUTOFF, which is the sound of this genre. Modulating
-          the filter rather than the amplitude: a growl is a formant moving,
-          and this is the nearest a biquad gets to it. */
-      const lfo = context.createOscillator();
-      lfo.frequency.value = Math.min(30, Math.max(0.1, lfoRate || 4));
+      /*  THE LFO, DRAWN, AND ROUTED WHERE THE MOD MATRIX SAYS.
+       *
+       *  This used to be a fixed sine on the cutoff. The five Vital patches
+       *  the client supplied all gate oscillator LEVEL instead, with an
+       *  uneven drawn curve - which is the mechanism the whole genre rests
+       *  on and the one thing the preview could not make.
+       *
+       *  A looping buffer rather than an OscillatorNode, because Web Audio
+       *  has no custom-shape LFO and the curve is the point. */
+      const slotOn = readChoice('mod1_enabled', 0) > 0 || read('mod1_enabled', 0) > 0.5;
+      const lfoHz = syncEnabled > 0.5 ? divisionToHz(rateDivision) : Math.max(0.05, lfoRate);
+      const destination = modDestination();
+
+      /*  Bipolar for a cutoff, unipolar for a gate, whatever the slot's own
+          flag says - and defaulting by DESTINATION when the slot has not
+          been told, because a bipolar gate never reaches silence and that is
+          the difference between a growl and a tremolo. */
+      const wantsBipolar = destination === 'osc1_level' ? false : lfoBipolar > 0.5;
+
+      const lfoBuffer = buildLfoBuffer(context, lfoShape, previewCurve(), wantsBipolar);
+
+      const lfo = context.createBufferSource();
+      lfo.buffer = lfoBuffer;
+      lfo.loop = true;
+      //  One loop of the buffer must last exactly one LFO cycle.
+      lfo.playbackRate.value = (lfoBuffer.length / context.sampleRate) * lfoHz;
 
       const lfoDepth = context.createGain();
-      lfoDepth.gain.value = Math.min(4000, filter.frequency.value * 0.9);
 
-      lfo.connect(lfoDepth);
-      lfoDepth.connect(filter.frequency);
+      if (slotOn && destination === 'osc1_level') {
+        /*  THE GATE. The oscillators' gain is driven straight from the
+            curve, so the bottom of the drawn shape is silence. Depth scales
+            how much of the level the gate takes; at full depth the gaps are
+            gaps. */
+        const gate = context.createGain();
+        gate.gain.value = 1 - Math.min(1, Math.max(0, modDepth));
+
+        lfoDepth.gain.value = Math.min(1, Math.max(0, modDepth));
+        lfo.connect(lfoDepth);
+        lfoDepth.connect(gate.gain);
+
+        filter.disconnect();
+        filter.connect(gate);
+        gate.connect(amp);
+      } else {
+        //  Anything else lands on the cutoff, which is what the preview can
+        //  actually represent with a biquad.
+        lfoDepth.gain.value =
+          Math.min(6000, filter.frequency.value * Math.min(1, Math.max(0, modDepth)));
+        lfo.connect(lfoDepth);
+        lfoDepth.connect(filter.frequency);
+      }
+
       lfo.start(now);
       stopped.push(lfo);
 

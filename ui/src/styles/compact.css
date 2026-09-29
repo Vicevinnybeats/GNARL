@@ -428,3 +428,35 @@
 :root[data-compact='true'] .gn-fx-rack > .gn-panel:first-child {
   flex: 0 0 auto;
 }
+
+/* --- the LFO editor needs a height of its own ------------------------- */
+
+/*  `.gn-lfo-editor` is `height: 100%`, which is right in the desktop grid
+    where its track has an exact pixel budget (§6) - and collapses to ZERO
+    here, because compact mode gives every panel `height: auto` and a
+    percentage of auto is nothing. The editor rendered at 0x0 on a phone:
+    present in the DOM, drawing nothing, impossible to draw ON.
+
+    The same trap as the grid minimum size, in the other direction: there,
+    content forced a track open; here, a percentage had no track to measure
+    against. Explicit pixels are the answer in a layout that reflows. */
+:root[data-compact='true'] .gn-lfo-editor {
+  height: 190px;
+  min-height: 190px;
+}
+
+/*  Shorter where the whole body is about 190px - the editor cannot have all
+    of it, and a curve is still readable at this size. */
+@media (max-height: 460px) {
+  :root[data-compact='true'] .gn-lfo-editor {
+    height: 120px;
+    min-height: 120px;
+  }
+}
+
+/*  A drawing surface must own its gestures. Without this the page scrolls
+    under the finger while you are trying to draw a curve, which makes the
+    editor unusable on the device it was just made visible on. */
+:root[data-compact='true'] .gn-lfo-editor__canvas {
+  touch-action: none;
+}
