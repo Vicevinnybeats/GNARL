@@ -231,8 +231,43 @@ export class AudioPreview {
       const rateDivision = readChoice('lfo1_rate_division', 8);
       const lfoBipolar = read('lfo1_bipolar', 1);
       const modDepth = read('mod1_depth', 1);
+      /*  OSC 2, the FX distortion and the master, which moved and did
+          nothing. The FX rack has fourteen slots and a browser cannot be
+          fourteen effects, but the DRIVE is where the aggression comes from
+          and a growl with no drive is not a growl. */
+      const osc2On = read('osc2_enabled', 0) > 0.5;
+      const osc2Level = read('osc2_level', 0);
+      const osc2Semi = read('osc2_pitch_semi', 0);
+      const osc2Fine = read('osc2_pitch_fine', 0);
+      const osc2Table = readChoice('osc2_wavetable', 0);
+      const osc2Pos = read('osc2_table_pos', 0.3);
+      const fxDistOn = read('fx_dist1_enabled', 0) > 0.5;
+      const fxDrive = read('fx_dist1_drive', 0);
+      const fxMix = read('fx_dist1_mix', 1);
+      const masterGain = read('master_gain', 0);
 
-      if (this.shaper) this.shaper.curve = driveCurve(Math.min(1, Math.max(0, drive)));
+      /*  THE DRIVE, from both stages that have one. The filter's own drive
+          and the FX rack's first distortion both reach the same shared
+          shaper here - a browser cannot run fourteen effects, but it can be
+          honest about the fact that turning either drive up makes the sound
+          harder.
+
+          fx_dist1_drive is in dB over a 48 dB range, so it is normalised
+          against that rather than treated as a 0..1 amount, or a 6 dB
+          setting would read as fully distorted. */
+      const fxAmount = fxDistOn
+        ? Math.min(1, Math.max(0, fxDrive / 48)) * Math.min(1, Math.max(0, fxMix))
+        : 0;
+      const totalDrive = Math.min(1, Math.max(0, drive) + fxAmount);
+
+      if (this.shaper) this.shaper.curve = driveCurve(totalDrive);
+
+      /*  MASTER GAIN, in dB. The bank leans on it for staging - the growl
+          alone carries +8 dB - so a preview that ignores it plays every
+          patch at the wrong level relative to the others. */
+      if (this.master) {
+        this.master.gain.value = Math.min(4, Math.pow(10, Math.min(12, masterGain) / 20)) * 0.6;
+      }
 
       //  --- the voice -------------------------------------------------------
       const amp = context.createGain();
@@ -280,6 +315,24 @@ export class AudioPreview {
         //  Divided by the voice count, or eight unison voices are eight
         //  times as loud and every other control looks broken by comparison.
         gain.gain.value = (Math.min(1, Math.max(0, oscLevel)) * 0.7) / Math.sqrt(voices);
+
+        osc.connect(gain);
+        gain.connect(filter);
+        osc.start(now);
+        stopped.push(osc);
+      }
+
+      /*  OSC 2. Its own table and its own tuning - the second oscillator is
+          how a patch gets weight or a detuned edge, and it was silent here
+          however far its level was turned up. */
+      if (osc2On && osc2Level > 0.001) {
+        const osc = context.createOscillator();
+        osc.setPeriodicWave(buildWave(context, osc2Table, Math.min(1, Math.max(0, osc2Pos))));
+        osc.frequency.value = freq * Math.pow(2, osc2Semi / 12);
+        osc.detune.value = osc2Fine;
+
+        const gain = context.createGain();
+        gain.gain.value = Math.min(1, Math.max(0, osc2Level)) * 0.7;
 
         osc.connect(gain);
         gain.connect(filter);
