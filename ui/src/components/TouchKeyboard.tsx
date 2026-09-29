@@ -100,6 +100,14 @@ export function TouchKeyboard() {
     };
   }, [preview, press, release]);
 
+  /*  ABOVE THE EARLY RETURN. A hook after `if (!preview) return null` is
+      called on some renders and not others, which changes the hook ORDER
+      and is undefined behaviour in React - the lint rule that caught it is
+      not a style preference. It was only ever going to misbehave on the
+      render where the preview appears or disappears, which is exactly the
+      kind of bug that survives testing. */
+  const sounding = useRef(new Map<number, number>());
+
   if (!preview) return null;
 
   const whites: number[] = [];
@@ -125,7 +133,6 @@ export function TouchKeyboard() {
    *  in the stacking order, so hit-testing reproduces that for free, where
    *  arithmetic over key widths would have to special-case every black key's
    *  offset and would drift the moment the layout changed. */
-  const sounding = useRef(new Map<number, number>());
 
   const noteUnder = (x: number, y: number): number | null => {
     const el = document.elementFromPoint(x, y);
