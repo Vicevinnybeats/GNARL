@@ -1110,13 +1110,23 @@ std::vector<Definition> generateVariations()
             s.push_back ({ pid::osc[o].tablePos, rng.quantised (0.15f, 0.55f, 0.05f) });
             s.push_back ({ pid::osc[o].level, rng.range (0.62f, 0.76f) });
 
-            /*  Grains long enough to keep a square's edge. Grain size and
-                density move the level by 25 dB across their ranges, with
-                long grains at high density far quieter - the graintable
-                pack's lesson, and the reason these sit mid-range rather
-                than at an extreme. */
-            s.push_back ({ pid::osc[o].grainSize, rng.range (0.34f, 0.58f) });
-            s.push_back ({ pid::osc[o].grainDensity, rng.range (0.40f, 0.62f) });
+            /*  MILLISECONDS AND GRAINS PER SECOND, NOT 0..1. These two are
+                real-world ranges - 1-500 ms and 1-200/sec - and the first
+                version of this archetype set them to 0.34 and 0.40 as if
+                they were normalised like the level controls beside them.
+                Both landed BELOW their minimum, which "Every factory
+                setting is inside its parameter's range" caught and a
+                [factory] run did not, because that test is tagged
+                [preset].
+
+                22-60 ms is long enough to keep a square's edge; shorter
+                and the window dominates the waveform. Density stays
+                moderate because grain size and density together move the
+                level by 25 dB across their ranges, with long grains at
+                high density far QUIETER - the graintable pack's lesson,
+                and the reason neither sits at an extreme. */
+            s.push_back ({ pid::osc[o].grainSize, rng.range (22.0f, 60.0f) });
+            s.push_back ({ pid::osc[o].grainDensity, rng.range (12.0f, 40.0f) });
 
             s.push_back ({ pid::osc[o].unisonVoices, static_cast<float> (2 + rng.index (3)) });
             s.push_back ({ pid::osc[o].unisonDetune, rng.range (0.06f, 0.16f) });
@@ -1141,14 +1151,21 @@ std::vector<Definition> generateVariations()
         //  --- the ECF-42 ---------------------------------------------------
         s.push_back ({ pid::filter[1].enabled, 1.0f });
         s.push_back ({ pid::filter[1].type, rng.chance (0.5f) ? kBp24 : kBp12 });
-        s.push_back ({ pid::filter[1].cutoff, rng.range (0.30f, 0.58f) });
+        //  HERTZ. 300-900 puts the band where a growl's formants live; the
+        //  0.30 the first version set was not a low cutoff, it was 0.3 Hz
+        //  clamped to the 20 Hz minimum - silence.
+        s.push_back ({ pid::filter[1].cutoff, rng.range (300.0f, 900.0f) });
         s.push_back ({ pid::filter[1].resonance, rng.range (0.25f, 0.55f) });
         s.push_back ({ pid::filter[1].mix, rng.range (0.55f, 0.85f) });
 
         //  --- Audiomatic, then Scream 4 -------------------------------------
         s.push_back ({ pid::fxDistortion[0].enabled, 1.0f });
         s.push_back ({ pid::fxDistortion[0].type, rng.chance (0.45f) ? kBitcrush : kTube });
-        s.push_back ({ pid::fxDistortion[0].drive, rng.range (0.38f, 0.68f) });
+        //  DECIBELS, over a 0-48 dB range. 0.38 dB is inside the range and
+        //  therefore passed nothing but the range check - it is also
+        //  inaudible, which is a Scream 4 that does nothing. The other
+        //  archetypes here run 6-20 dB.
+        s.push_back ({ pid::fxDistortion[0].drive, rng.range (9.0f, 22.0f) });
         s.push_back ({ pid::fxDistortion[0].tone, rng.range (0.30f, 0.60f) });
         s.push_back ({ pid::fxDistortion[0].mix, rng.range (0.55f, 0.85f) });
 
