@@ -262,9 +262,37 @@ main { position: relative; z-index: 2; }
     background: linear-gradient(160deg, rgb(13, 8, 36), rgb(5, 4, 18));
   }
 
+  /*  THE BAR IS OPAQUE AND THE FADE LIVES BELOW IT. The scrim used to fade
+      ACROSS the bar's own height - 0.95 at the top, 0.7 at 70%, clear at the
+      bottom - so a card scrolling underneath stayed legible through the lower
+      half of it and collided with the wordmark. Measured on a phone-sized
+      render, the body copy behind the bar came through at a peak channel
+      delta of 177 out of 255 - not a hint of movement behind glass, but
+      readable text in the wrong place. The opaque bar measures 0.
+
+      (Measured by shooting the bar with a card under it and again with the
+      cards hidden, and diffing. The first draft of this comment guessed 74
+      and was wrong by more than a factor of two, which is the reason the
+      number is measured and not judged.)
+
+      A gradient cannot solve this inside one box: the bar needs to be solid
+      where the words are, and the page still needs an edge that is not a hard
+      line across a live scene. So the element is opaque and a pseudo-element
+      carries the fade in the strip BELOW it, where there is nothing to read.
+      Same shape of fix as the plugin's preset popover - the thing that has to
+      clip and the thing that has to bleed cannot be the same element. */
   .nav {
     backdrop-filter: none;
-    background: linear-gradient(to bottom, rgba(5, 4, 15, 0.95), rgba(5, 4, 15, 0.7) 70%, transparent);
+    background: rgb(5, 4, 15);
+  }
+
+  .nav::after {
+    content: '';
+    position: absolute;
+    inset: 100% 0 auto 0;
+    height: 26px;
+    background: linear-gradient(to bottom, rgb(5, 4, 15), rgba(5, 4, 15, 0));
+    pointer-events: none;
   }
 }
 
@@ -396,6 +424,19 @@ main { position: relative; z-index: 2; }
 }
 @keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .scroll-hint { animation: none; } }
+
+/*  THE HINT GOES AWAY ONCE IT HAS BEEN OBEYED. It is pinned to the bottom of
+    the hero, so scrolling carries it up the screen rather than off it - and
+    a third of the way down the page it is a faint stranded line sitting on
+    top of the figure, which reads as debris rather than as an instruction.
+    Opacity only, on the compositor, driven by a class the render loop toggles
+    once. */
+html.gn-moved .scroll-hint {
+  opacity: 0;
+  animation: none;
+  transition: opacity 400ms var(--ease);
+  pointer-events: none;
+}
 
 /*  A quieter line than .body, for a caveat that has to be READ but must not
     compete with the thing it is a caveat about. */

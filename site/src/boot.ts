@@ -59,6 +59,7 @@ let rain: { render(now: number): void; resize(): void } | null = null;
 let loaderAlive = loader !== null;
 let entering = false;
 let nearEnd = false;
+let hasMoved = false;
 let assembly: Assembly | null = null;
 
 function finishBuild() {
@@ -295,6 +296,14 @@ const frame = (now: number) => {
         and runs on the compositor, so the loop's only job is to say when.
         Hysteresis on the threshold, or a scroll resting exactly on it
         flickers the class on and off every frame. */
+    /*  THE SCROLL HINT HAS DONE ITS JOB THE MOMENT THE PAGE MOVES. Latched
+        rather than tracked: it never comes back, so there is no threshold to
+        flicker across and the class is written exactly once. */
+    if (!hasMoved && progress > 0.015) {
+      hasMoved = true;
+      root.classList.add('gn-moved');
+    }
+
     if (progress > 0.9 && !nearEnd) {
       nearEnd = true;
       root.classList.add('gn-arrived');
