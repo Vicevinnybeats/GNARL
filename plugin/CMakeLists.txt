@@ -7,7 +7,26 @@ include(${CMAKE_SOURCE_DIR}/cmake/WebUI.cmake)
 #  GarageBand, AUM and Cubasis load. Naming the desktop formats on iOS fails
 #  at configure time for a reason unrelated to whether the code is portable.
 if (GNARL_IOS OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    set(GNARL_PLUGIN_FORMATS Standalone AUv3)
+    #  STANDALONE ONLY, AND AUv3 IS BLOCKED ON A JUCE PATCH.
+    #
+    #  An AUv3 is an app extension. Xcode requires every extension and every
+    #  library it links to be built with APPLICATION_EXTENSION_API_ONLY set
+    #  to YES, and refuses outright when it is NO - so that is not a
+    #  workaround, it is a rejected setting. Under YES the compiler errors on
+    #  any NS_EXTENSION_UNAVAILABLE symbol.
+    #
+    #  JUCE 8.0.4 calls [UIApplication sharedApplication] in
+    #  juce_Windowing_ios.mm and juce_UIViewComponentPeer_ios.mm, guarded at
+    #  RUNTIME by SystemStats::isRunningInAppExtensionSandbox(). A runtime
+    #  guard cannot satisfy a compile-time availability check, so those two
+    #  files cannot compile into an extension as they stand.
+    #
+    #  Shipping an AUv3 therefore needs those call sites compiled out - a
+    #  patch to a pinned dependency, which is a deliberate decision and not a
+    #  build flag. The STANDALONE has no such restriction and built cleanly
+    #  on the first probe, which already answers the question that mattered:
+    #  the DSP and the WebView interface are portable to iOS.
+    set(GNARL_PLUGIN_FORMATS Standalone)
 else()
     set(GNARL_PLUGIN_FORMATS VST3 AU Standalone)
 endif()
@@ -45,25 +64,6 @@ juce_add_plugin(GNARL
 
 gnarl_add_web_ui(GNARL_WEB_UI_TARGET)
 
-#  THE AUv3 EXTENSION AND UIApplication.
-#
-#  An AUv3 is an APP EXTENSION, and Xcode sets APPLICATION_EXTENSION_API_ONLY
-#  on one automatically - which turns every NS_EXTENSION_UNAVAILABLE API into
-#  a compile error. JUCE 8.0.4 calls [UIApplication sharedApplication] in
-#  juce_UIViewComponentPeer_ios.mm and juce_Windowing_ios.mm with no guard, so
-#  the extension target fails to build while the standalone beside it succeeds.
-#  That is JUCE's limitation and not this project's code.
-#
-#  Turning the flag off compiles it. BE CLEAR ABOUT WHAT THAT COSTS: Apple
-#  rejects an extension that links extension-unavailable API, so this is fine
-#  for a build to run on your own device and is NOT enough for the App Store.
-#  Shipping there needs those two call sites guarded in JUCE - a patch to a
-#  pinned dependency, which is a deliberate decision rather than a build flag,
-#  and there is no Apple Developer account to submit with yet anyway.
-if (TARGET GNARL_AUv3)
-    set_target_properties(GNARL_AUv3 PROPERTIES
-        XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY NO)
-endif()
 
 
 target_sources(GNARL PRIVATE

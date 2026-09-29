@@ -307,9 +307,9 @@ jobs:
         id: configure
         run: |
           set -euo pipefail
-          #  AUv3 is the format that matters on iOS - it is what GarageBand,
-          #  AUM and Cubasis load. VST3 does not exist there at all, so
-          #  asking for it would fail for a reason that says nothing.
+          #  Standalone only. AUv3 is what GarageBand and AUM load, and it
+          #  is blocked on a JUCE patch - see plugin/CMakeLists.txt. This
+          #  probe answers the portability question the standalone can.
           cmake -B build-ios -G Xcode \
             -DCMAKE_SYSTEM_NAME=iOS \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
