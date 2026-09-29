@@ -1490,9 +1490,9 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
        *  `isSettled` reports, which is already the project's answer to "is
        *  this scene actually at rest". By then the steady-state cost is what
        *  is being measured, which is the thing the decision is about. */
-      const settled = entry < 0.001 && figureUniforms.uAssemble.value > 0.999;
+      const arrived = entry < 0.001 && figureUniforms.uAssemble.value > 0.999;
 
-      if (quality < 2 && settled) {
+      if (quality < 2 && arrived) {
         sampledFrames += 1;
 
         if (delta > 0.045) slowFrames += 1;
