@@ -1,4 +1,7 @@
 import { getNativeFunction } from '../juce/index.js';
+import {
+  applyPatch, capturePatch, readStored, writeStored, type StoredPatch,
+} from './patchSnapshot';
 import { getPluginInfo } from './pluginInfo';
 
 /**
@@ -144,7 +147,17 @@ const MOCK_FACTORY: Omit<PresetRow, 'index'>[] = [
     tags: ['init'] },
 ];
 
-let mockUser: Omit<PresetRow, 'index'>[] = [];
+/*  SEEDED FROM STORAGE, so patches survive a reload. Without this the list
+    started empty every visit while the values sat in localStorage unreachable
+    - saved, kept, and invisible, which is indistinguishable from lost. */
+let mockUser: Omit<PresetRow, 'index'>[] = readStored().map((p) => ({
+  name: p.name,
+  author: p.author,
+  category: p.category,
+  description: p.description,
+  tags: p.tags,
+  factory: false,
+}));
 
 let mockStatus: PresetStatus = {
   name: 'Init',
@@ -197,6 +210,16 @@ export async function loadPreset(index: number): Promise<boolean> {
     const row = mockRows()[index];
     if (!row) return false;
 
+    /*  A USER PATCH ACTUALLY LOADS ITS SOUND. Loading used to update the
+        status line and change nothing you could hear, which made "save" and
+        "load" a pair of controls that both appeared to work and together
+        did nothing. Factory rows have no stored values in a browser - there
+        is no engine to have generated them - so those still only set the
+        name, which is at least honest. */
+    const stored = readStored().find((p) => p.name === row.name);
+
+    if (stored) applyPatch(stored.values);
+
     mockStatus = {
       name: row.name,
       author: row.author,
@@ -228,6 +251,22 @@ export async function savePreset(fields: SaveFields): Promise<boolean> {
       factory: false,
     };
 
+    /*  THE PARAMETERS, NOT JUST THE NAME. This used to store the row alone,
+        so a browser "save" kept a label and threw the sound away - and lost
+        even that on reload. A patch somebody built by hand is the most
+        valuable thing this build can produce; it has to survive. */
+    const stored: StoredPatch = {
+      name: row.name,
+      author: row.author,
+      category: row.category,
+      description: row.description,
+      tags: row.tags,
+      saved: new Date().toISOString(),
+      values: capturePatch(),
+    };
+
+    writeStored([...readStored().filter((p) => p.name !== row.name), stored]);
+
     // Saving over a name that already exists replaces it, as it does on disk.
     mockUser = [...mockUser.filter((existing) => existing.name !== row.name), row];
     mockStatus = { ...row, modified: false, loadingTables: false };
@@ -244,6 +283,9 @@ export async function deletePreset(index: number): Promise<boolean> {
     if (!row || row.factory) return false;
 
     mockUser = mockUser.filter((existing) => existing.name !== row.name);
+    //  And the values, or the patch returns from localStorage on reload.
+    writeStored(readStored().filter((p) => p.name !== row.name));
+
     return true;
   }
 
