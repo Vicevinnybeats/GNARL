@@ -6,6 +6,7 @@ import { seedMockBackend } from './bridge/mockBackend';
 import { registerServiceWorker } from './bridge/serviceWorker';
 import { initialiseSettings } from './settings';
 import './styles/tokens.css';
+import './styles/compact.css';
 
 // Before the first render, so no control flashes at zero. A no-op when a real
 // plugin is behind the page.

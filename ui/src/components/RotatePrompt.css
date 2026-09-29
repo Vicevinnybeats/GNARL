@@ -11,6 +11,19 @@
     900px rather than a device class: a phone in portrait is 640-930 tall and
     a tablet is 1024+, so this catches the machines that cannot render the
     interface and leaves alone the ones that can. */
+/*  NOT SHOWN IN COMPACT MODE, which is now every phone. The prompt existed
+    because the scaled desktop layout is unreadable at 0.33; compact mode
+    replaces that layout with one built for the width, so portrait works and
+    asking somebody to turn their phone would be telling them to fix a
+    problem that no longer exists.
+
+    Kept rather than deleted for the narrow window where compact does not
+    apply and the scale still would - a coarse-pointer device wider than
+    900px and taller than 500, held upright: a tablet in portrait. */
+:root[data-compact='true'] .gn-rotate {
+  display: none !important;
+}
+
 @media (orientation: portrait) and (max-height: 900px) and (pointer: coarse) {
   .gn-rotate {
     position: fixed;
@@ -32,7 +45,9 @@
       animating at 60fps behind a full-screen overlay is pure battery cost,
       and the wavetable display and LFO editor both run animation loops that
       only pause on document visibility - which a rotation does not change. */
-  .gn-app {
+  /*  Hidden only where the prompt is actually shown; compact mode overrides
+      the prompt above, and this rule is inside the same query. */
+  :root:not([data-compact='true']) .gn-app {
     display: none;
   }
 }

@@ -17,7 +17,7 @@
  *  forever. It is written by the build, not by hand - a number somebody has
  *  to remember to bump is a number that does not get bumped.
  */
-const VERSION = '3e9d05f48de6';
+const VERSION = 'c3ea8fbc3b84';
 const CACHE = `gnarl-${VERSION}`;
 
 /*  The shell: what has to be present for the app to start at all. Everything

@@ -23,6 +23,38 @@ const DESIGN_HEIGHT = 720;
 export function useAppScale(): void {
   useEffect(() => {
     const apply = () => {
+      /*  COMPACT MODE: fill the screen instead of scaling.
+       *
+       *  The design is 1180x720 and scales as one piece, which is right for a
+       *  plugin window and for a desktop browser. On a phone in landscape
+       *  that scale is 0.54 and in portrait 0.33 - a 10px label becomes 3px,
+       *  and the interface sits in the middle of the screen with black bars
+       *  either side. "Zoomed out" is exactly what it is.
+       *
+       *  So below this size the transform comes OFF and a stylesheet lays the
+       *  same components out as one scrolling column at their real size. The
+       *  layout budgets that must not be reflowed (CLAUDE.md section 6) are
+       *  the DESKTOP ones; they are not in play here, because in compact mode
+       *  nothing is competing for a fixed 624px of height - the body scrolls.
+       *
+       *  Keyed on the viewport, not on a user-agent string: a small window on
+       *  a desktop deserves the same treatment, and a phone in landscape at
+       *  844px wide does not. The pointer test keeps a narrow desktop window
+       *  on the scaled layout, where a mouse can still hit a 16px control.
+       */
+      const coarse = window.matchMedia('(pointer: coarse)').matches;
+      const compact = coarse && (window.innerWidth < 900 || window.innerHeight < 500);
+
+      document.documentElement.dataset.compact = compact ? 'true' : 'false';
+
+      if (compact) {
+        //  No transform at all: the stylesheet owns the layout here.
+        document.documentElement.style.setProperty('--gn-scale', '1');
+        document.documentElement.style.setProperty('--gn-offset-x', '0px');
+        document.documentElement.style.setProperty('--gn-offset-y', '0px');
+        return;
+      }
+
       const scale = Math.min(
         window.innerWidth / DESIGN_WIDTH,
         window.innerHeight / DESIGN_HEIGHT,
