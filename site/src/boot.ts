@@ -10,6 +10,7 @@ import { decodeOnReveal } from './decode';
     dynamic import below - which is the whole reason the boot screen can be
     drawn before the scene is parsed. */
 import type { Journey } from './journey';
+import { wireDeparture } from './departure';
 import { createLoader } from './loader';
 
 import './styles.css';
@@ -424,6 +425,12 @@ async function start() {
       the page runs at a few frames a second and a fixed wait photographs the
       camera mid-move. */
   (window as unknown as Record<string, unknown>).__gnarlJourney = journey;
+
+  /*  The camera trucks sideways before the checkout page loads, so the two
+      documents read as one move through the same world rather than a cut.
+      Wired after the journey exists; the links work as plain links until
+      then, and under reduced motion they stay plain links. */
+  wireDeparture(() => journey, reduced);
 
   if (!loader) return;
 

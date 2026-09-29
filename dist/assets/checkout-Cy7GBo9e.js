@@ -1,1 +1,0 @@
-import"./styles-C8YNHvHv.js";const e=document.querySelector("#pay"),r=document.querySelector("#pay-note"),t=e?.dataset.paymentLink?.trim()??"";e&&t.length>0?(e.href=t,e.removeAttribute("aria-disabled"),e.textContent="PAY €49 — SECURE CHECKOUT",e.rel="noreferrer",r?.remove()):e&&(e.addEventListener("click",n=>n.preventDefault()),e.tabIndex=-1);

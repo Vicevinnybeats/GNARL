@@ -199,3 +199,63 @@
   color: var(--text-faint);
   line-height: 1.7;
 }
+
+/*  The continuing world sits BEHIND everything and never scrolls - the page
+    is an ordinary document that scrolls over a fixed field, which is what
+    makes the backdrop read as a space the cards are in rather than as an
+    image attached to them. */
+.checkout-page #stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.checkout {
+  position: relative;
+  z-index: 1;
+}
+
+/*  ARRIVING FROM THE SIDE THE CAMERA CAME FROM. The landing page's copy
+    leaves to the LEFT as the camera trucks right, so these enter from the
+    right - the same direction of travel, continued. Entering from anywhere
+    else would read as a separate animation rather than as the second half of
+    one move.
+
+    The two cards are staggered so they arrive as a group with depth instead
+    of as one slab. */
+@media (prefers-reduced-motion: no-preference) {
+  .checkout__summary,
+  .checkout__pay,
+  .checkout__back {
+    animation: checkout-arrive 620ms cubic-bezier(0.16, 0.9, 0.3, 1) both;
+  }
+
+  .checkout__back {
+    animation-delay: 40ms;
+  }
+
+  .checkout__summary {
+    animation-delay: 90ms;
+  }
+
+  .checkout__pay {
+    animation-delay: 170ms;
+  }
+}
+
+@keyframes checkout-arrive {
+  from {
+    /*  Transform and opacity only: both are compositor properties, so this
+        animates without layout on a phone already running a WebGL canvas. */
+    transform: translateX(7vw);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

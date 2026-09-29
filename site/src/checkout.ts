@@ -1,5 +1,14 @@
+import { createCheckoutScene } from './checkoutScene';
+
 import './styles.css';
 import './checkout.css';
+
+/*  The backdrop first, so the field is already drifting on the first frame
+    the cards are visible. Failure is silent: no WebGL means the CSS gradient,
+    which the page is designed to be readable on anyway. */
+const stage = document.querySelector<HTMLCanvasElement>('#stage');
+
+if (stage) createCheckoutScene(stage);
 
 /**
  * The checkout page's one job: do not lie about being able to take money.

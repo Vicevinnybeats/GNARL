@@ -14,12 +14,18 @@
     <link rel="canonical" href="https://gnarl.vercel.app/" />
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
-    <script type="module" crossorigin src="./assets/checkout-Cy7GBo9e.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/styles-C8YNHvHv.js">
-    <link rel="stylesheet" crossorigin href="./assets/styles-CRlrbmRc.css">
-    <link rel="stylesheet" crossorigin href="./assets/checkout-BO0qNCHp.css">
+    <script type="module" crossorigin src="./assets/checkout-D31za27o.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/styles-C0cPIIU2.js">
+    <link rel="stylesheet" crossorigin href="./assets/styles-C18uuCmC.css">
+    <link rel="stylesheet" crossorigin href="./assets/checkout-DmrlEcfS.css">
   </head>
   <body class="checkout-page">
+    <!--  The world, continuing. The landing page trucks its camera sideways
+          before navigating here, so this opens mid-move with the same star
+          field drifting - otherwise that move merely delays the cut instead
+          of hiding it. No bloom, no formations: a backdrop, not the journey. -->
+    <canvas id="stage" aria-hidden="true"></canvas>
+
     <main class="checkout">
       <a class="checkout__back" href="./index.html">&larr; GNARL</a>
 
@@ -101,6 +107,17 @@
 
           <p class="checkout__fine">
             Payments handled by Stripe. Card details never touch this site.
+          </p>
+
+          <!--  The licence terms in one line, where somebody is deciding.
+                Burying "three machines" in a FAQ and surprising a customer
+                with it on their fourth install is how a refund request and a
+                bad review get written on the same afternoon.  -->
+          <p class="checkout__fine">
+            One licence covers three of your own machines. It never expires,
+            and the plugin keeps making sound even when it cannot reach the
+            internet &mdash; offline for up to 30 days before it asks again,
+            and audio is never interrupted either way.
           </p>
         </section>
       </div>

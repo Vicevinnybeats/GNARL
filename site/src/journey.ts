@@ -54,6 +54,21 @@ export interface Journey {
    */
   setEntry(amount: number): void;
   /**
+   * A lateral TRUCK, 0 = the composition, 1 = fully off to one side.
+   *
+   * The site is one continuous world, so leaving it for the checkout page
+   * should not be a cut. This slides the camera along its own right vector
+   * and takes the look-target with it, which is the difference between a
+   * truck and a pan: the world moves past you and the subject leaves the
+   * frame, rather than the camera turning to keep watching it while you
+   * walk away.
+   *
+   * Its own right vector, NOT world x, for the reason the subject offset
+   * already documents - the camera orbits through the journey, and by the
+   * last section world x has become depth.
+   */
+  setLateral(amount: number): void;
+  /**
    * The figure's build, 0 = strokes scattered and inbound, 1 = assembled.
    *
    * Each stroke flies in along its own line from its own side, on its own
@@ -997,6 +1012,8 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       its first drawn frame is already at the end of the arrival dolly rather
       than jumping there once the loader clears. */
   let entry = 1;
+  //  The lateral truck. See setLateral in the Journey interface.
+  let lateral = 0;
   const lookTarget = new THREE.Vector3();
   const forward = new THREE.Vector3();
   const back = new THREE.Vector3();
@@ -1070,6 +1087,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   }
 
   return {
+    setLateral: (amount: number) => { lateral = Math.max(0, Math.min(1, amount)); },
     setScroll(progress: number) {
       scroll = progress;
     },
@@ -1249,6 +1267,29 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         );
 
         lookTarget.addScaledVector(upVector, -visibleHeight * rise);
+      }
+
+      /*  THE TRUCK. Applied to the camera AND the look-target by the same
+          amount, so the camera's orientation is unchanged and the world
+          slides past - the subject exits the frame instead of staying
+          centred while the camera strafes around it.
+
+          Scaled by the visible width so it clears the frame at any
+          formation: 1.25 puts the composition a quarter-frame past the edge,
+          which is far enough that nothing is still peeking in when the page
+          navigates. */
+      if (lateral > 0.0001) {
+        const distance = camera.position.distanceTo(here);
+        const visibleWidth =
+          2 * distance * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+
+        forward.subVectors(here, camera.position).normalize();
+        right.crossVectors(forward, camera.up).normalize();
+
+        const shift = visibleWidth * 1.25 * lateral;
+
+        camera.position.addScaledVector(right, shift);
+        lookTarget.addScaledVector(right, shift);
       }
 
       camera.lookAt(lookTarget);

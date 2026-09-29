@@ -593,3 +593,29 @@ html.gn-arrived .nav__cta {
   vertical-align: middle;
   border: 1px solid var(--accent);
 }
+
+/*  LEAVING FOR THE CHECKOUT. The camera trucks sideways (journey.setLateral)
+    and the copy goes with it, so the whole composition exits together rather
+    than the 3D world sliding out from behind stationary text.
+
+    Transform and opacity only - both compositor properties, so this costs no
+    layout on a phone that is already running a WebGL scene. And the duration
+    is a token, so the motion setting turns it to 0ms in one place rather than
+    being overridden per rule. */
+body.is-departing .slab,
+body.is-departing .nav,
+body.is-departing .foot,
+body.is-departing .scroll-hint {
+  transform: translateX(-16vw);
+  opacity: 0;
+  transition:
+    transform 700ms cubic-bezier(0.5, 0, 0.75, 0),
+    opacity 520ms ease-out;
+  pointer-events: none;
+}
+
+/*  Nothing should be scrollable mid-departure: a scroll during the truck
+    drives setScroll at the same time and the two moves fight. */
+body.is-departing {
+  overflow: hidden;
+}
