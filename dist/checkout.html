@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-theme="dream">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Checkout — GNARL</title>
+    <meta name="description" content="Buy GNARL: a wavetable synthesizer for riddim and dubstep. One price, lifetime updates." />
+    <meta name="color-scheme" content="dark" />
+
+    <!--  NOINDEX. A checkout page in a search result is a page somebody lands
+          on with no idea what the product is, and it competes with the page
+          that explains it. The canonical points home for the same reason.  -->
+    <meta name="robots" content="noindex, follow" />
+    <link rel="canonical" href="https://gnarl.vercel.app/" />
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
+    <script type="module" crossorigin src="./assets/checkout-Cy7GBo9e.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/styles-C8YNHvHv.js">
+    <link rel="stylesheet" crossorigin href="./assets/styles-CRlrbmRc.css">
+    <link rel="stylesheet" crossorigin href="./assets/checkout-BO0qNCHp.css">
+  </head>
+  <body class="checkout-page">
+    <main class="checkout">
+      <a class="checkout__back" href="./index.html">&larr; GNARL</a>
+
+      <div class="checkout__grid">
+        <!-- What you are buying. -->
+        <section class="checkout__summary">
+          <p class="checkout__eyebrow">YOUR ORDER</p>
+
+          <div class="checkout__line">
+            <div>
+              <p class="checkout__item">GNARL</p>
+              <p class="checkout__sub">Wavetable synthesizer &middot; lifetime licence</p>
+            </div>
+            <p class="checkout__amount">&euro;49</p>
+          </div>
+
+          <ul class="checkout__list">
+            <li>VST3, AU and standalone</li>
+            <li>Windows 10/11 and macOS</li>
+            <li>160 factory presets</li>
+            <li>Three machines per licence</li>
+            <li>Every future version included</li>
+          </ul>
+
+          <div class="checkout__total">
+            <p>Total</p>
+            <p class="checkout__amount">&euro;49</p>
+          </div>
+
+          <p class="checkout__vat">VAT included for EU customers.</p>
+        </section>
+
+        <!-- The purchase itself. -->
+        <section class="checkout__pay">
+          <p class="checkout__eyebrow">PAYMENT</p>
+
+          <!--
+            THE BUTTON IS DISABLED UNTIL A PAYMENT LINK EXISTS.
+
+            `data-payment-link` is the single place a Stripe Payment Link URL
+            goes. Until it holds one, checkout.ts leaves the button inert and
+            shows the notice below rather than a button that looks live and
+            does nothing — which is the shape of failure that loses trust on
+            the one page where trust is the whole transaction.
+          -->
+          <a
+            class="button button--pay"
+            id="pay"
+            href="#"
+            data-payment-link=""
+            aria-disabled="true"
+          >
+            CHECKOUT NOT OPEN YET
+          </a>
+
+          <p class="checkout__pending" id="pay-note">
+            Payment is not live yet. GNARL is in private beta and the checkout
+            opens with the 1.0 release.
+          </p>
+
+          <div class="checkout__trust">
+            <p><strong>What happens after you pay</strong></p>
+            <ol>
+              <li>A licence key arrives by email, immediately.</li>
+              <li>Download the installer for your platform.</li>
+              <li>Paste the key into the plugin once. It stays activated.</li>
+            </ol>
+          </div>
+
+          <div class="checkout__trust">
+            <p><strong>If it does not work for you</strong></p>
+            <p class="checkout__fine">
+              The demo is the entire instrument with preset saving switched
+              off, so you can decide before paying rather than after. Refunds
+              within 14 days, no questions &mdash; which is your right under EU
+              distance-selling rules anyway.
+            </p>
+          </div>
+
+          <p class="checkout__fine">
+            Payments handled by Stripe. Card details never touch this site.
+          </p>
+        </section>
+      </div>
+    </main>
+
+  </body>
+</html>

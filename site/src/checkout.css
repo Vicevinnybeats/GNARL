@@ -1,0 +1,201 @@
+/*  The checkout, in the site's own theme.
+ *
+ *  NO 3D, NO SCROLL JOURNEY, NO GLYPH RAIN. Everything the landing page does
+ *  is there to make somebody want this; none of it helps somebody who has
+ *  already decided and is now being asked for money. A WebGL scene behind a
+ *  payment form is a page that feels like it is selling to you at the moment
+ *  you want it to get out of the way - and it is a canvas animating at 60fps
+ *  on a phone while somebody types a card number.
+ *
+ *  So this page reuses the tokens and the type and nothing else. It should
+ *  read as the same product and behave like a form.
+ */
+.checkout-page {
+  min-height: 100svh;
+  background:
+    radial-gradient(120% 90% at 18% 0%, #241155 0%, transparent 58%),
+    radial-gradient(100% 80% at 88% 22%, #0d2a58 0%, transparent 60%),
+    var(--bg-deep);
+  /*  The landing page hides overflow for the scaled canvas; this page is an
+      ordinary document and must scroll. */
+  overflow-y: auto;
+}
+
+.checkout {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) var(--gutter) 96px;
+}
+
+.checkout__back {
+  display: inline-block;
+  margin-bottom: clamp(24px, 5vw, 48px);
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  transition: color 160ms var(--ease);
+}
+
+.checkout__back:hover {
+  color: var(--accent);
+}
+
+.checkout__grid {
+  display: grid;
+  gap: clamp(20px, 4vw, 40px);
+  /*  Two columns only where there is genuinely room. A payment form squeezed
+      into half a phone screen is how card numbers get typed wrong. */
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 860px) {
+  .checkout__grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.checkout__summary,
+.checkout__pay {
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(10, 6, 28, 0.55);
+}
+
+.checkout__eyebrow {
+  margin: 0 0 20px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-faint);
+}
+
+.checkout__line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.checkout__item {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.checkout__sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.checkout__amount {
+  margin: 0;
+  font-size: 20px;
+  color: var(--accent);
+  /*  Tabular figures so the line total and the grand total line up; a price
+      that shifts by a pixel between two rows looks like two prices. */
+  font-variant-numeric: tabular-nums;
+}
+
+.checkout__list {
+  margin: 18px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 2;
+  color: var(--text-dim);
+}
+
+.checkout__list li::before {
+  content: '+ ';
+  color: var(--accent);
+}
+
+.checkout__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+
+.checkout__total p {
+  margin: 0;
+}
+
+.checkout__total .checkout__amount {
+  font-size: 26px;
+}
+
+.checkout__vat {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.button--pay {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 16px;
+  font-size: 14px;
+}
+
+/*  The inert state. Marked with aria-disabled rather than removed, so a
+    screen reader says the button is there and unavailable - which is the
+    true situation - instead of the page simply lacking a way to buy. */
+.button--pay[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--line);
+  color: var(--text-faint);
+  box-shadow: none;
+}
+
+.checkout__pending {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-faint);
+}
+
+.checkout__trust {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+.checkout__trust p {
+  margin: 0 0 8px;
+}
+
+.checkout__trust strong {
+  color: var(--text);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+.checkout__trust ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.checkout__trust li {
+  margin-bottom: 6px;
+}
+
+.checkout__fine {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.7;
+}
