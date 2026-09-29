@@ -66,15 +66,53 @@ function readChoice(id: string, fallback: number): number {
  *
  *  Harmonics are limited so the highest stays under Nyquist at the top of the
  *  keyboard — the aliasing lesson from the real oscillator, in miniature. */
-function buildWave(context: AudioContext, brightness: number): PeriodicWave {
+/*  THE TABLE'S OWN HARMONIC SIGNATURE.
+ *
+ *  This used to build one saw and vary its tilt, so every wavetable in the
+ *  dropdown produced exactly the same sound - which is precisely the bug
+ *  reported: "nothing changes when I take another wavetable". The control
+ *  worked, the parameter changed, and nothing read it.
+ *
+ *  Each table now has a spectrum of its own, chosen to be recognisably
+ *  DIFFERENT rather than to imitate the real table byte for byte. The engine
+ *  plays generated wavetables with hundreds of harmonics; this is a browser
+ *  standing in for it, and the honest goal is that turning the knob teaches
+ *  you what the control does, not that it sounds identical.
+ *
+ *  `weight` returns the amplitude of harmonic n for a given table. */
+function tableWeight(table: number, n: number): number {
+  switch (table) {
+    //  Basic Shapes: a saw. Every harmonic, 1/n.
+    case 0: return 1 / n;
+    //  Hard sync-ish: a formant bump that makes it shout rather than buzz.
+    case 1: return (1 / n) * (1 + 2.5 * Math.exp(-Math.pow((n - 7) / 3, 2)));
+    //  Square-ish: odd harmonics only, which is a completely different vowel.
+    case 2: return n % 2 === 1 ? 1 / n : 0;
+    //  Formant/vowel: two resonant peaks, the shape a growl actually has.
+    case 3: return (1 / Math.sqrt(n))
+      * (Math.exp(-Math.pow((n - 4) / 2.2, 2)) + 0.7 * Math.exp(-Math.pow((n - 11) / 4, 2)));
+    //  Bell / inharmonic-feeling: sparse, spread high.
+    case 4: return n % 3 === 0 ? 1.4 / Math.sqrt(n) : 0.15 / n;
+    //  Gritty: loud highs, the one that sounds distorted before any drive.
+    default: return Math.pow(n, -0.55) * (0.6 + 0.4 * Math.sin(n * 1.7));
+  }
+}
+
+/*  Built from the table's signature, then tilted by the POSITION control, so
+ *  both the choice and the morph are audible and they do different jobs.
+ *
+ *  Harmonics are limited so the highest stays under Nyquist at the top of the
+ *  keyboard - the aliasing lesson from the real oscillator, in miniature. */
+function buildWave(context: AudioContext, table: number, brightness: number): PeriodicWave {
   const count = 64;
   const real = new Float32Array(count);
   const imag = new Float32Array(count);
 
   for (let n = 1; n < count; n++) {
-    //  1/n is a saw; the exponent tilts the spectrum from hollow to bright.
-    const tilt = Math.pow(n, -1 - (1 - brightness) * 1.6);
-    imag[n] = tilt;
+    //  Position rolls the top off rather than replacing the shape: the table
+    //  decides WHAT it is, the position decides how open it is.
+    const tilt = Math.pow(n, -(1 - brightness) * 1.9);
+    imag[n] = tableWeight(table, n) * tilt;
   }
 
   return context.createPeriodicWave(real, imag, { disableNormalization: false });
@@ -166,7 +204,12 @@ export class AudioPreview {
       const freq = 440 * Math.pow(2, (note - 69) / 12);
 
       //  --- read the patch ------------------------------------------------
+      const table = readChoice('osc1_table', 0);
       const tablePos = read('osc1_table_pos', 0.3);
+      const unison = Math.round(read('osc1_uni', 1));
+      const detuneCents = read('osc1_detune', 25);
+      const noiseLevel = read('noise_level', 0);
+      const filterType = readChoice('filter1_type', 1);
       const oscLevel = read('osc1_level', 0.8);
       const subLevel = read('sub_level', 0.7);
       const subOctave = readChoice('sub_octave', 1) - 1;   // index -> octaves
@@ -186,7 +229,16 @@ export class AudioPreview {
       amp.gain.value = 0;
 
       const filter = context.createBiquadFilter();
-      filter.type = 'lowpass';
+      /*  THE FILTER TYPE, which the dropdown sets and nothing read. A biquad
+          cannot be a ladder or a formant bank, so the twelve engine types map
+          onto the four shapes a browser has - the point is that choosing
+          High Pass makes the bass disappear, which is the thing the control
+          means. */
+      filter.type =
+        filterType === 2 || filterType === 3 || filterType === 9 ? 'highpass'
+        : filterType === 4 || filterType === 5 ? 'bandpass'
+        : filterType === 6 || filterType === 7 ? 'notch'
+        : 'lowpass';
       filter.frequency.value = Math.min(18000, Math.max(40, cutoff || 1200));
       filter.Q.value = 0.7 + Math.min(0.95, Math.max(0, resonance)) * 12;
 
@@ -195,20 +247,59 @@ export class AudioPreview {
 
       const stopped: Array<{ stop: (t: number) => void }> = [];
 
-      //  Two detuned oscillators, as the real voice has.
-      for (const detune of [-6, 6]) {
+      /*  UNISON, spread across the detune width. One voice is one voice - the
+          control said 1 and you always got two, so turning it up did nothing
+          either. Capped at 7: past that a browser's oscillator count starts
+          to cost more than the effect is worth on a phone. */
+      const voices = Math.max(1, Math.min(7, unison || 1));
+      const spread: number[] = [];
+
+      for (let v = 0; v < voices; v++) {
+        spread.push(voices === 1 ? 0 : ((v / (voices - 1)) - 0.5) * 2 * detuneCents);
+      }
+
+      const wave = buildWave(context, table, Math.min(1, Math.max(0, tablePos)));
+
+      for (const detune of spread) {
         const osc = context.createOscillator();
-        osc.setPeriodicWave(buildWave(context, Math.min(1, Math.max(0, tablePos))));
+        osc.setPeriodicWave(wave);
         osc.frequency.value = freq;
         osc.detune.value = detune;
 
         const gain = context.createGain();
-        gain.gain.value = Math.min(1, Math.max(0, oscLevel)) * 0.5;
+        //  Divided by the voice count, or eight unison voices are eight
+        //  times as loud and every other control looks broken by comparison.
+        gain.gain.value = (Math.min(1, Math.max(0, oscLevel)) * 0.7) / Math.sqrt(voices);
 
         osc.connect(gain);
         gain.connect(filter);
         osc.start(now);
         stopped.push(osc);
+      }
+
+      /*  NOISE, through the filter like the real one. Two seconds of white
+          noise looped: a browser has no noise node, and generating it per
+          note is cheaper than it looks against the oscillators already
+          running. Without this the noise level control was another knob that
+          moved and did nothing. */
+      if (noiseLevel > 0.001) {
+        const frames = Math.floor(context.sampleRate * 2);
+        const buffer = context.createBuffer(1, frames, context.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = context.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        const noiseGain = context.createGain();
+        noiseGain.gain.value = Math.min(1, noiseLevel) * 0.35;
+
+        noise.connect(noiseGain);
+        noiseGain.connect(filter);
+        noise.start(now);
+        stopped.push(noise);
       }
 
       //  The sub, around the filter — as the real one is routed direct.

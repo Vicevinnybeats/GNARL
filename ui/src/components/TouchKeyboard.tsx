@@ -112,18 +112,76 @@ export function TouchKeyboard() {
     }
   }
 
-  const bind = (note: number) => ({
-    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+  /*  SLIDING ACROSS THE KEYS, which is how anybody plays a keyboard on glass
+   *  and which `setPointerCapture` made impossible. Capturing binds every
+   *  later event for that finger to the key it STARTED on, so moving to the
+   *  next key delivered its events to the old one and the note never
+   *  changed. The capture was there to stop a drag that leaves the keyboard
+   *  getting stuck on - which is a real problem, solved below by tracking
+   *  the pointer instead of pinning it.
+   *
+   *  Which key is under the finger is asked of the DOM rather than computed
+   *  from geometry: the black keys overlap the white ones and sit above them
+   *  in the stacking order, so hit-testing reproduces that for free, where
+   *  arithmetic over key widths would have to special-case every black key's
+   *  offset and would drift the moment the layout changed. */
+  const sounding = useRef(new Map<number, number>());
+
+  const noteUnder = (x: number, y: number): number | null => {
+    const el = document.elementFromPoint(x, y);
+    const attr = el instanceof HTMLElement ? el.dataset.note : undefined;
+
+    return attr === undefined ? null : Number(attr);
+  };
+
+  const moveTo = (pointerId: number, x: number, y: number) => {
+    const next = noteUnder(x, y);
+    const current = sounding.current.get(pointerId);
+
+    if (next === current || (next === null && current === undefined)) return;
+
+    //  Release first, so a slide is legato rather than briefly two notes.
+    if (current !== undefined) release(current);
+
+    if (next === null) sounding.current.delete(pointerId);
+    else {
+      sounding.current.set(pointerId, next);
+      press(next);
+    }
+  };
+
+  const lift = (pointerId: number) => {
+    const note = sounding.current.get(pointerId);
+
+    if (note !== undefined) {
+      release(note);
+      sounding.current.delete(pointerId);
+    }
+  };
+
+  /*  Bound on the CONTAINER, not per key: one listener that owns the whole
+      gesture, which is also what makes a finger leaving the bottom edge
+      release properly rather than sticking. */
+  const surface = {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      press(note);
+      moveTo(e.pointerId, e.clientX, e.clientY);
     },
-    onPointerUp: () => release(note),
-    onPointerCancel: () => release(note),
-  });
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      //  Only while a finger is down. `buttons` is 0 for a hover.
+      if (e.buttons === 0 && !sounding.current.has(e.pointerId)) return;
+
+      moveTo(e.pointerId, e.clientX, e.clientY);
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => lift(e.pointerId),
+    onPointerCancel: (e: React.PointerEvent<HTMLDivElement>) => lift(e.pointerId),
+    onPointerLeave: (e: React.PointerEvent<HTMLDivElement>) => lift(e.pointerId),
+  };
+
+  const bind = (note: number) => ({ 'data-note': note });
 
   return (
-    <div className="gn-keys" role="group" aria-label="Preview keyboard">
+    <div className="gn-keys" role="group" aria-label="Preview keyboard" {...surface}>
       <div className="gn-keys__row">
         {whites.map((note) => (
           <button
