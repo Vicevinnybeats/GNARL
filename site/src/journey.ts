@@ -1084,7 +1084,13 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
    *  because the frame rate depends on the quality it is being used to
    *  choose. A downgrade is a decision, not a setting.
    */
-  let quality = 0;                 // 0 = full, 1 = no bloom, 2 = also coarser
+  /*  Halved from 90. The ladder can only help once it has acted, and at the
+      15-20 fps this exists for, 90 frames is five to six SECONDS of stutter
+      before the first step - most of a scroll past one section. 45 is still
+      long enough not to trip over a single hitch. */
+  const SAMPLE_WINDOW = 45;
+
+  let quality = 0;                 // 0 = full, 1 = 1.15x, 2 = 0.85x
   let slowFrames = 0;
   let sampledFrames = 0;
 
@@ -1497,20 +1503,37 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
         if (delta > 0.045) slowFrames += 1;
 
-        if (sampledFrames >= 90) {
+        if (sampledFrames >= SAMPLE_WINDOW) {
           //  A third of the window too slow: this device cannot hold it.
-          if (slowFrames > 30) {
+          if (slowFrames > SAMPLE_WINDOW / 3) {
             quality += 1;
 
-            if (quality === 1) {
-              //  Bloom off. The composer keeps the pass but stops it doing
-              //  the work; removing it would rebuild the chain mid-scroll.
-              bloom.enabled = false;
-            } else {
-              renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.8));
-              starUniforms.uPixelRatio.value = renderer.getPixelRatio();
-              moteUniforms.uPixelRatio.value = renderer.getPixelRatio();
-            }
+            /*  RESOLUTION FIRST, AND THE ORDER WAS BACKWARDS.
+             *
+             *  This ladder used to turn the bloom off as its first step and
+             *  only then lower the resolution. Measured on a phone-sized
+             *  viewport, three interleaved passes per configuration because
+             *  a single run varies by about 3 fps:
+             *
+             *    ratio 1.6, bloom on    17.8 fps
+             *    ratio 1.6, bloom off   19.2 fps
+             *    ratio 1.3, bloom on    21.4 fps
+             *    ratio 1.3, bloom off   20.4 fps
+             *
+             *  The resolution is worth about 20%. The bloom is worth nothing
+             *  distinguishable from noise - which makes sense once measured
+             *  rather than assumed: it already runs at half resolution and
+             *  is pinned to 360px wide on a phone, so it was cheap before
+             *  the ladder ever reached for it. The old first rung gave up
+             *  the look of the page and bought no frames with it.
+             *
+             *  So both rungs are resolution now, and the bloom stays on. */
+            const step = quality === 1 ? 1.15 : 0.85;
+
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, step));
+            starUniforms.uPixelRatio.value = renderer.getPixelRatio();
+            moteUniforms.uPixelRatio.value = renderer.getPixelRatio();
+            resize();
           }
 
           slowFrames = 0;

@@ -550,10 +550,26 @@ export function createLoader(canvas: HTMLCanvasElement): Loader {
     camera.right = aspect;
     camera.updateProjectionMatrix();
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    /*  THE COMPOSER HAS ITS OWN COPY OF THE PIXEL RATIO, and it takes it
+        ONCE, in its constructor - which runs above this function, before any
+        of this has been set. So it held the renderer's default of 1 while
+        the canvas was being presented at the device's 2 or 3, and every pass
+        in the chain rendered the dial, the wordmark and the digits at HALF
+        the resolution they were then stretched to. That is the blur: not the
+        bloom, not the line width, and nothing a stroke weight could fix.
+
+        `setSize` does not re-read it either - it multiplies by whatever was
+        captured - so the ratio has to be pushed in explicitly, after the
+        renderer is told and before the targets are sized. The journey does
+        not have this bug only by accident of ordering: there the renderer is
+        configured before its composer is built. */
+    const ratio = Math.min(window.devicePixelRatio, 2);
+
+    renderer.setPixelRatio(ratio);
     renderer.setSize(width, height, false);
+    composer.setPixelRatio(ratio);
     composer.setSize(width, height);
-    bloom.setSize(width, height);
+    bloom.setSize(width * ratio, height * ratio);
   }
 
   resize();

@@ -37,13 +37,34 @@ export function useAppScale(): void {
        *  the DESKTOP ones; they are not in play here, because in compact mode
        *  nothing is competing for a fixed 624px of height - the body scrolls.
        *
-       *  Keyed on the viewport, not on a user-agent string: a small window on
-       *  a desktop deserves the same treatment, and a phone in landscape at
-       *  844px wide does not. The pointer test keeps a narrow desktop window
-       *  on the scaled layout, where a mouse can still hit a 16px control.
+       *  THE TEST IS THE SCALE ITSELF, not the viewport and not a
+       *  user-agent string. The old one required `pointer: coarse` AND a
+       *  small viewport, and both halves turned out to be guesses about the
+       *  device rather than statements about the problem:
+       *
+       *  - `coarse` is not reliable. A browser in desktop-site mode reports
+       *    a fine pointer on a phone, and the whole compact layout then
+       *    silently did not apply on the one device it exists for.
+       *  - A pixel threshold is the wrong quantity. What makes the interface
+       *    unreadable is not how many CSS pixels there are, it is how far
+       *    the 1180x720 design had to shrink to fit them - and that depends
+       *    on the ASPECT as well as the size. A phone in landscape reports
+       *    a comfortable width and still scales to 0.4, because the height
+       *    is what binds.
+       *
+       *  So the criterion is the scale that would otherwise be applied. At
+       *  0.9 a 10px label is 9px and still legible; by 0.7 it is 7px, which
+       *  is the "zoomed out" complaint. Touch gets the higher threshold
+       *  because a finger also needs the target size, a mouse only needs to
+       *  read it - which is the one thing the pointer test is actually good
+       *  for, so it survives as a threshold rather than as a gate.
        */
+      const wouldScale = Math.min(
+        window.innerWidth / DESIGN_WIDTH,
+        window.innerHeight / DESIGN_HEIGHT,
+      );
       const coarse = window.matchMedia('(pointer: coarse)').matches;
-      const compact = coarse && (window.innerWidth < 900 || window.innerHeight < 500);
+      const compact = wouldScale < (coarse ? 0.9 : 0.7);
 
       document.documentElement.dataset.compact = compact ? 'true' : 'false';
 
