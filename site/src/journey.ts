@@ -82,15 +82,24 @@ export interface Journey {
 /** The plugin's own aspect ratio, so the last formation is its shape. */
 const PANEL_ASPECT = 1180 / 720;
 
-/** Orbits, wave, helix, driver, panel. */
+/** Orbits, wave, helix, driver, shell, panel. */
 const FORMS = 6;
 
 /*  THE CHARACTERISTIC RADIUS OF EACH FORMATION, in the same units the GLSL
     above builds them in. Read off the formation functions: the orbits' ring
     reaches 5.4 + 2.6, the wave spans 22 across, the helix is 20 tall, the
     driver's cone reaches 5.75 - though the dust thrown off the dissolve
-    carries well past it, so it is entered larger - and the panel is
-    13 x 13/aspect.
+    carries well past it, so it is entered larger - the shell's flat face is
+    the panel's own 13 x 13/aspect with 3.1 of wall folded back behind it,
+    and the panel is 13 x 13/aspect.
+
+    The shell's pair is LARGER than the panel's even though its face is the
+    same rectangle, and that is the depth. A flat panel's silhouette is its
+    rectangle from any angle worth looking at; a box 3.1 deep seen from a
+    corner - which is where this camera always is, since it orbits - throws
+    that depth into BOTH screen axes at once. Framed on the face alone it
+    came out clipped at two edges, and a case whose edges cannot be seen is
+    not reading as a case at all.
 
     The panel's is deliberately its half-HEIGHT rather than its half
     diagonal. It is a flat wide rectangle, so framing its diagonal against
@@ -105,7 +114,7 @@ const FORMS = 6;
     after it 10-20%, so the journey appeared to be running away from the
     viewer. Same reasoning as the lateral offset below - a composition is a
     fraction of the frustum, never a number of world units. */
-const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 8.4, 5.8] as const;
+const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 9.4, 5.8] as const;
 
 /*  And their HALF-WIDTHS, which is a different question from the one above.
     The radii say what should fill the frame vertically; these say what must
@@ -115,7 +124,7 @@ const FORM_RADII = [8.0, 11.0, 10.0, 7.2, 8.4, 5.8] as const;
     alone it ran off both edges and the thing the page ends on could not be
     read. The distance is solved for BOTH and the further of the two wins,
     so a subject is never clipped by the axis nobody checked. */
-const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 7.2, 6.5] as const;
+const FORM_HALF_WIDTHS = [8.0, 11.0, 4.7, 5.9, 10.4, 6.5] as const;
 
 /*  How much of the frame's width the subject may span before it is pushed
     back. 0.78 rather than 0.86: at 0.86 the instrument measured 79% of a
@@ -342,61 +351,58 @@ const FORMATIONS = /* glsl */ `
     return vec3(p, (s.z - 0.5) * 0.25);
   }
 
-  /*  THE CRYSTAL. What the dissolve's dust settles back into, and the
-      section where the thing stops being a process and becomes a product -
-      so it is the one formation here with flat facets and hard edges rather
-      than swept curves. A polygon, not a circle: the exact regular-polygon
-      radius, so the rings are octagons and read as cut faces.
+  /*  THE INSTRUMENT, SHUT. The section says the thing is BOUGHT - one
+      price, yours, done - so the subject is the instrument as an object
+      rather than as a process: its own rectangle folded back at every edge
+      into a closed case.
 
-      It sits between the dissolve and the interface for that reason. Dust,
-      then something faceted, then the instrument. */
-  vec3 formCrystal(float c, float t, vec3 s) {
-    const float FACETS = 8.0;
-    const float SEG = TAU / FACETS;
+      It is built on the panel's geometry deliberately, because the next
+      formation IS the panel. The case does not morph into an unrelated
+      shape at the end of the journey, it OPENS: the walls swing flat and
+      the face becomes the interface. That is the one transition on this
+      page where the two forms are the same object in two states, and it is
+      the reason this sits here rather than the faceted solid it replaces -
+      a gem was a thing to look at, this is the thing being sold.
 
-    // Exact regular polygon of FACETS sides, radius 1 at its vertices.
-    float a = t * TAU;
-    float poly = cos(SEG * 0.5) / cos(mod(a, SEG) - SEG * 0.5);
+      W is the panel's width divided by the lip, so the flat FACE comes out
+      at exactly the panel's 13 across and the walls are the extra. Sizing
+      the whole sheet at 13 instead would have folded a third of the
+      instrument away into the sides and left a case visibly smaller than
+      the screen it turns into. */
+  vec3 formShell(float c, float t, vec3 s) {
+    /*  How much of the sheet stays flat. The rest is wall. */
+    const float LIP = 0.78;
+    const float DEPTH = 3.1;
 
-    float ring = step(0.5, fract(c * 2.0));
-    float lane = floor(c * 14.0) / 13.0;
+    float W = ${(13 / 0.78).toFixed(4)};
+    float H = ${(13 / PANEL_ASPECT / 0.78).toFixed(4)};
 
-    /*  A gem's profile: a point at the bottom, the widest band a quarter of
-        the way up, and a flat table on top. The girdle sits low because a
-        stone with its widest point in the middle reads as a ball. */
-    float h = (lane - 0.5) * 2.0;
-    float girdle = 0.25;
-    float radius = h < girdle
-      ? (h + 1.0) / (1.0 + girdle)
-      : 1.0 - (h - girdle) / (1.0 - girdle) * 0.55;
+    float across = step(0.5, fract(c * 2.0));
+    float lane = floor(c * 30.0) / 29.0;
 
-    radius = max(radius, 0.04) * 7.2;
+    vec2 p = across > 0.5
+      ? vec2((t - 0.5) * W, (lane - 0.5) * H)
+      : vec2((lane - 0.5) * W, (t - 0.5) * H);
 
-    if (ring > 0.5) {
-      // A horizontal facet edge.
-      return vec3(cos(a) * radius * poly, h * 6.0, sin(a) * radius * poly);
-    }
+    /*  A SQUARE distance, not a radial one. The fold has to run parallel to
+        the edges or the case comes out as a bowl - max() of the two axes is
+        what makes the crease a rectangle and the corners meet properly. */
+    float m = max(abs(p.x) / (W * 0.5), abs(p.y) / (H * 0.5));
 
-    /*  A vertical facet: girdle vertex up to the table, or down to the
-        point. t runs the whole edge, so the stroke is one straight line
-        rather than something that has to be chased around the shape.
+    float k = clamp((m - LIP) / (1.0 - LIP), 0.0, 1.0);
 
-        No backticks anywhere in this block: FORMATIONS is a template
-        literal, so one inside a GLSL comment ends the string and the rest
-        of the shader is parsed as TypeScript. */
-    float vertex = floor(c * FACETS * 2.0);
-    float va = (vertex / FACETS) * SEG * FACETS / FACETS;
-    va = floor(mod(vertex, FACETS)) * SEG;
+    /*  Squared, so the sheet leaves the face TANGENTIALLY. A linear bend
+        puts a hard kink at the lip and the case reads as folded paper;
+        easing in gives it the drawn radius a moulded corner has. */
+    float bend = k * k;
 
-    float upper = step(0.5, fract(vertex / 2.0));
-    float wide = 7.2;
+    /*  Past the lip the ruling stops growing outward and is carried back
+        instead, tapering slightly as it goes - a wall that is exactly
+        perpendicular reads as an open box, and one that leans in reads as a
+        lid that closes onto something. */
+    float pull = mix(1.0, (LIP / max(m, 0.0001)) * 0.93, bend);
 
-    vec3 girdlePoint = vec3(cos(va) * wide, girdle * 6.0, sin(va) * wide);
-    vec3 tip = upper > 0.5
-      ? vec3(cos(va) * wide * 0.45, 6.0, sin(va) * wide * 0.45)
-      : vec3(0.0, -6.0, 0.0);
-
-    return mix(girdlePoint, tip, t);
+    return vec3(p * pull, -bend * DEPTH + (s.z - 0.5) * 0.18);
   }
 
   vec3 formation(int id, float c, float t, vec3 s) {
@@ -404,7 +410,7 @@ const FORMATIONS = /* glsl */ `
     if (id == 1) return formWave(c, t, s);
     if (id == 2) return formHelix(c, t, s);
     if (id == 3) return formDriver(c, t, s);
-    if (id == 4) return formCrystal(c, t, s);
+    if (id == 4) return formShell(c, t, s);
     return formPanel(c, t, s);
   }
 `;
@@ -1404,7 +1410,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           makes it read as one object changing rather than two swapping. */
       /*  RE-KEYED FOR SIX SECTIONS. u maps to the form index by u * 5 now,
           not u * 4, so the driver arrives at u = 0.6 and the burn has to be
-          finished before the crystal at u = 0.8 rather than after it. These
+          finished before the shell at u = 0.8 rather than after it. These
           are the numbers that decide whether the dissolve happens on the FX
           section or on top of the one after it. */
       const solid = THREE.MathUtils.smoothstep(u, 0.58, 0.66);
