@@ -430,7 +430,21 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       on, through a bloom chain that touches every one of them several times.
       The difference is invisible through the glow and it is the single
       largest lever on whether this runs at 60. */
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.25 : 2));
+  /*  1.6 ON A PHONE, up from 1.25.
+   *
+   *  At 1.25 the panel was rendered at roughly 449 pixels across while the
+   *  screen showed it over 1077 - a phone reports a device pixel ratio of 3,
+   *  so 1.25 is 42% of the real resolution and the instrument arrived soft
+   *  at the exact moment the page asks you to look at it.
+   *
+   *  This is paid for rather than simply spent: the bloom chain is pinned to
+   *  an absolute size below so it does NOT scale with this, the star field
+   *  is smaller, and the two objects that were drawn invisibly for four
+   *  fifths of the page are culled. And the adaptive step-down still
+   *  measures the result - a device that cannot hold 1.6 drops bloom first
+   *  and then the ratio, so this raises the ceiling without raising the
+   *  floor. */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.6 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
 
@@ -467,7 +481,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       the first section and the rest of the page would be flown in a void.
       Each star is dropped near a random point on the route, so there is sky
       the whole way and it STREAMS past, which is what says you are moving. */
-  const STARS = mobile ? 4500 : 12000;
+  /*  3000 on a phone, down from 4500. Additive points are pure fill rate and
+      the field reads as a sky well before the count matters - this is what
+      buys the higher render resolution above. */
+  const STARS = mobile ? 3000 : 12000;
 
   const starGeometry = new THREE.BufferGeometry();
   const starPos = new Float32Array(STARS * 3);
@@ -977,6 +994,24 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   const loader = new THREE.TextureLoader();
   const panelTexture = loader.load('./ui-osc.webp');
   panelTexture.colorSpace = THREE.SRGBColorSpace;
+
+  /*  ANISOTROPIC FILTERING, and it is the cheapest sharpness available here.
+   *
+   *  The source is 1536x937 - far more detail than the screen asks for - and
+   *  the panel still looked soft, because a plane seen at ANY angle other
+   *  than straight on samples its texture along a stretched footprint.
+   *  Trilinear filtering answers that by dropping to a blurrier mip level;
+   *  anisotropic filtering takes several samples along the stretch instead
+   *  and keeps the detail. Default is 1, meaning off.
+   *
+   *  It costs texture samples on ONE quad, not fill rate over the frame -
+   *  which is what makes it the right first move when the ask is "sharper
+   *  AND faster". Raising the render resolution was the obvious answer and
+   *  the expensive one; this is most of the win for almost nothing. */
+  panelTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  panelTexture.minFilter = THREE.LinearMipmapLinearFilter;
+  panelTexture.magFilter = THREE.LinearFilter;
+  panelTexture.generateMipmaps = true;
   disposables.push(panelTexture);
 
   const panelMaterial = new THREE.MeshBasicMaterial({
@@ -1085,8 +1120,17 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         target is very nearly the same picture for a quarter of the pixels
         touched. This and the pixel ratio above are the two numbers that
         decide whether a phone holds 60. */
-    const bloomScale = mobile ? 0.5 : 1;
-    bloom.setSize(width * bloomScale, height * bloomScale);
+    /*  PINNED, NOT PROPORTIONAL. A bloom is a blur: its output is entirely
+        low frequency, so the resolution it is computed at is very nearly
+        invisible - which is why half size was already fine. Capping it in
+        ABSOLUTE pixels rather than as a fraction is what lets the render
+        resolution above rise without dragging the five-pass blur chain up
+        with it. On a phone that is the difference between a sharper picture
+        and a sharper picture that costs twice as much. */
+    const bloomCap = mobile ? 360 : 1280;
+    const bloomScale = Math.min(mobile ? 0.5 : 1, bloomCap / Math.max(1, width));
+
+    bloom.setSize(Math.round(width * bloomScale), Math.round(height * bloomScale));
 
     starUniforms.uPixelRatio.value = renderer.getPixelRatio();
     moteUniforms.uPixelRatio.value = renderer.getPixelRatio();
@@ -1432,7 +1476,23 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
           frame is a garbage collection or a texture upload, not a verdict on
           the device. A downgrade on that would fire during the arrival
           animation on hardware that is otherwise fine. */
-      if (quality < 2) {
+      /*  NOT DURING THE ARRIVAL.
+       *
+       *  The entry dolly and the figure's build are the single heaviest
+       *  moment on the page - every stroke is in flight, the camera is
+       *  travelling, and the shaders are compiling on the first frames. A
+       *  window sampled across that measures the worst thing the site ever
+       *  does and then downgrades PERMANENTLY, because quality only moves
+       *  one way. A healthy phone would be punished for the intro and spend
+       *  the rest of the visit at reduced quality for no reason.
+       *
+       *  So sampling waits until the scene has settled - the same condition
+       *  `isSettled` reports, which is already the project's answer to "is
+       *  this scene actually at rest". By then the steady-state cost is what
+       *  is being measured, which is the thing the decision is about. */
+      const settled = entry < 0.001 && figureUniforms.uAssemble.value > 0.999;
+
+      if (quality < 2 && settled) {
         sampledFrames += 1;
 
         if (delta > 0.045) slowFrames += 1;
