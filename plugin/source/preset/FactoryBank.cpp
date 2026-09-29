@@ -85,6 +85,34 @@ namespace
         { 0.833f, 0.35f, 0.0f, true },
     };
 
+    /*  THE GATE THE REFERENCES ACTUALLY USE, and it is asymmetric.
+
+        Read off five Vital patches the client supplied. Every one of them
+        routes its first LFO to OSCILLATOR LEVEL at full depth, unipolar -
+        not to a filter. That is the single biggest structural difference
+        between those patches and this bank, which modulated cutoff and
+        formant position and left the level alone. A filter sweep muffles;
+        a level gate makes the GAP that the genre is built on.
+
+        And the drawn shape is uneven within one cycle. One reference reads
+        1.0 at 0, down to 0 by 1/4, back to 1.0 at 1/2, down to 0 by 5/8,
+        back to 1.0 at the end - a long fall, a long rise, a fast fall, a
+        slow rise. That asymmetry is why the measured modulation spectrum of
+        the client's tracks carries 4.67, 7.00 AND 9.33 Hz simultaneously:
+        one cycle containing several subdivisions at once. A single-rate
+        LFO cannot produce that at any rate setting, which is why none of
+        the presets built on one sounded right.
+
+        Tension rather than steps here, because the references curve their
+        segments hard (powers up to 6.4 in the source patches) - that is the
+        snap, and a hard step is a different, more digital sound. */
+    const std::vector<FactoryBank::CurvePoint> kRiddimGate {
+        { 0.000f, 1.00f, -0.55f, false },
+        { 0.250f, 0.00f,  0.45f, false },
+        { 0.500f, 1.00f, -0.70f, false },
+        { 0.625f, 0.00f,  0.35f, false },
+    };
+
     /** A vowel sweep that opens fast and closes slowly - the "yoi". The
         tension on the long segment is what stops it being a triangle. */
     const std::vector<FactoryBank::CurvePoint> kVowelSweep {
@@ -155,8 +183,13 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::osc[0].wavetable, 3.0f },
               { pid::osc[0].tablePos, 0.35f },
               { pid::osc[0].level, 0.85f },
-              { pid::osc[0].unisonVoices, 3.0f },
-              { pid::osc[0].unisonDetune, 0.12f },
+              /*  ONE VOICE. Every reference patch has unison at 1 with the
+                  detune left at its default - the growl is a single voice
+                  being mangled, not a stack. Three detuned voices BEAT, and
+                  beating is what made an earlier modulation test pass with
+                  its bug reintroduced: the test was measuring the unison. */
+              { pid::osc[0].unisonVoices, 1.0f },
+              { pid::osc[0].unisonDetune, 0.05f },
               { pid::osc[0].sendFilter1, 1.0f },
               { pid::sub.enabled, 1.0f },
               { pid::sub.level, 0.5f },
@@ -171,20 +204,52 @@ std::vector<FactoryBank::Definition> FactoryBank::getDefinitions()
               { pid::filter[0].mix, 1.0f },
               { pid::lfo[0].shape, kLfoCustom },
               { pid::lfo[0].syncEnabled, 1.0f },
-              { pid::lfo[0].rateDivision, kEighthTriplet },
+              /*  1/4, NOT 1/8 TRIPLET, and the curve is why. It gates TWICE
+                  per cycle, so the rate you hear is double the division set
+                  here. At 1/8 triplet the articulation measured 12 Hz - about
+                  twice what the references do. At 1/4 it lands at 4.67 Hz,
+                  which is the strongest component in four of the five tracks
+                  measured. The division is not the wobble rate once the curve
+                  has more than one event in it. */
+              { pid::lfo[0].rateDivision, kQuarter },
+              /*  SLOT 0 IS THE GATE, and it is UNIPOLAR. A bipolar slot
+                  swings either side of where the knob sits, which is right
+                  for an LFO on a cutoff and wrong for a gate: at the bottom
+                  of the curve the level has to reach silence, not merely
+                  drop below its setting. Full depth, because the reference
+                  patches use exactly 1.000. */
               { pid::modSlot[0].enabled, 1.0f },
               { pid::modSlot[0].source, kSourceLfo1 },
-              { pid::modSlot[0].depth, 0.8f },
+              { pid::modSlot[0].depth, 1.0f },
+              { pid::modSlot[0].bipolar, 0.0f },
+              /*  Slot 1 keeps the formant moving underneath, which is what
+                  makes the gaps sound like a mouth rather than a tremolo.
+                  Shallower than the gate: it colours, the gate articulates. */
+              { pid::modSlot[1].enabled, 1.0f },
+              { pid::modSlot[1].source, kSourceLfo1 },
+              { pid::modSlot[1].depth, 0.55f },
               { pid::ott.enabled, 1.0f },
               { pid::ott.depth, 0.45f },
               { pid::fxDistortion[0].enabled, 1.0f },
               { pid::fxDistortion[0].drive, 14.0f },
               { pid::fxDistortion[0].tone, 0.3f },
               { pid::fxLimiter.enabled, 1.0f },
+              /*  +8 dB, and the first attempt here was -7 because I misread
+                  the renderer. It NORMALISES the wav before writing so the
+                  clip is audible, and prints the patch's true peak
+                  separately - so the 1.26 in the file was the normalisation,
+                  not clipping, and cutting 7 dB "fixed" a problem that did
+                  not exist and left the patch at 0.065. The number that
+                  matters is the printed one: 0.140 against 0.44 for the
+                  Bass presets, so this growl was 10 dB under the bank it
+                  leads. Up rather than down. */
+              { pid::masterGain, 8.0f },
           },
-          // Block-rate: the formant coefficients are recomputed per chunk.
-          { { 0, pid::filter[0].formantX } },
-          { { 0, kSteppedSix } } },
+          //  Level first - the gate IS the growl. Block-rate both: the
+          //  formant coefficients are recomputed per chunk.
+          { { 0, pid::osc[0].level },
+            { 1, pid::filter[0].formantX } },
+          { { 0, kRiddimGate } } },
 
         /*  The other half of the growl vocabulary: the formant held still and
             the CUTOFF wobbling, at a straight sixteenth. Slower, wider, and
