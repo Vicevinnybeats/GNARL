@@ -23,12 +23,23 @@ const CACHE = `gnarl-${VERSION}`;
 /*  The shell: what has to be present for the app to start at all. Everything
     else is cached as it is asked for, because the wavetable and spectrum data
     is large and most of it is not needed on a first paint. */
+/*  NOT THE ASSET URLS. The HTML references them with a ?v=<build id> query,
+    so the URL here - the bare one - is a different URL that nothing asks
+    for, and pre-caching it would only fill a brand-new cache with a copy of
+    the file nobody will request.
+
+    Worse, it used to fill it with the WRONG one: the bare URL was served
+    with `immutable` for a year, so `cache.add` (an ordinary fetch, subject
+    to the HTTP cache) handed the new versioned cache the OLD bundle.
+    Versioning the cache name cannot help when its contents come from a
+    cache that was told never to revalidate.
+
+    The versioned URLs are cached by the fetch handler on first request
+    instead, which is what makes them available offline. */
 const SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './assets/index.js',
-  './assets/index.css',
   './icons/icon-192.png',
   './icons/icon-512.png',
 ];

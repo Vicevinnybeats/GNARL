@@ -37,11 +37,52 @@ function stampServiceWorker(): Plugin {
         hash.update('code' in chunk ? chunk.code : String(chunk.source));
       }
 
+      const id = hash.digest('hex').slice(0, 12);
+
       try {
         const source = readFileSync(swPath, 'utf8');
-        writeFileSync(swPath, source.replace('__GNARL_BUILD_ID__', hash.digest('hex').slice(0, 12)));
+        writeFileSync(swPath, source.replace('__GNARL_BUILD_ID__', id));
       } catch {
         //  No service worker in this build; nothing to stamp.
+      }
+
+      /*  AND THE SAME ID ON THE ASSET URLS, which is the difference between
+          an app that can be updated and one that cannot.
+
+          The output filenames are deliberately stable and unhashed, because
+          the plugin's C++ resource provider resolves them by name at compile
+          time. On the WEB that same property is a trap: a URL that never
+          changes its name was being served with `immutable`, so browsers
+          were told the bytes behind `assets/index.js` would never change and
+          correctly stopped asking. The header is fixed, but a response
+          already cached as immutable is never revalidated - the browser does
+          not ask, so there is nothing for a new header to answer.
+
+          A query string makes it a DIFFERENT URL, which is a cache miss by
+          construction, and it does not rename the file - so CMake's
+          GNARL_UI_FILES list and the binary-data mangling in
+          WebUIResourceProvider are both untouched, and the plugin build is
+          unaffected. The query is only in the HTML the web deploy serves.
+
+          This also repairs the service worker, which was defeated by the
+          same header: a new worker's `cache.add('./assets/index.js')` is an
+          ordinary fetch, so it was filling its brand-new versioned cache
+          with the year-old immutable copy. Versioning the cache name could
+          never have worked while the contents came from the HTTP cache. */
+      const htmlPath = resolve(outDir, 'index.html');
+
+      try {
+        const html = readFileSync(htmlPath, 'utf8');
+
+        writeFileSync(
+          htmlPath,
+          html.replace(
+            /(src|href)="(\.?\/?assets\/[^"?]+)"/g,
+            (_match, attr: string, url: string) => `${attr}="${url}?v=${id}"`,
+          ),
+        );
+      } catch {
+        //  No HTML in this build.
       }
     },
   };
