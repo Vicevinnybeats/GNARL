@@ -664,23 +664,38 @@ jobs:
       #  not a preference, so the installer should own it.
       - name: Build the Windows installer
         if: runner.os == 'Windows'
-        shell: bash
+        #  POWERSHELL, NOT BASH, and that is the whole fix. Under Git Bash
+        #  `$(pwd)` returns /d/a/GNARL/... - an MSYS path a native Windows
+        #  program cannot read - and the `//O` written to stop MSYS rewriting
+        #  the flag was passed through literally, so ISCC saw `//O` and a
+        #  Unix path and reported "Unknown option". PowerShell does neither
+        #  conversion, so the argument arrives as written.
+        shell: pwsh
         env:
           GNARL_VERSION: ${{ inputs.release_version != '' && inputs.release_version || '0.0.0-dev' }}
         run: |
-          set -euo pipefail
-          choco install innosetup --no-progress -y
-
-          mkdir -p packaging/windows/stage
-          cp -R artifacts/* packaging/windows/stage/ 2>/dev/null || true
+          $ErrorActionPreference = 'Stop'
 
           #  Inno wants a plain version; a leading v is not one.
-          export GNARL_VERSION="${GNARL_VERSION#v}"
+          $env:GNARL_VERSION = $env:GNARL_VERSION -replace '^v', ''
 
-          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
-          "$iscc" //O"$(pwd)/artifacts" packaging/windows/gnarl.iss
+          New-Item -ItemType Directory -Force -Path packaging\windows\stage | Out-Null
+          Copy-Item -Recurse -Force artifacts\* packaging\windows\stage\
 
-          ls -la artifacts/*.exe || true
+          #  Inno Setup ships on the windows runner image already - the
+          #  choco install that was here reported "v6.7.1 already installed"
+          #  and did nothing. Installed only if that ever stops being true.
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+          }
+
+          & $iscc "/O$($PWD.Path)\artifacts" packaging\windows\gnarl.iss
+
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+
+          Get-ChildItem artifacts\*.exe
 
       - name: Build the macOS installer
         if: runner.os == 'macOS'
