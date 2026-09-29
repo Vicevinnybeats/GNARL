@@ -8,6 +8,7 @@ import { DRIVE_CURVE, FILTER_ROUTING, FILTER_TYPE, NOISE_TYPE, OSC_MODE, SUB_WAV
 import { FILTER, GLOBAL, NOISE, OSC, SUB } from '../bridge/parameterIds';
 import { useParameter } from '../bridge/useParameter';
 import { useChoiceParameter, useToggleParameter } from '../bridge/useDiscreteParameter';
+import { CompactSections } from '../components/CompactSections';
 import './OscTab.css';
 
 function OscillatorPanel({ index }: { index: 0 | 1 }) {
@@ -215,23 +216,50 @@ export function OscTab() {
 
   return (
     <div className="gn-osc-tab">
-      <div className="gn-osc-tab__oscillators">
-        <OscillatorPanel index={0} />
-        <OscillatorPanel index={1} />
-      </div>
-
-      <div className="gn-osc-tab__strip">
-        <SubPanel />
-        <NoisePanel />
-      </div>
-
-      <div className="gn-osc-tab__filters">
-        <FilterPanel index={0} />
-        <Panel title="Routing">
-          <Dropdown value={routing.index} options={FILTER_ROUTING} onChange={routing.setIndex} />
-        </Panel>
-        <FilterPanel index={1} />
-      </div>
+      {/*  Three sections on a phone, one screen on a desktop. The split
+           follows the signal: what makes the sound, what sits under it, and
+           what shapes it. */}
+      <CompactSections
+        sections={[
+          {
+            id: 'osc',
+            label: 'Osc',
+            content: (
+              <div className="gn-osc-tab__oscillators">
+                <OscillatorPanel index={0} />
+                <OscillatorPanel index={1} />
+              </div>
+            ),
+          },
+          {
+            id: 'sub',
+            label: 'Sub / Noise',
+            content: (
+              <div className="gn-osc-tab__strip">
+                <SubPanel />
+                <NoisePanel />
+              </div>
+            ),
+          },
+          {
+            id: 'filters',
+            label: 'Filters',
+            content: (
+              <div className="gn-osc-tab__filters">
+                <FilterPanel index={0} />
+                <Panel title="Routing">
+                  <Dropdown
+                    value={routing.index}
+                    options={FILTER_ROUTING}
+                    onChange={routing.setIndex}
+                  />
+                </Panel>
+                <FilterPanel index={1} />
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

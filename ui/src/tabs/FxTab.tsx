@@ -19,6 +19,7 @@ import {
 import { FX_SLOT_ENABLE_IDS, FxSlotPanel } from './FxRackPanels';
 import { useParameter } from '../bridge/useParameter';
 import { useToggleParameter } from '../bridge/useDiscreteParameter';
+import { CompactSections } from '../components/CompactSections';
 import './FxTab.css';
 
 /**
@@ -252,8 +253,16 @@ function FxRackPanel() {
 export function FxTab() {
   return (
     <div className="gn-fx-tab">
-      <OttPanel />
-      <FxRackPanel />
+      {/*  Two sections, not fifteen. The rack is ALREADY a selector - a chain
+           list plus the one slot it is editing - so the effects do not need
+           sub-tabs of their own; what they needed was not to be below a
+           full-height OTT panel on a 330px screen. */}
+      <CompactSections
+        sections={[
+          { id: 'ott', label: 'OTT', content: <OttPanel /> },
+          { id: 'rack', label: 'Effects', content: <FxRackPanel /> },
+        ]}
+      />
     </div>
   );
 }

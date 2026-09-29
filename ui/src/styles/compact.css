@@ -99,7 +99,7 @@
 :root[data-compact='true'] .gn-osc-tab__filters,
 :root[data-compact='true'] .gn-mod-tab__envelopes,
 :root[data-compact='true'] .gn-mod-tab__top,
-:root[data-compact='true'] .gn-fx-tab__grid {
+:root[data-compact='true'] .gn-mod-tab__bottom {
   display: flex;
   flex-direction: column;
   gap: var(--gn-space-2);
@@ -265,8 +265,7 @@
 @media (min-width: 640px) {
   :root[data-compact='true'] .gn-osc-tab__oscillators,
   :root[data-compact='true'] .gn-osc-tab__filters,
-  :root[data-compact='true'] .gn-mod-tab__envelopes,
-  :root[data-compact='true'] .gn-fx-tab__grid {
+  :root[data-compact='true'] .gn-mod-tab__envelopes {
     flex-direction: row;
     align-items: flex-start;
   }
@@ -278,8 +277,7 @@
       file eats the right-hand one rather than the two sharing the row. */
   :root[data-compact='true'] .gn-osc-tab__oscillators > *,
   :root[data-compact='true'] .gn-osc-tab__filters > *,
-  :root[data-compact='true'] .gn-mod-tab__envelopes > *,
-  :root[data-compact='true'] .gn-fx-tab__grid > * {
+  :root[data-compact='true'] .gn-mod-tab__envelopes > * {
     flex: 1 1 0;
     min-width: 0;
   }
@@ -348,4 +346,85 @@
   :root[data-compact='true'] .gn-osc__display {
     height: 76px;
   }
+}
+
+/* --- the FX chain is a strip, not a column ---------------------------- */
+
+/*  Fourteen rows at ~30px is 420px of chain before the editor starts, which
+    on a phone means the thing you just selected is off the bottom of the
+    screen. Laid sideways it costs one row, scrolls with a thumb, and keeps
+    the slot editor where you can see what you changed.
+
+    The order is still the signal path left to right, so a drag to reorder
+    reads the same way it does on a desktop - it is the same list rotated,
+    not a different control. */
+:root[data-compact='true'] .gn-fx-chain {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  gap: 4px;
+  padding-bottom: 2px;
+}
+
+:root[data-compact='true'] .gn-fx-chain::-webkit-scrollbar {
+  display: none;
+}
+
+:root[data-compact='true'] .gn-fx-chain__row {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/*  The drag grip means nothing without a pointer and costs width that the
+    name needs. Reordering on a phone is a two-finger job at best; the names
+    being readable is what the strip is for. */
+:root[data-compact='true'] .gn-fx-chain__grip {
+  display: none;
+}
+
+/* --- the sub-tab row must not scroll away ----------------------------- */
+
+/*  It is the navigation for the panels under it, so it stays put while they
+    move - the same reasoning as the docked keyboard. */
+:root[data-compact='true'] .gn-subtabs {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--gn-bg);
+  padding-top: 2px;
+}
+
+/*  THE RACK STACKS. Its desktop grid is a 208px chain column beside the
+    editor, which is right when the chain is fourteen rows tall. Laid
+    sideways the strip needs one row and the full width, and the 208px
+    column left it truncating every name to "1 D..." while two thirds of
+    the column sat empty under it. */
+:root[data-compact='true'] .gn-fx-rack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/*  THE CHIP SIZES TO ITS NAME. The row is a four-column grid whose third
+    track is `1fr` - which in a column means "the leftover width", and in a
+    strip means "whatever the flex basis happens to be". Setting the name to
+    `overflow: visible` did make the text appear in full and put it straight
+    under the toggle, because a 1fr track does not grow for content that has
+    been told to spill out of it.
+
+    `max-content` on that track is the fix that matches the container: the
+    track is as wide as the name, so the row is as wide as its contents and
+    the strip scrolls. Ellipsis is the right failure in a fixed column and
+    the wrong one in a strip, where there is always more room sideways. */
+:root[data-compact='true'] .gn-fx-chain__row {
+  grid-template-columns: 14px max-content auto;
+  height: 26px;
+  padding: 0 6px;
+}
+
+/*  The chain panel sizes to its one row rather than sharing the height with
+    the editor, which is the thing being looked at. */
+:root[data-compact='true'] .gn-fx-rack > .gn-panel:first-child {
+  flex: 0 0 auto;
 }

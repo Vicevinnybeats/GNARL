@@ -24,6 +24,7 @@ import { setPreviewCurves, setPreviewDestinations } from '../bridge/previewEngin
 import { useModulationFrame } from '../bridge/useModulation';
 import { useParameter } from '../bridge/useParameter';
 import { useChoiceParameter, useToggleParameter } from '../bridge/useDiscreteParameter';
+import { CompactSections } from '../components/CompactSections';
 import './ModTab.css';
 
 /**
@@ -99,28 +100,51 @@ export function ModTab() {
 
   return (
     <div className="gn-mod-tab">
-      <LfoSection
-        index={lfoIndex}
-        ids={LFO[lfoIndex] ?? LFO[0]}
-        onSelect={setLfoIndex}
-        points={curves[lfoIndex] ?? defaultRamp()}
-        onPointsChange={(points) => handleCurveChange(lfoIndex, points)}
+      {/*  The LFO editor is a drawing surface and wants the whole screen on a
+           phone; the matrix is a list of rows. They are different enough
+           that showing them together at 390px served neither. */}
+      <CompactSections
+        sections={[
+          {
+            id: 'lfo',
+            label: 'LFO',
+            content: (
+              <LfoSection
+                index={lfoIndex}
+                ids={LFO[lfoIndex] ?? LFO[0]}
+                onSelect={setLfoIndex}
+                points={curves[lfoIndex] ?? defaultRamp()}
+                onPointsChange={(points) => handleCurveChange(lfoIndex, points)}
+              />
+            ),
+          },
+          {
+            id: 'env',
+            label: 'Envelopes',
+            content: (
+              <div className="gn-mod-tab__envelopes">
+                {ENV.map((ids, index) => (
+                  <EnvelopePanel key={index} index={index} ids={ids} />
+                ))}
+              </div>
+            ),
+          },
+          {
+            id: 'matrix',
+            label: 'Matrix / Macros',
+            content: (
+              <div className="gn-mod-tab__bottom">
+                <ModMatrix
+                  destinations={destinations}
+                  available={available}
+                  onDestinationChange={handleDestinationChange}
+                />
+                <MacroPanel />
+              </div>
+            ),
+          },
+        ]}
       />
-
-      <div className="gn-mod-tab__envelopes">
-        {ENV.map((ids, index) => (
-          <EnvelopePanel key={index} index={index} ids={ids} />
-        ))}
-      </div>
-
-      <div className="gn-mod-tab__bottom">
-        <ModMatrix
-          destinations={destinations}
-          available={available}
-          onDestinationChange={handleDestinationChange}
-        />
-        <MacroPanel />
-      </div>
     </div>
   );
 }
