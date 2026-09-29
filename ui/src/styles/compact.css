@@ -238,3 +238,114 @@
 :root[data-compact='true'] canvas {
   max-width: 100%;
 }
+
+/* --- the diagnostic readout ------------------------------------------- */
+
+.gn-statusbar__diag {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* --- LANDSCAPE IS A DIFFERENT SHAPE, NOT A WIDER PORTRAIT -------------- */
+
+/*  A phone on its side is about 730x330 CSS pixels: nearly as wide as a
+    small laptop and barely a third as tall. Stacking everything into one
+    column there - which is right at 390px - wastes two thirds of the width
+    and makes a short screen scroll for everything, which is the worst
+    combination of the two axes.
+ *
+ *  So past this width the two-up panels go back to two-up. 640px rather
+ *  than a device test: what decides whether two oscillator panels fit is
+ *  how wide they would be, and half of 640 is 320, which is the point at
+ *  which a five-knob row still wraps to two readable rows rather than four.
+ *
+ *  Height is NOT part of the query on purpose. A tall narrow window at
+ *  700px wide has the same width problem and the same answer. */
+@media (min-width: 640px) {
+  :root[data-compact='true'] .gn-osc-tab__oscillators,
+  :root[data-compact='true'] .gn-osc-tab__filters,
+  :root[data-compact='true'] .gn-mod-tab__envelopes,
+  :root[data-compact='true'] .gn-fx-tab__grid {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  /*  Equal halves that may SHRINK. `flex: 1 1 0` rather than `flex: 1`:
+      the default basis is auto, which is the content's width, and a panel
+      built for 580px then refuses to give any of it back - the pair
+      measures wider than the screen and the clip at the bottom of this
+      file eats the right-hand one rather than the two sharing the row. */
+  :root[data-compact='true'] .gn-osc-tab__oscillators > *,
+  :root[data-compact='true'] .gn-osc-tab__filters > *,
+  :root[data-compact='true'] .gn-mod-tab__envelopes > *,
+  :root[data-compact='true'] .gn-fx-tab__grid > * {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* --- DENSER, because a short screen has no rows to spare --------------- */
+
+/*  Landscape gives about 330px of height, and the header and keyboard take
+    a third of it between them. Every gap here is one fewer control visible
+    without scrolling, so the spacing tokens tighten rather than each rule
+    being adjusted - the same argument as the theme's glow tokens: redefine
+    the token once and everything that reads it follows. */
+:root[data-compact='true'] {
+  --gn-space-1: 3px;
+  --gn-space-2: 6px;
+  --gn-space-3: 9px;
+}
+
+:root[data-compact='true'] .gn-panel__header {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+:root[data-compact='true'] .gn-panel__body {
+  padding: var(--gn-space-2);
+}
+
+/*  The keyboard is two octaves of white keys at a thumb's width. In
+    landscape the screen is short, and a keyboard sized for portrait eats a
+    third of it - so it gets shorter while staying wide enough to hit. */
+@media (max-height: 460px) {
+  :root[data-compact='true'] .gn-keys {
+    height: 58px;
+  }
+}
+
+/*  ONE HEADER ROW IN LANDSCAPE. The tabs are forced onto their own full
+    width above, which is right at 390px where the wordmark, the preset
+    stepper and five tab labels cannot share a line. In landscape they can,
+    and the second row costs about 55px of a 328px screen - a quarter of
+    everything left after the keyboard and the status bar. */
+@media (min-width: 640px) {
+  :root[data-compact='true'] .gn-tabs {
+    order: 0;
+    width: auto;
+    margin-left: auto;
+  }
+
+  :root[data-compact='true'] .gn-header {
+    flex-wrap: nowrap;
+  }
+}
+
+/*  The wordmark is a title, not a control, and at this size it is competing
+    with the things you came to touch. */
+:root[data-compact='true'] .gn-header__mark {
+  font-size: 15px;
+}
+
+/*  The wavetable display is 180px tall, which is right on a desktop where
+    the tab has 624px to spend and the table IS the oscillator. On a phone in
+    landscape the whole body is about 190px, so one display filled it and
+    every knob was below the fold. It keeps its full size in portrait, where
+    the height exists and scrolling past it is cheap. */
+@media (max-height: 460px) {
+  :root[data-compact='true'] .gn-osc__display {
+    height: 76px;
+  }
+}

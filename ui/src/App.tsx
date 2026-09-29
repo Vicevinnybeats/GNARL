@@ -5,6 +5,7 @@ import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
 import { RotatePrompt } from './components/RotatePrompt';
 import { TouchKeyboard } from './components/TouchKeyboard';
+import { useViewportReadout } from './bridge/useViewportReadout';
 import { listPresets, loadPreset } from './bridge/presets';
 import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
@@ -53,6 +54,7 @@ const readOutputRight = (frame: ModulationFrame) =>
 
 export function App() {
   const info = getPluginInfo();
+  const readout = useViewportReadout();
 
   const [tab, setTab] = useState<Tab>('OSC');
   // Scales the whole interface to the window; see useAppScale.
@@ -350,6 +352,15 @@ export function App() {
           <LicenseBanner state={licenseNotice} onDismiss={() => setDismissedNotice(licenseNotice.message)} />
         ) : (
           <span className="gn-statusbar__text">{status}</span>
+        )}
+        {/*  The layout's own inputs, when asked for with ?diag=1. See
+             useViewportReadout for why a phone has to report these rather
+             than have them inferred from a screenshot. */}
+        {readout !== null && (
+          <span className="gn-statusbar__diag">
+            {readout.width}x{readout.height} · dpr {readout.dpr} · {readout.pointer} · scale{' '}
+            {readout.scale} · compact {readout.compact}
+          </span>
         )}
         <span className="gn-statusbar__meta">
           {/*  "no audio engine" was true and is not any more: the browser now has
