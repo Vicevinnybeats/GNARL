@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Dropdown } from './components/Dropdown';
 import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
-import { RotatePrompt } from './components/RotatePrompt';
 import { TouchKeyboard } from './components/TouchKeyboard';
 import { useViewportReadout } from './bridge/useViewportReadout';
 import { listPresets, loadPreset } from './bridge/presets';
@@ -180,7 +179,6 @@ export function App() {
       {/*  Always rendered; a media query decides whether it is shown. A
            JavaScript orientation check would race the rotation animation and
            flash the wrong state. */}
-      <RotatePrompt />
 
       <div className="gn-app">
       <header className="gn-header">
