@@ -87,9 +87,9 @@
       }
     </script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
-    <script type="module" crossorigin src="./assets/index-D5ZB_9yB.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/styles-C0cPIIU2.js">
-    <link rel="stylesheet" crossorigin href="./assets/styles-C18uuCmC.css">
+    <script type="module" crossorigin src="./assets/index-CNL5y0YC.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/styles-DjVdMc_L.js">
+    <link rel="stylesheet" crossorigin href="./assets/styles-D4a21beB.css">
   </head>
   <body>
     <canvas id="stage" aria-hidden="true"></canvas>
@@ -220,7 +220,20 @@
                   not a detail: a service worker may only claim a scope at or
                   below its own path, so an app served from a subdirectory can
                   cache itself and nothing else here.  -->
-            <a class="button button--ghost" href="/app/">TRY IT IN THE BROWSER</a>
+            <!--  TWO LABELS, ONE LINK, CHOSEN BY CSS.
+                  On a phone this button installs an app to the home screen,
+                  and "try it in the browser" undersells that to the person
+                  it matters most to. On a desktop "download on phone" would
+                  be a lie about the machine they are on.
+
+                  A media query rather than JavaScript: the right text is
+                  correct on the FIRST paint, where a script would show one
+                  label and swap it, which on a slow connection is a visible
+                  flicker on the page's main call to action. -->
+            <a class="button button--ghost" href="/app/">
+              <span class="only-touch">DOWNLOAD ON PHONE</span>
+              <span class="only-pointer">TRY IT IN THE BROWSER</span>
+            </a>
           </div>
 
           <!-- SOURCE is gone: a link to a private repository is a dead button
@@ -230,9 +243,13 @@
                attached to it, where an Actions run is a build log whose
                artifacts expire and which needs an account to reach at all. -->
           <p class="note" data-decode data-decode-delay="240">
-            PRIVATE BETA &mdash; THE DOWNLOAD NEEDS AN INVITE FOR NOW.<br />
-            THE BROWSER VERSION INSTALLS ON PHONE AND DESKTOP, AND RUNS A
-            PREVIEW VOICE &mdash; NOT THE FULL ENGINE.
+            PRIVATE BETA &mdash; THE DESKTOP DOWNLOAD NEEDS AN INVITE FOR
+            NOW.<br />
+            <span class="only-touch">THE PHONE VERSION INSTALLS TO YOUR HOME
+            SCREEN AND RUNS A PREVIEW VOICE &mdash; NOT THE FULL
+            ENGINE.</span><span class="only-pointer">THE BROWSER VERSION
+            INSTALLS ON PHONE AND DESKTOP, AND RUNS A PREVIEW VOICE &mdash;
+            NOT THE FULL ENGINE.</span>
           </p>
 
           <div class="faq">

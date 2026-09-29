@@ -268,6 +268,28 @@ const frame = (now: number) => {
 
     journey.setScroll(progress);
 
+    /*  THE ATMOSPHERE CLEARS OVER THE INSTRUMENT.
+     *
+     *  The glyph rain is a layer between the universe and the content, and
+     *  for most of the page that is exactly right - it gives the space a
+     *  texture. Over the LAST section it is a veil across the one object the
+     *  whole page has been travelling towards, and the panel is a dense
+     *  interface full of 8px labels: atmosphere in front of it does not read
+     *  as depth, it reads as a dirty screen.
+     *
+     *  Faded rather than switched off, and on the same window the subject
+     *  grows over, so the two are one move: the air clears as the instrument
+     *  arrives.
+     *
+     *  A style write per frame is cheap here because `opacity` is a
+     *  compositor property - no layout, no paint, and the canvas is already
+     *  its own layer (position: fixed + mix-blend-mode). */
+    if (rainCanvas) {
+      const clearing = Math.min(1, Math.max(0, (progress - 0.82) / 0.14));
+
+      rainCanvas.style.opacity = String(0.22 * (1 - clearing));
+    }
+
     /*  THE CALL TO ACTION WAKES UP AS YOU ARRIVE. A class toggled on the
         document rather than a style written per frame: the animation is CSS
         and runs on the compositor, so the loop's only job is to say when.

@@ -619,3 +619,29 @@ body.is-departing .scroll-hint {
 body.is-departing {
   overflow: hidden;
 }
+
+/*  DEVICE-SPECIFIC WORDING. Some copy is only true on one kind of machine -
+    a button that installs an app to a home screen on a phone is a different
+    promise from one that opens a tab on a desktop.
+
+    Chosen by media query rather than by script, so the right words are
+    correct on the FIRST paint. A JS swap shows one label and replaces it,
+    which on a slow connection is a visible flicker on the page's main call
+    to action - and on the element somebody is deciding whether to press.
+
+    `pointer: coarse` rather than a width: a phone in landscape is 844px
+    wide, which no sensible breakpoint would call mobile, and it is still a
+    phone with a home screen. */
+.only-touch {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .only-touch {
+    display: inline;
+  }
+
+  .only-pointer {
+    display: none;
+  }
+}

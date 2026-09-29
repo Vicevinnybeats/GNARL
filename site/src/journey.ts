@@ -167,6 +167,22 @@ function formHalfWidth(index: number): number {
 const SUBJECT_FRACTION_DESKTOP = 0.80;
 const SUBJECT_FRACTION_MOBILE = 0.34;
 
+/*  AND HOW MUCH AT THE END, where the subject is the instrument itself.
+ *
+ *  The width fraction already eased to 0.92 over the last transition, and
+ *  that bought almost nothing on a phone: the two solves are compared with
+ *  `Math.max` - the FURTHER distance wins, because whichever axis would clip
+ *  decides - and on a tall screen the HEIGHT fraction is always the further
+ *  of the two. Widening the width fraction while the height fraction stayed
+ *  at 0.34 was loosening the constraint that was not binding.
+ *
+ *  0.34 is right for the earlier sections, where the card owns the lower
+ *  half of the screen and the subject rides above it. It is wrong for the
+ *  last one, where the card has been read and the instrument IS the point.
+ *  So the height fraction eases too, over the same transition. */
+const SUBJECT_FRACTION_MOBILE_END = 0.62;
+const SUBJECT_FRACTION_DESKTOP_END = 0.88;
+
 /*  How much further back the camera sits at the start of the arrival dolly,
     as a multiple of the framing distance. 2.4 puts the hero at roughly a
     third of its final size, which is far enough to read as travel and close
@@ -1201,7 +1217,15 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
         form - lower,
       );
 
-      const fraction = mobile ? SUBJECT_FRACTION_MOBILE : SUBJECT_FRACTION_DESKTOP;
+      /*  Eased across the last transition, exactly as the width fraction
+          below is - and on the same `form` window, so the subject grows in
+          one move rather than in two that nearly coincide. */
+      const endward = THREE.MathUtils.smoothstep(form, 4.2, 5.0);
+
+      const fraction = mobile
+        ? THREE.MathUtils.lerp(SUBJECT_FRACTION_MOBILE, SUBJECT_FRACTION_MOBILE_END, endward)
+        : THREE.MathUtils.lerp(SUBJECT_FRACTION_DESKTOP, SUBJECT_FRACTION_DESKTOP_END, endward);
+
       const halfFov = Math.tan((camera.fov * Math.PI) / 360);
 
       // visibleHeight = 2 d tan(fov/2), and we want 2r = fraction x that.
@@ -1213,7 +1237,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
       const widthFraction = THREE.MathUtils.lerp(
         SUBJECT_WIDTH_FRACTION,
         SUBJECT_WIDTH_FRACTION_END,
-        THREE.MathUtils.smoothstep(form, 4.2, 5.0),
+        endward,
       );
 
       //  framingAspect, NOT camera.aspect: an address bar sliding in and out
