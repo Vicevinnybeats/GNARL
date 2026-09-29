@@ -656,6 +656,44 @@ jobs:
 
           ls -la artifacts
 
+      #  AN INSTALLER, NOT JUST A FOLDER. The zip is honest but puts the
+      #  burden of knowing where a VST3 belongs onto the person downloading
+      #  it - which is exactly what went wrong on the first test: the bundle
+      #  was copied to Program Files\VSTPlugins, the VST2 directory, and the
+      #  scanner correctly never found it. The install path is a contract,
+      #  not a preference, so the installer should own it.
+      - name: Build the Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          GNARL_VERSION: ${{ inputs.release_version != '' && inputs.release_version || '0.0.0-dev' }}
+        run: |
+          set -euo pipefail
+          choco install innosetup --no-progress -y
+
+          mkdir -p packaging/windows/stage
+          cp -R artifacts/* packaging/windows/stage/ 2>/dev/null || true
+
+          #  Inno wants a plain version; a leading v is not one.
+          export GNARL_VERSION="${GNARL_VERSION#v}"
+
+          iscc="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          "$iscc" //O"$(pwd)/artifacts" packaging/windows/gnarl.iss
+
+          ls -la artifacts/*.exe || true
+
+      - name: Build the macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          GNARL_VERSION: ${{ inputs.release_version != '' && inputs.release_version || '0.0.0-dev' }}
+        run: |
+          set -euo pipefail
+          version="${GNARL_VERSION#v}"
+          bash packaging/macos/build-pkg.sh artifacts "$version" \
+               "artifacts/GNARL-$version.pkg"
+          ls -la artifacts/*.pkg || true
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

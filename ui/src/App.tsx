@@ -5,6 +5,7 @@ import { GearIcon, SettingsPanel } from './components/SettingsPanel';
 import { PresetBrowser } from './components/PresetBrowser';
 import { TouchKeyboard } from './components/TouchKeyboard';
 import { useViewportReadout } from './bridge/useViewportReadout';
+import { InstallButton } from './components/InstallButton';
 import { listPresets, loadPreset } from './bridge/presets';
 import { LibraryTab } from './tabs/LibraryTab';
 import { Knob } from './components/Knob';
@@ -243,6 +244,10 @@ export function App() {
             </button>
           ))}
         </nav>
+        {/*  On a phone this IS the installer: there is no VST3 to install,
+             only a home-screen app, and it was buried in a browser menu. */}
+        <InstallButton />
+
 
         <div className="gn-header__right">
           <div
