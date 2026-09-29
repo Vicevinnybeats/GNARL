@@ -1,117 +1,70 @@
-/*  The service worker.
+/*  A SERVICE WORKER WHOSE ONLY JOB IS TO REMOVE ITSELF.
  *
- *  WHAT IT IS FOR HERE IS OFFLINE, not speed. A synthesizer you opened on a
- *  train has to still open in a tunnel, and an installed app that shows the
- *  browser's dinosaur is not an app. Everything this interface needs is
- *  static and embedded - no API, no database - so the whole thing can be
- *  cached and served from the cache.
+ *  WHY THIS EXISTS. The previous worker was cache-first, which is correct
+ *  for offline support and was fatal here: `/app/assets/(.*)` was served
+ *  with `immutable` for a year while the filenames never change, so the
+ *  worker's own `cache.add` - an ordinary fetch, subject to the HTTP cache -
+ *  filled every new versioned cache with the SAME old bundle. Versioning the
+ *  cache name cannot help when its contents come from a cache that has been
+ *  told never to revalidate. Both layers agreed the file could not have
+ *  changed, because one of them had been instructed to say so.
  *
- *  CACHE-FIRST, with the network as the fallback, and NOT the other way
- *  round. The bundle is versioned by the cache name below, so a cached copy
- *  is never stale in a way that matters: a new build changes the name, the
- *  old cache is deleted on activate, and the next load fetches everything
- *  fresh. Network-first would pay a round trip on every load to learn what
- *  the version already told us.
+ *  The header is fixed and the asset URLs now carry a build id, so the HTTP
+ *  layer is clean. But a browser that already holds the old worker AND its
+ *  old cache will keep serving that cache for navigations, and no amount of
+ *  reloading gets past it - the reload is answered from the very cache that
+ *  is the problem. Fixing the server cannot reach a client that never asks
+ *  the server anything.
  *
- *  THE VERSION MUST CHANGE WHEN THE BUILD DOES or people keep the old app
- *  forever. It is written by the build, not by hand - a number somebody has
- *  to remember to bump is a number that does not get bumped.
+ *  So this replaces it. `sw.js` is the one file that was always served with
+ *  `max-age=0, must-revalidate`, and browsers byte-compare it on navigation,
+ *  so a stale client fetches THIS, sees it differs, and installs it - which
+ *  is the one door into a client that is otherwise sealed. It then deletes
+ *  every cache, unregisters itself, and reloads whatever is open.
+ *
+ *  OFFLINE IS DELIBERATELY GIVEN UP FOR NOW. An instrument that opens
+ *  offline is a feature; an instrument that cannot be updated is a defect,
+ *  and between the two the defect has to go first. A correct cache-first
+ *  worker can come back once the channel is proven clean - the difference
+ *  then being that it will be caching files whose URLs actually change.
  */
-const VERSION = '__GNARL_BUILD_ID__';
-const CACHE = `gnarl-${VERSION}`;
 
-/*  The shell: what has to be present for the app to start at all. Everything
-    else is cached as it is asked for, because the wavetable and spectrum data
-    is large and most of it is not needed on a first paint. */
-/*  NOT THE ASSET URLS. The HTML references them with a ?v=<build id> query,
-    so the URL here - the bare one - is a different URL that nothing asks
-    for, and pre-caching it would only fill a brand-new cache with a copy of
-    the file nobody will request.
-
-    Worse, it used to fill it with the WRONG one: the bare URL was served
-    with `immutable` for a year, so `cache.add` (an ordinary fetch, subject
-    to the HTTP cache) handed the new versioned cache the OLD bundle.
-    Versioning the cache name cannot help when its contents come from a
-    cache that was told never to revalidate.
-
-    The versioned URLs are cached by the fetch handler on first request
-    instead, which is what makes them available offline. */
-const SHELL = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE);
-      /*  addAll is atomic - one 404 throws the whole install away, and a
-          half-installed worker that serves a broken shell is worse than no
-          worker. Each file is added separately so a missing optional asset
-          cannot stop the app being installable. */
-      await Promise.all(
-        SHELL.map((url) => cache.add(url).catch(() => undefined)),
-      );
-      /*  Take over immediately rather than waiting for every tab to close.
-          Paired with clients.claim() below: without both, a fresh install
-          sits idle until the user quits the app, which on a phone is rare. */
-      await self.skipWaiting();
-    })(),
-  );
+self.addEventListener('install', () => {
+  //  No waiting: the point is to replace the old worker immediately.
+  void self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      //  EVERY cache, not just the ones matching the old naming scheme. The
+      //  names carried a build id, so there is no telling how many
+      //  generations are sitting there, and this origin has nothing else
+      //  using the Cache API.
       const names = await caches.keys();
-      await Promise.all(
-        names.filter((n) => n.startsWith('gnarl-') && n !== CACHE).map((n) => caches.delete(n)),
-      );
+      await Promise.all(names.map((name) => caches.delete(name)));
+
+      //  Take control of pages that were loaded by the OLD worker, so the
+      //  reload below reaches them.
       await self.clients.claim();
-    })(),
-  );
-});
 
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
+      await self.registration.unregister();
 
-  //  Only GET, and only our own origin. A POST is not cacheable and another
-  //  origin's response is not ours to keep.
-  if (request.method !== 'GET') return;
-  if (new URL(request.url).origin !== self.location.origin) return;
+      /*  And reload, because the page currently on screen was served from
+          the cache that has just been deleted - it is the stale build, and
+          without this the person is looking at it until they navigate
+          again. This is the moment the loop everybody has been stuck in
+          actually breaks. */
+      const clients = await self.clients.matchAll({ type: 'window' });
 
-  event.respondWith(
-    (async () => {
-      const cached = await caches.match(request, { ignoreSearch: true });
-
-      if (cached) return cached;
-
-      try {
-        const response = await fetch(request);
-
-        /*  Only cache a real success. An opaque or error response cached here
-            would be served forever by the branch above - the failure mode
-            where an app is permanently broken until its storage is cleared. */
-        if (response.ok && response.type === 'basic') {
-          const cache = await caches.open(CACHE);
-          cache.put(request, response.clone());
-        }
-
-        return response;
-      } catch {
-        /*  Offline and not cached. For a navigation, the shell is the right
-            answer - a single-page app can route itself from there. For
-            anything else there is nothing honest to return. */
-        if (request.mode === 'navigate') {
-          const shell = await caches.match('./index.html');
-          if (shell) return shell;
-        }
-
-        throw new Error('offline and not cached');
+      for (const client of clients) {
+        client.navigate(client.url);
       }
     })(),
   );
 });
+
+/*  No fetch handler at all. A worker without one is transparent: every
+    request goes to the network exactly as if no worker were installed,
+    which is the desired behaviour for the moments between this activating
+    and it being gone. */
