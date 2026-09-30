@@ -31,8 +31,8 @@ src/headless/      the offline renderer: preset in, WAV out
 plugin/ standalone/ headless/ tests/
                    Projucer .jucer files AND their generated projects:
                    builds/vs17 (Windows), builds/osx (Xcode), builds/linux*
-third_party/       JUCE 6.0.5 (modules ONLY), VST3 SDK, kissfft, json,
-                   concurrentqueue
+third_party/       JUCE 6.0.5 (modules ONLY, Vital-modified), VST3 SDK,
+                   kissfft, json, concurrentqueue; juce-patches/ (JUCE 8)
 icons/  fonts/     UI glyphs, GNARL's marks, fonts
 
 ui/                GNARL's own panel (TypeScript, one HTML file). Browser build;
@@ -79,13 +79,32 @@ headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140
 
 python3 tests/test_wobble.py          # renders + measures the wobble macro
 
-# The CMake + JUCE 8 renderer (stage 1 of docs/design/phase2-03-juce8.md),
-# and the gate it must pass: bit-identical to the JUCE 6 build
+# The CMake + JUCE 8 renderer and VST3 (docs/design/phase2-03-juce8.md),
+# and the gates they must pass: identical to the JUCE 6 builds
 cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build-cmake --target gnarl_render
+cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3
 python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
   build-cmake/gnarl_render_artefacts/Release/gnarl-render
+python3 tools/compare_plugins.py /tmp/probe \
+  "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so" \
+  "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 ```
+
+**JUCE is patched.** Vital shipped a modified JUCE 6.0.5 and the editor
+depends on it (above all, mouse positions on scaled displays). CMake applies
+`third_party/juce-patches/juce-8.0.9-gnarl.patch` to the fetched JUCE 8; its
+README lists every change and why. Never edit a fetched JUCE in place.
+
+**Compiler flags are part of the sound.** With `-ffast-math -flto`, a stray
+`-O3` (CMake's default, or `juce_recommended_config_flags`) made the reverb
+differ at -132 dB. CMake passes exactly the Makefiles' flags; do not link
+JUCE's recommended config flags.
+
+**JUCE 8's OpenGL differs from 6 in ways that only show on screen**:
+- textures are exact-size unless patched (Vital assumes power-of-two);
+- the viewport comes from `getScreenBounds()`.
+Build the standalone wrapper (`gnarl_plugin_Standalone`) and screenshot it
+under Xvfb at scale 1 and 2 after any editor or JUCE change.
 
 **The renderer exits with an error if a named patch cannot be loaded.**
 Upstream's ignored the failure and rendered the init patch with exit code 0.
@@ -329,7 +348,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts) built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`); JUCE 8 move: stage 1 (renderer) done and bit-identical (`docs/design/phase2-03-juce8.md`) |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts) built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 

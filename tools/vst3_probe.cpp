@@ -4,6 +4,18 @@
 //   ./probe /abs/path/GNARL.so            factory: vendor, classes, class IDs
 //   ./probe /abs/path/GNARL.so --params   also instantiates the plugin and lists
 //                                         every parameter in HOST order
+//   ./probe /abs/path/GNARL.so --render OUT.f32 [ID=VALUE,...]
+//                                         plays C2 for 2 s (4 s rendered) at
+//                                         48 kHz, 140 BPM, 256-sample blocks,
+//                                         and writes interleaved stereo float32;
+//                                         each ID=VALUE (host parameter ID from
+//                                         --params, normalised 0..1) is sent as
+//                                         a parameter change in the first block
+//
+// --render drives the plugin exactly as a host does - setupProcessing, bus
+// activation, a transport, note events - so two builds of the plugin can be
+// compared sample for sample (the JUCE 6 -> 8 move, phase2-03-juce8.md). It
+// exercises the JUCE VST3 wrapper, which the offline renderer never touches.
 //
 // Compiling is not loading. A plugin can build and link and still fail here,
 // which is the only step a DAW's scanner cares about - and the parameter
@@ -14,11 +26,16 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <algorithm>
 #include "pluginterfaces/base/ipluginbase.h"
 #include "pluginterfaces/vst/ivstcomponent.h"
 #include "pluginterfaces/vst/ivsteditcontroller.h"
 #include "pluginterfaces/vst/ivstaudioprocessor.h"
 #include "pluginterfaces/vst/ivstmessage.h"
+#include "pluginterfaces/vst/ivstevents.h"
+#include "pluginterfaces/vst/ivstprocesscontext.h"
+#include "pluginterfaces/vst/ivstparameterchanges.h"
+#include <vector>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -29,9 +46,174 @@ static std::string utf8(const TChar* s) {
   return out;
 }
 
+// The smallest IEventList a host can hand over: a fixed list of events.
+class EventList : public IEventList {
+  public:
+    std::vector<Event> events;
+    tresult PLUGIN_API queryInterface(const TUID iid, void** obj) override {
+      if (FUnknownPrivate::iidEqual(iid, IEventList::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+        *obj = this;
+        return kResultOk;
+      }
+      *obj = nullptr;
+      return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override { return 1; }
+    uint32 PLUGIN_API release() override { return 1; }
+    int32 PLUGIN_API getEventCount() override { return (int32) events.size(); }
+    tresult PLUGIN_API getEvent(int32 index, Event& e) override {
+      if (index < 0 || index >= (int32) events.size()) return kInvalidArgument;
+      e = events[index];
+      return kResultOk;
+    }
+    tresult PLUGIN_API addEvent(Event& e) override { events.push_back(e); return kResultOk; }
+};
+
+// One point per parameter, at sample 0: how a host sends a value it set
+// before playback started.
+class ValueQueue : public IParamValueQueue {
+  public:
+    ValueQueue(ParamID id, ParamValue value) : id_(id), value_(value) { }
+    tresult PLUGIN_API queryInterface(const TUID iid, void** obj) override {
+      if (FUnknownPrivate::iidEqual(iid, IParamValueQueue::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+        *obj = this;
+        return kResultOk;
+      }
+      *obj = nullptr;
+      return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override { return 1; }
+    uint32 PLUGIN_API release() override { return 1; }
+    ParamID PLUGIN_API getParameterId() override { return id_; }
+    int32 PLUGIN_API getPointCount() override { return 1; }
+    tresult PLUGIN_API getPoint(int32 index, int32& offset, ParamValue& value) override {
+      if (index != 0) return kInvalidArgument;
+      offset = 0;
+      value = value_;
+      return kResultOk;
+    }
+    tresult PLUGIN_API addPoint(int32, ParamValue, int32&) override { return kNotImplemented; }
+  private:
+    ParamID id_;
+    ParamValue value_;
+};
+
+class ParameterChanges : public IParameterChanges {
+  public:
+    std::vector<ValueQueue> queues;
+    tresult PLUGIN_API queryInterface(const TUID iid, void** obj) override {
+      if (FUnknownPrivate::iidEqual(iid, IParameterChanges::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+        *obj = this;
+        return kResultOk;
+      }
+      *obj = nullptr;
+      return kNoInterface;
+    }
+    uint32 PLUGIN_API addRef() override { return 1; }
+    uint32 PLUGIN_API release() override { return 1; }
+    int32 PLUGIN_API getParameterCount() override { return (int32) queues.size(); }
+    IParamValueQueue* PLUGIN_API getParameterData(int32 index) override {
+      return index >= 0 && index < (int32) queues.size() ? &queues[index] : nullptr;
+    }
+    IParamValueQueue* PLUGIN_API addParameterData(const ParamID&, int32&) override { return nullptr; }
+};
+
+static Event noteEvent(bool on, int32 offset) {
+  Event e = {};
+  e.busIndex = 0;
+  e.sampleOffset = offset;
+  e.type = on ? Event::kNoteOnEvent : Event::kNoteOffEvent;
+  if (on) { e.noteOn.channel = 0; e.noteOn.pitch = 36; e.noteOn.velocity = 1.0f; e.noteOn.noteId = -1; }
+  else { e.noteOff.channel = 0; e.noteOff.pitch = 36; e.noteOff.velocity = 0.0f; e.noteOff.noteId = -1; }
+  return e;
+}
+
+static int render(IComponent* component, const char* path, const char* settings) {
+  ParameterChanges initial;
+  for (const char* p = settings; p && *p;) {
+    unsigned id = 0;
+    double value = 0.0;
+    int used = 0;
+    if (std::sscanf(p, "%u=%lf%n", &id, &value, &used) != 2) { printf("bad setting: %s\n", p); return 2; }
+    initial.queues.emplace_back(id, value);
+    p += used;
+    if (*p == ',') ++p;
+  }
+  ParameterChanges none;
+
+  IAudioProcessor* processor = nullptr;
+  component->queryInterface(IAudioProcessor::iid, (void**) &processor);
+  if (!processor) { printf("no IAudioProcessor\n"); return 1; }
+
+  constexpr double kRate = 48000.0;
+  constexpr int32 kBlock = 256;
+  constexpr int kBlocks = (int) (4.0 * kRate / kBlock);
+  constexpr int kNoteOffBlock = (int) (2.0 * kRate / kBlock);
+
+  ProcessSetup setup = { kOffline, kSample32, kBlock, kRate };
+  if (processor->setupProcessing(setup) != kResultOk) { printf("setupProcessing FAILED\n"); return 1; }
+  SpeakerArrangement out_arrangement = SpeakerArr::kStereo;
+  processor->setBusArrangements(nullptr, 0, &out_arrangement, 1);
+  component->activateBus(kAudio, kOutput, 0, true);
+  component->setActive(true);
+  processor->setProcessing(true);
+
+  std::vector<float> left(kBlock), right(kBlock), out;
+  out.reserve((size_t) kBlocks * kBlock * 2);
+  float* channels[2] = { left.data(), right.data() };
+  AudioBusBuffers bus = {};
+  bus.numChannels = 2;
+  bus.channelBuffers32 = channels;
+
+  ProcessContext context = {};
+  context.state = ProcessContext::kPlaying | ProcessContext::kTempoValid | ProcessContext::kTimeSigValid
+                  | ProcessContext::kProjectTimeMusicValid;
+  context.sampleRate = kRate;
+  context.tempo = 140.0;
+  context.timeSigNumerator = 4;
+  context.timeSigDenominator = 4;
+
+  for (int b = 0; b < kBlocks; ++b) {
+    EventList events;
+    if (b == 0) events.events.push_back(noteEvent(true, 0));
+    if (b == kNoteOffBlock) events.events.push_back(noteEvent(false, 0));
+
+    context.projectTimeSamples = (int64) b * kBlock;
+    context.projectTimeMusic = context.projectTimeSamples / kRate * (context.tempo / 60.0);
+
+    ProcessData data;
+    data.processMode = kOffline;
+    data.symbolicSampleSize = kSample32;
+    data.numSamples = kBlock;
+    data.numInputs = 0;
+    data.numOutputs = 1;
+    data.outputs = &bus;
+    data.inputEvents = &events;
+    data.inputParameterChanges = b == 0 ? &initial : &none;
+    data.processContext = &context;
+    if (processor->process(data) != kResultOk) { printf("process FAILED at block %d\n", b); return 1; }
+    for (int i = 0; i < kBlock; ++i) { out.push_back(left[i]); out.push_back(right[i]); }
+  }
+
+  processor->setProcessing(false);
+  component->setActive(false);
+  processor->release();
+
+  FILE* file = std::fopen(path, "wb");
+  if (!file) { printf("cannot write %s\n", path); return 1; }
+  std::fwrite(out.data(), sizeof(float), out.size(), file);
+  std::fclose(file);
+  float peak = 0.0f;
+  for (float v : out) peak = std::max(peak, v < 0 ? -v : v);
+  printf("rendered %d frames, peak %.4f -> %s\n", kBlocks * kBlock, peak, path);
+  return 0;
+}
+
 int main(int argc, char** argv) {
-  if (argc < 2) { printf("usage: probe /abs/path/plugin.so [--params]\n"); return 2; }
+  if (argc < 2) { printf("usage: probe /abs/path/plugin.so [--params | --render OUT.f32]\n"); return 2; }
   bool list_params = argc > 2 && std::strcmp(argv[2], "--params") == 0;
+  const char* render_path = argc > 3 && std::strcmp(argv[2], "--render") == 0 ? argv[3] : nullptr;
+  const char* render_settings = render_path && argc > 4 ? argv[4] : nullptr;
 
   void* h = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
   if (!h) { printf("dlopen FAILED: %s\n", dlerror()); return 1; }
@@ -54,7 +236,7 @@ int main(int argc, char** argv) {
   }
 
   int status = 0;
-  if (list_params) {
+  if (list_params || render_path) {
     IComponent* component = nullptr;
     if (f->createInstance(component_cid, IComponent::iid, (void**) &component) != kResultOk || !component) {
       printf("createInstance(IComponent) FAILED\n"); return 1;
@@ -82,12 +264,17 @@ int main(int argc, char** argv) {
       controller_cp->connect(component_cp);
     }
 
-    int count = controller->getParameterCount();
-    printf("parameters: %d\n", count);
-    for (int i = 0; i < count; ++i) {
-      ParameterInfo info;
-      controller->getParameterInfo(i, info);
-      printf("  %4d  id=%-10u %s\n", i, (unsigned) info.id, utf8(info.title).c_str());
+    if (render_path) {
+      status = render(component, render_path, render_settings);
+    }
+    else {
+      int count = controller->getParameterCount();
+      printf("parameters: %d\n", count);
+      for (int i = 0; i < count; ++i) {
+        ParameterInfo info;
+        controller->getParameterInfo(i, info);
+        printf("  %4d  id=%-10u %s\n", i, (unsigned) info.id, utf8(info.title).c_str());
+      }
     }
     if (component_cp && controller_cp) {
       component_cp->disconnect(controller_cp);

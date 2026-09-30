@@ -89,10 +89,20 @@ jobs:
         run: |
           sudo apt-get install -y -qq ninja-build
           cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-cmake --target gnarl_render
+          cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3
           python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
             build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+
+      #  The JUCE 8 plugin against the JUCE 6 one, as a host sees them: same
+      #  identity and class IDs, the same host parameters in the same order,
+      #  and bit-identical audio through the VST3 wrapper - on init and after
+      #  the host changes twelve parameters.
+      - name: JUCE 8 plugin matches JUCE 6
+        run: |
+          python3 tools/compare_plugins.py ./vst3_probe \
+            "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so" \
+            "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -104,6 +114,46 @@ jobs:
           path: |
             headless/builds/linux/build/gnarl-render
             init.wav
+
+  #  The JUCE 8 VST3 (CMakeLists.txt, docs/design/phase2-03-juce8.md) on
+  #  Windows and macOS, beside the Projucer builds that still ship. Linux
+  #  proves it identical to JUCE 6; these prove it builds, and produce the
+  #  binaries to load in FL Studio and Ableton.
+  windows-juce8:
+    needs: guard
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build VST3 (CMake, JUCE 8)
+        shell: pwsh
+        run: |
+          cmake -B build-cmake -G "Visual Studio 17 2022" -A x64
+          if ($LASTEXITCODE -ne 0) { throw "configure failed" }
+          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 -- /m /nologo /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "build failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-windows-vst3-juce8
+          path: build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3
+
+  macos-juce8:
+    needs: guard
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      #  Unsigned, universal (arm64 + x86_64), as the Projucer job.
+      - name: Build VST3 (CMake, JUCE 8)
+        run: |
+          set -o pipefail
+          cmake -B build-cmake -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 2>&1 | tail -60
+          b=build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3
+          test -d "$b"
+          lipo -info "$b/Contents/MacOS/GNARL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-macos-vst3-juce8
+          path: build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3
 
   windows:
     needs: guard

@@ -1,8 +1,12 @@
 # Moving the build to CMake + JUCE 8
 
-**State:** stage 1 done — the offline renderer builds with CMake on JUCE
-8.0.9 and is bit-identical to the Projucer / JUCE 6.0.5 build. The plugin
-and standalone still build from the Projucer projects.
+**State:** stages 1 and 2 done.
+- The offline renderer and the VST3 build with CMake on JUCE 8.0.9 and are
+  identical to the Projucer / JUCE 6.0.5 builds: sound, host identity and
+  parameters.
+- The editor has been checked at scales 1 and 2.
+- The JUCE 6 plugin still ships until the JUCE 8 one has been loaded in FL
+  Studio and Ableton.
 
 ## Why
 
@@ -60,15 +64,74 @@ would have opened in the plugin as the init patch. Fixed:
   committed test patch carry the plugin's version. Tested by putting the
   bug back: it reported both halves.
 
+## Stage 2 result (2026-09-30): the VST3 on JUCE 8
+
+**Vital's JUCE was modified.** Diffed against the official 6.0.5 tag,
+`third_party/JUCE` differs in 45 files. The editor depends on several of
+those changes:
+
+- the pixel scaling that makes mouse positions right on scaled displays;
+- the OpenGL functions it calls.
+
+They are carried forward as `third_party/juce-patches/juce-8.0.9-gnarl.patch`,
+which CMake applies to the fetched JUCE. The README there lists every hunk
+and why it exists.
+
+**Source changes for JUCE 8**, each compiling on JUCE 6 as well:
+
+- `open_gl_compat.h`: 286 OpenGL extension calls through one macro
+  (`juce::gl` on JUCE 6.1+).
+- A glyph warm-up that compiles on both versions.
+- `JUCE_MODAL_LOOPS_PERMITTED=1` for the editor's blocking dialogs, which
+  was JUCE 6's default.
+
+**Checks**, all on Linux:
+
+- `tools/compare_plugins.py` loads both VST3s as a host would (the probe's
+  new `--render` mode):
+  - identity and class IDs: identical;
+  - 777 host parameters, in order, with IDs: identical;
+  - a note through the VST3 wrapper on init: bit-identical;
+  - the same after the host changes 12 parameters (every effect, a
+    filter, the wobble routes): bit-identical.
+- Renderer: all 10 comparisons still bit-identical; wobble tests pass.
+- Editor at scale 1: the same picture as the JUCE 6 build.
+- Editor at scale 2, simulated through JUCE's global scale factor, because
+  Linux plugins never get a display scale:
+  - the same picture as JUCE 6;
+  - clicking EFFECTS and MATRIX opens them;
+  - with the pixel-scaling patch removed, both clicks miss.
+
+**Three problems found and fixed, each invisible in a successful build:**
+
+1. **Compiler flags.** CMake's default `-O3` and JUCE's recommended flags
+   overrode `-Ofast`, and with `-flto` the link flags choose the code. The
+   plugin's reverb differed from the JUCE 6 build at −132 dB. The flags now
+   match the Makefiles exactly (compile and link); the output is
+   bit-identical.
+2. **Texture sizes.** JUCE 8 stopped padding OpenGL textures to powers of
+   two, and every label came out enlarged and clipped. The cause was
+   narrowed step by step: the fonts measured 1% *smaller*, the rasterised
+   text was identical, and all 234 labels requested identical sizes. Fixed
+   in the JUCE patch.
+3. **Viewport at scale 2.** JUCE 8 sizes the OpenGL viewport from
+   `getScreenBounds()`, which the pixel-scaling patch halves for Vital's
+   interface, so the frame was drawn into one corner. Fixed in the JUCE
+   patch.
+
+**Not verified here**, because no Mac or Windows machine is available:
+
+- real Retina and Windows HiDPI;
+- how the JUCE 8 plugin behaves inside FL Studio and Ableton.
+
+CI builds the JUCE 8 VST3 for both platforms (`windows-juce8`,
+`macos-juce8`) and uploads them for exactly that test.
+
 ## Next stages
 
-1. **The VST3 on CMake + JUCE 8**, with Vital's editor still in place:
-   - the same render comparison through the plugin, on all three
-     platforms;
-   - `tools/vst3_probe.cpp` must report the same identity and the same
-     777-parameter host order (`tests/host_parameters.txt`).
-   Vital's OpenGL UI is the risky part of the port. JUCE 7 and 8 changed
-   OpenGL context and font APIs.
+1. ~~The VST3 on CMake + JUCE 8~~ - done, above. Remaining: the producer
+   loads the `GNARL-windows-vst3-juce8` build in FL Studio and Ableton,
+   including on a scaled display.
 2. **The web panel in the plugin**: a `WebBrowserComponent` serving
    `ui/dist`, bound to host parameters by the names in `ui/src/params.ts`.
    The producer tests it in FL Studio and Ableton before anything else

@@ -132,3 +132,21 @@ the merge commit forward: `git log 7651809..`.
 - `CMakeLists.txt`: the renderer builds with CMake on JUCE 8.0.9, fetched
   at a pinned tag. `tools/compare_renders.py` proves it bit-identical to the
   JUCE 6 build; CI runs the comparison. See docs/design/phase2-03-juce8.md.
+
+## 2026-09-30 - The VST3 on CMake + JUCE 8
+
+- `CMakeLists.txt`: the VST3 (and JUCE's Standalone wrapper, for tests)
+  builds on JUCE 8.0.9, patched with `third_party/juce-patches/
+  juce-8.0.9-gnarl.patch`, which carries forward Vital's changes to JUCE and
+  two JUCE 8 fixes (see the README there). Compiler flags match the Projucer
+  Makefiles exactly; MSVC gets the vcxproj's /O2 /fp:fast /GL.
+- `third_party/juce-patches/vital-juce-6.0.5.diff`: Vital's changes to JUCE
+  6.0.5, recorded.
+- `src/interface/look_and_feel/open_gl_compat.h` (new): OpenGL calls
+  through one macro that compiles on JUCE 6 and 8; 286 call sites in 19
+  interface files use it.
+- `fonts.cpp`: glyph warm-up through GlyphArrangement (JUCE 6 and 8).
+- `tools/vst3_probe.cpp --render`: plays a note through a VST3 as a host
+  would, optionally after host parameter changes; `tools/compare_plugins.py`
+  compares two builds with it. CI builds the JUCE 8 VST3 on all three
+  platforms and requires it identical to the JUCE 6 one on Linux.
