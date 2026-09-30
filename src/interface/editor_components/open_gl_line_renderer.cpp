@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "open_gl_line_renderer.h"
 
 #include "shaders.h"
@@ -93,26 +94,26 @@ OpenGlLineRenderer::~OpenGlLineRenderer() { }
 void OpenGlLineRenderer::init(OpenGlWrapper& open_gl) {
   OpenGlComponent::init(open_gl);
 
-  open_gl.context.extensions.glGenVertexArrays(1, &vertex_array_object_);
-  open_gl.context.extensions.glBindVertexArray(vertex_array_object_);
+  GNARL_GL_EXT(open_gl.context) glGenVertexArrays(1, &vertex_array_object_);
+  GNARL_GL_EXT(open_gl.context) glBindVertexArray(vertex_array_object_);
 
-  open_gl.context.extensions.glGenBuffers(1, &line_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
 
   GLsizeiptr line_vert_size = static_cast<GLsizeiptr>(num_line_floats_ * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, line_vert_size, line_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, line_vert_size, line_data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &fill_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &fill_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
 
   GLsizeiptr fill_vert_size = static_cast<GLsizeiptr>(num_fill_floats_ * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, fill_vert_size, fill_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, fill_vert_size, fill_data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &indices_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
   GLsizeiptr line_size = static_cast<GLsizeiptr>(num_line_vertices_ * sizeof(int));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, line_size, indices_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, line_size, indices_data_.get(), GL_STATIC_DRAW);
 
   shader_ = open_gl.shaders->getShaderProgram(Shaders::kLineVertex, Shaders::kLineFragment);
   shader_->use();
@@ -409,7 +410,7 @@ void OpenGlLineRenderer::drawLines(OpenGlWrapper& open_gl, bool left) {
   glEnable(GL_BLEND);
   glEnable(GL_SCISSOR_TEST);
 
-  open_gl.context.extensions.glBindVertexArray(vertex_array_object_);
+  GNARL_GL_EXT(open_gl.context) glBindVertexArray(vertex_array_object_);
 
   if (dirty_ || last_drawn_left_ != left) {
     dirty_ = false;
@@ -417,20 +418,20 @@ void OpenGlLineRenderer::drawLines(OpenGlWrapper& open_gl, bool left) {
     setLineVertices(left);
     setFillVertices(left);
 
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
 
     GLsizeiptr line_vert_size = static_cast<GLsizeiptr>(num_line_floats_ * sizeof(float));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, line_vert_size, line_data_.get(), GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, line_vert_size, line_data_.get(), GL_STATIC_DRAW);
 
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
 
     GLsizeiptr fill_vert_size = static_cast<GLsizeiptr>(num_fill_floats_ * sizeof(float));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, fill_vert_size, fill_data_.get(), GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, fill_vert_size, fill_data_.get(), GL_STATIC_DRAW);
 
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
   float x_shrink = 1.0f;
   float y_shrink = 1.0f;
@@ -440,7 +441,7 @@ void OpenGlLineRenderer::drawLines(OpenGlWrapper& open_gl, bool left) {
   }
 
   if (fill_) {
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, fill_buffer_);
     fill_shader_->use();
     fill_color_from_uniform_->set(fill_color_from_.getFloatRed(), fill_color_from_.getFloatGreen(),
                                   fill_color_from_.getFloatBlue(), fill_color_from_.getFloatAlpha());
@@ -450,17 +451,17 @@ void OpenGlLineRenderer::drawLines(OpenGlWrapper& open_gl, bool left) {
     fill_boost_amount_uniform_->set(fill_boost_amount_);
     fill_scale_uniform_->set(x_shrink, y_shrink);
 
-    open_gl.context.extensions.glVertexAttribPointer(fill_position_->attributeID, kFillFloatsPerVertex, GL_FLOAT,
+    GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(fill_position_->attributeID, kFillFloatsPerVertex, GL_FLOAT,
                                                      GL_FALSE, kFillFloatsPerVertex * sizeof(float), nullptr);
-    open_gl.context.extensions.glEnableVertexAttribArray(fill_position_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(fill_position_->attributeID);
     glDrawElements(GL_TRIANGLE_STRIP, num_fill_vertices_, GL_UNSIGNED_INT, nullptr);
   }
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
   shader_->use();
-  open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, kLineFloatsPerVertex, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, kLineFloatsPerVertex, GL_FLOAT,
                                                   GL_FALSE, kLineFloatsPerVertex * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
   color_uniform_->set(color_.getFloatRed(), color_.getFloatGreen(), color_.getFloatBlue(), color_.getFloatAlpha());
 
   scale_uniform_->set(x_shrink, y_shrink);
@@ -469,9 +470,9 @@ void OpenGlLineRenderer::drawLines(OpenGlWrapper& open_gl, bool left) {
 
   glDrawElements(GL_TRIANGLE_STRIP, num_line_vertices_, GL_UNSIGNED_INT, nullptr);
 
-  open_gl.context.extensions.glDisableVertexAttribArray(position_->attributeID);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDisable(GL_BLEND);
   glDisable(GL_SCISSOR_TEST);
 }
@@ -498,9 +499,9 @@ void OpenGlLineRenderer::destroy(OpenGlWrapper& open_gl) {
   fill_scale_uniform_ = nullptr;
   fill_position_ = nullptr;
 
-  open_gl.context.extensions.glDeleteBuffers(1, &line_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &fill_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &fill_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &indices_buffer_);
 
   vertex_array_object_ = 0;
   line_buffer_ = 0;

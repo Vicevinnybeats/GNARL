@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "peak_meter_viewer.h"
 
 #include "skin.h"
@@ -64,18 +65,18 @@ void PeakMeterViewer::resized() {
 void PeakMeterViewer::init(OpenGlWrapper& open_gl) {
   OpenGlComponent::init(open_gl);
 
-  open_gl.context.extensions.glGenBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(static_cast<size_t>(kNumPositions * sizeof(float)));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size,
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size,
                                          position_vertices_, GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &triangle_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
 
   GLsizeiptr tri_size = static_cast<GLsizeiptr>(static_cast<size_t>(kNumTriangleIndices * sizeof(float)));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size,
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size,
                                          position_triangles_, GL_STATIC_DRAW);
 
   shader_ = open_gl.shaders->getShaderProgram(Shaders::kGainMeterVertex, Shaders::kGainMeterFragment);
@@ -159,21 +160,21 @@ void PeakMeterViewer::render(OpenGlWrapper& open_gl, bool animate) {
 }
 
 void PeakMeterViewer::draw(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(static_cast<size_t>(kNumPositions * sizeof(float)));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size,
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size,
                                           position_vertices_, GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
 
-  open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
                                                    GL_FALSE, 2 * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
 
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void PeakMeterViewer::destroy(OpenGlWrapper& open_gl) {
@@ -183,8 +184,8 @@ void PeakMeterViewer::destroy(OpenGlWrapper& open_gl) {
   position_ = nullptr;
   color_from_ = nullptr;
   color_to_ = nullptr;
-  open_gl.context.extensions.glDeleteBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &triangle_buffer_);
 }
 
 void PeakMeterViewer::paintBackground(Graphics& g) {

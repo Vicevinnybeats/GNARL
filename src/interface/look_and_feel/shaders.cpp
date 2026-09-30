@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "shaders.h"
 
 #include "JuceHeader.h"
@@ -975,10 +976,10 @@ OpenGLShaderProgram* Shaders::getShaderProgram(VertexShader vertex_shader, Fragm
   shader_programs_[shader_program_index] = std::make_unique<OpenGLShaderProgram>(*open_gl_context_);
   OpenGLShaderProgram* result = shader_programs_[shader_program_index].get();
   GLuint program_id = result->getProgramID();
-  open_gl_context_->extensions.glAttachShader(program_id, getVertexShaderId(vertex_shader));
-  open_gl_context_->extensions.glAttachShader(program_id, getFragmentShaderId(fragment_shader));
+  GNARL_GL_VIA(open_gl_context_->extensions) glAttachShader(program_id, getVertexShaderId(vertex_shader));
+  GNARL_GL_VIA(open_gl_context_->extensions) glAttachShader(program_id, getFragmentShaderId(fragment_shader));
   if (varyings)
-    open_gl_context_->extensions.glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
+    GNARL_GL_VIA(open_gl_context_->extensions) glTransformFeedbackVaryings(program_id, 1, varyings, GL_INTERLEAVED_ATTRIBS);
 
   result->link();
   return result;
@@ -1086,35 +1087,35 @@ const char* Shaders::getFragmentShader(FragmentShader shader) {
 
 bool Shaders::checkShaderCorrect(OpenGLExtensionFunctions& extensions, GLuint shader_id) const {
   GLint status = GL_FALSE;
-  extensions.glGetShaderiv(shader_id, GL_COMPILE_STATUS, &status);
+  GNARL_GL_VIA(extensions) glGetShaderiv(shader_id, GL_COMPILE_STATUS, &status);
 
   if (status != GL_FALSE)
     return true;
 
   GLchar info[16384];
   GLsizei info_length = 0;
-  extensions.glGetShaderInfoLog(shader_id, sizeof(info), &info_length, info);
+  GNARL_GL_VIA(extensions) glGetShaderInfoLog(shader_id, sizeof(info), &info_length, info);
   DBG(String(info, (size_t)info_length));
   return false;
 }
 
 GLuint Shaders::createVertexShader(OpenGLExtensionFunctions& extensions, VertexShader shader) const {
-  GLuint shader_id = extensions.glCreateShader(GL_VERTEX_SHADER);
+  GLuint shader_id = GNARL_GL_VIA(extensions) glCreateShader(GL_VERTEX_SHADER);
   String code_string = translateVertexShader(getVertexShader(shader));
   const GLchar* code = code_string.toRawUTF8();
-  extensions.glShaderSource(shader_id, 1, &code, nullptr);
-  extensions.glCompileShader(shader_id);
+  GNARL_GL_VIA(extensions) glShaderSource(shader_id, 1, &code, nullptr);
+  GNARL_GL_VIA(extensions) glCompileShader(shader_id);
 
   VITAL_ASSERT(checkShaderCorrect(extensions, shader_id));
   return shader_id;
 }
 
 GLuint Shaders::createFragmentShader(OpenGLExtensionFunctions& extensions, FragmentShader shader) const {
-  GLuint shader_id = extensions.glCreateShader(GL_FRAGMENT_SHADER);
+  GLuint shader_id = GNARL_GL_VIA(extensions) glCreateShader(GL_FRAGMENT_SHADER);
   String code_string = translateFragmentShader(getFragmentShader(shader));
   const GLchar* code = code_string.toRawUTF8();
-  extensions.glShaderSource(shader_id, 1, &code, nullptr);
-  extensions.glCompileShader(shader_id);
+  GNARL_GL_VIA(extensions) glShaderSource(shader_id, 1, &code, nullptr);
+  GNARL_GL_VIA(extensions) glCompileShader(shader_id);
 
   VITAL_ASSERT(checkShaderCorrect(extensions, shader_id));
   return shader_id;

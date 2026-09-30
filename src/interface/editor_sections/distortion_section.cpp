@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "distortion_section.h"
 
 #include "open_gl_line_renderer.h"
@@ -149,17 +150,17 @@ void DistortionFilterResponse::init(OpenGlWrapper& open_gl) {
   OpenGlLineRenderer::init(open_gl);
 
   const GLchar* varyings[] = { "response_out" };
-  open_gl.context.extensions.glGenVertexArrays(1, &vertex_array_object_);
-  open_gl.context.extensions.glBindVertexArray(vertex_array_object_);
+  GNARL_GL_EXT(open_gl.context) glGenVertexArrays(1, &vertex_array_object_);
+  GNARL_GL_EXT(open_gl.context) glBindVertexArray(vertex_array_object_);
 
   GLsizeiptr data_size = static_cast<GLsizeiptr>(kResolution * sizeof(float));
-  open_gl.context.extensions.glGenBuffers(1, &line_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, 2 * data_size, line_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, 2 * data_size, line_data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &response_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, response_buffer_);
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, data_size, nullptr, GL_STATIC_READ);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &response_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, response_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, data_size, nullptr, GL_STATIC_READ);
 
   OpenGLShaderProgram* shader = open_gl.shaders->getShaderProgram(Shaders::kDigitalFilterResponseVertex,
                                                                   Shaders::kColorFragment, varyings);
@@ -188,8 +189,8 @@ void DistortionFilterResponse::render(OpenGlWrapper& open_gl, bool animate) {
 void DistortionFilterResponse::destroy(OpenGlWrapper& open_gl) {
   OpenGlLineRenderer::destroy(open_gl);
 
-  open_gl.context.extensions.glDeleteBuffers(1, &line_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &response_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &line_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &response_buffer_);
 
   vertex_array_object_ = 0;
   line_buffer_ = 0;
@@ -242,30 +243,30 @@ void DistortionFilterResponse::loadShader(int index) {
 }
 
 void DistortionFilterResponse::bind(OpenGLContext& open_gl_context) {
-  open_gl_context.extensions.glBindVertexArray(vertex_array_object_);
-  open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
+  GNARL_GL_EXT(open_gl_context) glBindVertexArray(vertex_array_object_);
+  GNARL_GL_EXT(open_gl_context) glBindBuffer(GL_ARRAY_BUFFER, line_buffer_);
 
   OpenGLShaderProgram::Attribute* position = response_shader_.position.get();
-  open_gl_context.extensions.glVertexAttribPointer(position->attributeID, 2, GL_FLOAT,
+  GNARL_GL_EXT(open_gl_context) glVertexAttribPointer(position->attributeID, 2, GL_FLOAT,
                                                    GL_FALSE, 2 * sizeof(float), nullptr);
-  open_gl_context.extensions.glEnableVertexAttribArray(position->attributeID);
+  GNARL_GL_EXT(open_gl_context) glEnableVertexAttribArray(position->attributeID);
 
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
+  GNARL_GL_EXT(open_gl_context) glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, response_buffer_);
 }
 
 void DistortionFilterResponse::unbind(OpenGLContext& open_gl_context) {
   OpenGLShaderProgram::Attribute* position = response_shader_.position.get();
-  open_gl_context.extensions.glDisableVertexAttribArray(position->attributeID);
-  open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl_context.extensions.glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+  GNARL_GL_EXT(open_gl_context) glDisableVertexAttribArray(position->attributeID);
+  GNARL_GL_EXT(open_gl_context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl_context) glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
 }
 
 void DistortionFilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glBeginTransformFeedback(GL_POINTS);
+  GNARL_GL_EXT(open_gl.context) glBeginTransformFeedback(GL_POINTS);
   glDrawArrays(GL_POINTS, 0, kResolution);
-  open_gl.context.extensions.glEndTransformFeedback();
+  GNARL_GL_EXT(open_gl.context) glEndTransformFeedback();
 
-  void* buffer = open_gl.context.extensions.glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
+  void* buffer = GNARL_GL_EXT(open_gl.context) glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0,
                                                              kResolution * sizeof(float), GL_MAP_READ_BIT);
 
   float* response_data = (float*)buffer;
@@ -276,7 +277,7 @@ void DistortionFilterResponse::renderLineResponse(OpenGlWrapper& open_gl) {
     setYAt(i, y_adjust * (1.0 - response_data[i]));
   }
 
-  open_gl.context.extensions.glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+  GNARL_GL_EXT(open_gl.context) glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
 }
 
 void DistortionFilterResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool animate) {

@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "open_gl_multi_quad.h"
 
 #include "common.h"
@@ -51,17 +52,17 @@ OpenGlMultiQuad::OpenGlMultiQuad(int max_quads, Shaders::FragmentShader shader) 
 OpenGlMultiQuad::~OpenGlMultiQuad() { }
 
 void OpenGlMultiQuad::init(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glGenBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(max_quads_ * kNumFloatsPerQuad * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &indices_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
   GLsizeiptr bar_size = static_cast<GLsizeiptr>(max_quads_ * kNumIndicesPerQuad * sizeof(int));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, indices_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, indices_.get(), GL_STATIC_DRAW);
 
   shader_ = open_gl.shaders->getShaderProgram(Shaders::kPassthroughVertex, fragment_shader_);
   shader_->use();
@@ -98,8 +99,8 @@ void OpenGlMultiQuad::destroy(OpenGlWrapper& open_gl) {
   thumb_amount_uniform_ = nullptr;
   start_pos_uniform_ = nullptr;
   alpha_mult_uniform_ = nullptr;
-  open_gl.context.extensions.glDeleteBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &indices_buffer_);
 
   vertex_buffer_ = 0;
   indices_buffer_ = 0;
@@ -133,11 +134,11 @@ void OpenGlMultiQuad::render(OpenGlWrapper& open_gl, bool animate) {
     for (int i = 0; i < num_quads_; ++i)
       setDimensions(i, getQuadWidth(i), getQuadHeight(i), component->getWidth(), component->getHeight());
 
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
     GLsizeiptr vert_size = static_cast<GLsizeiptr>(kNumFloatsPerQuad * max_quads_ * sizeof(float));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   shader_->use();
@@ -201,42 +202,42 @@ void OpenGlMultiQuad::render(OpenGlWrapper& open_gl, bool animate) {
   if (max_arc_uniform_)
     max_arc_uniform_->set(max_arc_);
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
-  open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
                                                    GL_FALSE, kNumFloatsPerVertex * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
   if (dimensions_) {
-    open_gl.context.extensions.glVertexAttribPointer(dimensions_->attributeID, 2, GL_FLOAT,
+    GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(dimensions_->attributeID, 2, GL_FLOAT,
                                                      GL_FALSE, kNumFloatsPerVertex * sizeof(float),
                                                      (GLvoid*)(2 * sizeof(float)));
-    open_gl.context.extensions.glEnableVertexAttribArray(dimensions_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(dimensions_->attributeID);
   }
   if (coordinates_) {
-    open_gl.context.extensions.glVertexAttribPointer(coordinates_->attributeID, 2, GL_FLOAT,
+    GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(coordinates_->attributeID, 2, GL_FLOAT,
                                                      GL_FALSE, kNumFloatsPerVertex * sizeof(float),
                                                      (GLvoid*)(4 * sizeof(float)));
-    open_gl.context.extensions.glEnableVertexAttribArray(coordinates_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(coordinates_->attributeID);
   }
   if (shader_values_) {
-    open_gl.context.extensions.glVertexAttribPointer(shader_values_->attributeID, 4, GL_FLOAT,
+    GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(shader_values_->attributeID, 4, GL_FLOAT,
                                                      GL_FALSE, kNumFloatsPerVertex * sizeof(float),
                                                      (GLvoid*)(6 * sizeof(float)));
-    open_gl.context.extensions.glEnableVertexAttribArray(shader_values_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(shader_values_->attributeID);
   }
 
   glDrawElements(GL_TRIANGLES, num_quads_ * kNumIndicesPerQuad, GL_UNSIGNED_INT, nullptr);
 
-  open_gl.context.extensions.glDisableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(position_->attributeID);
   if (dimensions_)
-    open_gl.context.extensions.glDisableVertexAttribArray(dimensions_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(dimensions_->attributeID);
   if (coordinates_)
-    open_gl.context.extensions.glDisableVertexAttribArray(coordinates_->attributeID);
+    GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(coordinates_->attributeID);
   if (shader_values_)
-    open_gl.context.extensions.glDisableVertexAttribArray(shader_values_->attributeID);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(shader_values_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDisable(GL_BLEND);
   glDisable(GL_SCISSOR_TEST);
 }

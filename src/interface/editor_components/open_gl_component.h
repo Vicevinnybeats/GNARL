@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "open_gl_compat.h"
 #include "common.h"
 #include "shaders.h"
 #include "skin.h"
@@ -34,7 +35,7 @@ class OpenGlComponent : public Component {
     static std::unique_ptr<OpenGLShaderProgram::Uniform> getUniform(const OpenGlWrapper& open_gl,
                                                                     const OpenGLShaderProgram& program,
                                                                     const char* name) {
-      if (open_gl.context.extensions.glGetUniformLocation(program.getProgramID(), name) >= 0)
+      if (GNARL_GL_EXT(open_gl.context) glGetUniformLocation(program.getProgramID(), name) >= 0)
         return std::make_unique<OpenGLShaderProgram::Uniform>(program, name);
       return nullptr;
     }
@@ -42,7 +43,7 @@ class OpenGlComponent : public Component {
     static std::unique_ptr<OpenGLShaderProgram::Attribute> getAttribute(const OpenGlWrapper& open_gl,
                                                                         const OpenGLShaderProgram& program,
                                                                         const char* name) {
-      if (open_gl.context.extensions.glGetAttribLocation(program.getProgramID(), name) >= 0)
+      if (GNARL_GL_EXT(open_gl.context) glGetAttribLocation(program.getProgramID(), name) >= 0)
         return std::make_unique<OpenGLShaderProgram::Attribute>(program, name);
       return nullptr;
     }

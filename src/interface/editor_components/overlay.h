@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "open_gl_compat.h"
 #include "JuceHeader.h"
 #include "synth_section.h"
 
@@ -55,17 +56,17 @@ class OverlayBackgroundRenderer : public OpenGlComponent {
     virtual ~OverlayBackgroundRenderer() { }
 
     virtual void init(OpenGlWrapper& open_gl) override {
-      open_gl.context.extensions.glGenBuffers(1, &data_buffer_);
-      open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, data_buffer_);
+      GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &data_buffer_);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, data_buffer_);
 
       GLsizeiptr vert_size = static_cast<GLsizeiptr>(kTotalFloats * sizeof(float));
-      open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, data_, GL_STATIC_DRAW);
+      GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, data_, GL_STATIC_DRAW);
 
-      open_gl.context.extensions.glGenBuffers(1, &indices_buffer_);
-      open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+      GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &indices_buffer_);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
       GLsizeiptr bar_size = static_cast<GLsizeiptr>(kIndices * sizeof(int));
-      open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, indices_, GL_STATIC_DRAW);
+      GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, indices_, GL_STATIC_DRAW);
 
       shader_ = open_gl.shaders->getShaderProgram(Shaders::kPassthroughVertex, Shaders::kColorFragment);
       shader_->use();
@@ -83,8 +84,8 @@ class OverlayBackgroundRenderer : public OpenGlComponent {
       shader_ = nullptr;
       position_ = nullptr;
       color_uniform_ = nullptr;
-      open_gl.context.extensions.glDeleteBuffers(1, &data_buffer_);
-      open_gl.context.extensions.glDeleteBuffers(1, &indices_buffer_);
+      GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &data_buffer_);
+      GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &indices_buffer_);
 
       data_buffer_ = 0;
       indices_buffer_ = 0;
@@ -113,18 +114,18 @@ class OverlayBackgroundRenderer : public OpenGlComponent {
       color_uniform_->set(color_.getFloatRed(), color_.getFloatGreen(),
                           color_.getFloatBlue(), color_.getFloatAlpha());
 
-      open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, data_buffer_);
-      open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, data_buffer_);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
-      open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, kNumFloatsPerVertex, GL_FLOAT,
+      GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, kNumFloatsPerVertex, GL_FLOAT,
                                                        GL_FALSE, kNumFloatsPerVertex * sizeof(float), nullptr);
-      open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
+      GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
 
       glDrawElements(GL_TRIANGLES, kIndices, GL_UNSIGNED_INT, nullptr);
 
-      open_gl.context.extensions.glDisableVertexAttribArray(position_->attributeID);
-      open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-      open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(position_->attributeID);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+      GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
       
       glDisable(GL_BLEND);
       glDisable(GL_SCISSOR_TEST);

@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "open_gl_multi_image.h"
 
 #include "common.h"
@@ -55,17 +56,17 @@ OpenGlMultiImage::OpenGlMultiImage(int max_quads) : image_(nullptr), image_width
 OpenGlMultiImage::~OpenGlMultiImage() {}
 
 void OpenGlMultiImage::init(OpenGlWrapper& open_gl) {
-  open_gl.context.extensions.glGenBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(max_quads_ * kNumFloatsPerQuad * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &indices_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
   GLsizeiptr tri_size = static_cast<GLsizeiptr>(max_quads_ * kNumIndicesPerQuad * sizeof(int));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size, indices_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size, indices_.get(), GL_STATIC_DRAW);
 
   image_shader_ = open_gl.shaders->getShaderProgram(Shaders::kImageVertex, Shaders::kTintedImageFragment);
   image_shader_->use();
@@ -82,8 +83,8 @@ void OpenGlMultiImage::destroy(OpenGlWrapper& open_gl) {
   texture_coordinates_ = nullptr;
   color_uniform_ = nullptr;
 
-  open_gl.context.extensions.glDeleteBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &indices_buffer_);
 
   vertex_buffer_ = 0;
   indices_buffer_ = 0;
@@ -112,36 +113,36 @@ void OpenGlMultiImage::render(OpenGlWrapper& open_gl, bool animate) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   texture_.bind();
-  open_gl.context.extensions.glActiveTexture(GL_TEXTURE0);
+  GNARL_GL_EXT(open_gl.context) glActiveTexture(GL_TEXTURE0);
 
   if (dirty_) {
     dirty_ = false;
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
     GLsizeiptr vert_size = static_cast<GLsizeiptr>(kNumFloatsPerQuad * max_quads_ * sizeof(float));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, data_.get(), GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   image_shader_->use();
   color_uniform_->set(color_.getFloatRed(), color_.getFloatGreen(),
                       color_.getFloatBlue(), color_.getFloatAlpha());
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_buffer_);
 
-  open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
                                                    GL_FALSE, kNumFloatsPerVertex * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
-  open_gl.context.extensions.glVertexAttribPointer(texture_coordinates_->attributeID, 2, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(texture_coordinates_->attributeID, 2, GL_FLOAT,
                                                    GL_FALSE, kNumFloatsPerVertex * sizeof(float),
                                                    (GLvoid*)(2 * sizeof(float)));
-  open_gl.context.extensions.glEnableVertexAttribArray(texture_coordinates_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(texture_coordinates_->attributeID);
 
   glDrawElements(GL_TRIANGLES, num_quads_ * kNumIndicesPerQuad, GL_UNSIGNED_INT, nullptr);
 
-  open_gl.context.extensions.glDisableVertexAttribArray(position_->attributeID);
-  open_gl.context.extensions.glDisableVertexAttribArray(texture_coordinates_->attributeID);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(texture_coordinates_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }

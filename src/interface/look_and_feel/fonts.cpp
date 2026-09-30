@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: glyph warm-up that compiles on JUCE 6 and 8.
  */
 
 #include "fonts.h"
@@ -28,10 +30,11 @@ Fonts::Fonts() :
     monospace_(Typeface::createSystemTypefaceFor(
         BinaryData::DroidSansMono_ttf, BinaryData::DroidSansMono_ttfSize)) {
 
-  Array<int> glyphs;
-  Array<float> x_offsets;
-  proportional_regular_.getGlyphPositions("test", glyphs, x_offsets);
-  proportional_light_.getGlyphPositions("test", glyphs, x_offsets);
-  proportional_title_.getGlyphPositions("test", glyphs, x_offsets);
-  monospace_.getGlyphPositions("test", glyphs, x_offsets);
+  // Lays out a word in each face so the glyphs are loaded before first
+  // paint. GNARL: through GlyphArrangement, which JUCE 6 and 8 both have;
+  // Font::getGlyphPositions is gone in JUCE 8.
+  for (const Font* font : { &proportional_regular_, &proportional_light_, &proportional_title_, &monospace_ }) {
+    GlyphArrangement warm_up;
+    warm_up.addLineOfText(*font, "test", 0.0f, 0.0f);
+  }
 }

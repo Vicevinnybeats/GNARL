@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "bar_renderer.h"
 
 #include "skin.h"
@@ -71,23 +72,23 @@ BarRenderer::~BarRenderer() { }
 void BarRenderer::init(OpenGlWrapper& open_gl) {
   OpenGlComponent::init(open_gl);
 
-  open_gl.context.extensions.glGenBuffers(1, &bar_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &bar_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
 
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(kFloatsPerBar * total_points_ * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, bar_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, bar_data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &bar_corner_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, bar_corner_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &bar_corner_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, bar_corner_buffer_);
 
   GLsizeiptr corner_size = static_cast<GLsizeiptr>(kCornerFloatsPerBar * total_points_ * sizeof(float));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, corner_size, bar_corner_data_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, corner_size, bar_corner_data_.get(), GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &bar_indices_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bar_indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &bar_indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bar_indices_buffer_);
 
   GLsizeiptr bar_size = static_cast<GLsizeiptr>(kTriangleIndicesPerBar * total_points_ * sizeof(int));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, bar_indices_.get(), GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, bar_size, bar_indices_.get(), GL_STATIC_DRAW);
 
   if (vertical_)
     shader_ = open_gl.shaders->getShaderProgram(Shaders::kBarVerticalVertex, Shaders::kBarFragment);
@@ -121,11 +122,11 @@ void BarRenderer::drawBars(OpenGlWrapper& open_gl) {
   if (dirty_) {
     dirty_ = false;
     setBarSizes();
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
 
     GLsizeiptr vert_size = static_cast<GLsizeiptr>(kFloatsPerBar * total_points_ * sizeof(float));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, bar_data_.get(), GL_STATIC_DRAW);
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, bar_data_.get(), GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
   }
 
   shader_->use();
@@ -137,23 +138,23 @@ void BarRenderer::drawBars(OpenGlWrapper& open_gl) {
   scale_uniform_->set(scale_);
   float min_width = 4.0f / getWidth();
   width_percent_uniform_->set(std::max(min_width, bar_width_ * scale_ * 2.0f / num_points_));
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bar_indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, bar_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, bar_indices_buffer_);
 
-  open_gl.context.extensions.glVertexAttribPointer(position_->attributeID, kFloatsPerVertex, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(position_->attributeID, kFloatsPerVertex, GL_FLOAT,
                                                    GL_FALSE, kFloatsPerVertex * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(position_->attributeID);
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, bar_corner_buffer_);
-  open_gl.context.extensions.glVertexAttribPointer(corner_->attributeID, kCornerFloatsPerVertex, GL_FLOAT,
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, bar_corner_buffer_);
+  GNARL_GL_EXT(open_gl.context) glVertexAttribPointer(corner_->attributeID, kCornerFloatsPerVertex, GL_FLOAT,
                                                   GL_FALSE, kCornerFloatsPerVertex * sizeof(float), nullptr);
-  open_gl.context.extensions.glEnableVertexAttribArray(corner_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glEnableVertexAttribArray(corner_->attributeID);
 
   glDrawElements(GL_TRIANGLES, kTriangleIndicesPerBar * total_points_, GL_UNSIGNED_INT, nullptr);
 
-  open_gl.context.extensions.glDisableVertexAttribArray(position_->attributeID);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glDisableVertexAttribArray(position_->attributeID);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glDisable(GL_BLEND);
   glDisable(GL_SCISSOR_TEST);
 }
@@ -173,8 +174,8 @@ void BarRenderer::destroy(OpenGlWrapper& open_gl) {
   offset_uniform_ = nullptr;
   scale_uniform_ = nullptr;
   width_percent_uniform_ = nullptr;
-  open_gl.context.extensions.glDeleteBuffers(1, &bar_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &bar_indices_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &bar_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &bar_indices_buffer_);
 
   bar_buffer_ = 0;
   bar_indices_buffer_ = 0;

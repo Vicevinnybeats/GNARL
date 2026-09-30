@@ -14,6 +14,7 @@
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "open_gl_compat.h"
 #include "open_gl_background.h"
 
 #include "open_gl_component.h"
@@ -43,17 +44,17 @@ void OpenGlBackground::init(OpenGlWrapper& open_gl) {
     2, 3, 0
   };
 
-  open_gl.context.extensions.glGenBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
 
   GLsizeiptr vert_size = static_cast<GLsizeiptr>(static_cast<size_t>(sizeof(vertices)));
-  open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, vertices_, GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, vertices_, GL_STATIC_DRAW);
 
-  open_gl.context.extensions.glGenBuffers(1, &triangle_buffer_);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glGenBuffers(1, &triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
 
   GLsizeiptr tri_size = static_cast<GLsizeiptr>(static_cast<size_t>(sizeof(triangles)));
-  open_gl.context.extensions.glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size, triangles, GL_STATIC_DRAW);
+  GNARL_GL_EXT(open_gl.context) glBufferData(GL_ELEMENT_ARRAY_BUFFER, tri_size, triangles, GL_STATIC_DRAW);
 
   image_shader_ = open_gl.shaders->getShaderProgram(Shaders::kImageVertex, Shaders::kImageFragment);
   image_shader_->use();
@@ -71,36 +72,36 @@ void OpenGlBackground::destroy(OpenGlWrapper& open_gl) {
   texture_coordinates_ = nullptr;
   texture_uniform_ = nullptr;
 
-  open_gl.context.extensions.glDeleteBuffers(1, &vertex_buffer_);
-  open_gl.context.extensions.glDeleteBuffers(1, &triangle_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &vertex_buffer_);
+  GNARL_GL_EXT(open_gl.context) glDeleteBuffers(1, &triangle_buffer_);
 }
 
 void OpenGlBackground::bind(OpenGLContext& open_gl_context) {
-  open_gl_context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
-  open_gl_context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
+  GNARL_GL_EXT(open_gl_context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+  GNARL_GL_EXT(open_gl_context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, triangle_buffer_);
   background_.bind();
 }
 
 void OpenGlBackground::enableAttributes(OpenGLContext& open_gl_context) {
   if (position_ != nullptr) {
-    open_gl_context.extensions.glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
+    GNARL_GL_EXT(open_gl_context) glVertexAttribPointer(position_->attributeID, 2, GL_FLOAT,
                                                     GL_FALSE, 4 * sizeof(float), nullptr);
-    open_gl_context.extensions.glEnableVertexAttribArray(position_->attributeID);
+    GNARL_GL_EXT(open_gl_context) glEnableVertexAttribArray(position_->attributeID);
   }
   if (texture_coordinates_ != nullptr) {
-    open_gl_context.extensions.glVertexAttribPointer(texture_coordinates_->attributeID, 2, GL_FLOAT,
+    GNARL_GL_EXT(open_gl_context) glVertexAttribPointer(texture_coordinates_->attributeID, 2, GL_FLOAT,
                                                     GL_FALSE, 4 * sizeof(float),
                                                     (GLvoid*)(2 * sizeof(float)));
-    open_gl_context.extensions.glEnableVertexAttribArray(texture_coordinates_->attributeID);
+    GNARL_GL_EXT(open_gl_context) glEnableVertexAttribArray(texture_coordinates_->attributeID);
   }
 }
 
 void OpenGlBackground::disableAttributes(OpenGLContext& open_gl_context) {
   if (position_ != nullptr)
-    open_gl_context.extensions.glDisableVertexAttribArray(position_->attributeID);
+    GNARL_GL_EXT(open_gl_context) glDisableVertexAttribArray(position_->attributeID);
 
   if (texture_coordinates_ != nullptr)
-    open_gl_context.extensions.glDisableVertexAttribArray(texture_coordinates_->attributeID);
+    GNARL_GL_EXT(open_gl_context) glDisableVertexAttribArray(texture_coordinates_->attributeID);
 }
 
 void OpenGlBackground::render(OpenGlWrapper& open_gl) {
@@ -117,9 +118,9 @@ void OpenGlBackground::render(OpenGlWrapper& open_gl) {
     vertices_[8] = vertices_[12] = width_end;
     vertices_[5] = vertices_[9] = height_end;
 
-    open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
+    GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_);
     GLsizeiptr vert_size = static_cast<GLsizeiptr>(static_cast<size_t>(16 * sizeof(float)));
-    open_gl.context.extensions.glBufferData(GL_ARRAY_BUFFER, vert_size, vertices_, GL_STATIC_DRAW);
+    GNARL_GL_EXT(open_gl.context) glBufferData(GL_ARRAY_BUFFER, vert_size, vertices_, GL_STATIC_DRAW);
   }
 
   glDisable(GL_BLEND);
@@ -127,7 +128,7 @@ void OpenGlBackground::render(OpenGlWrapper& open_gl) {
 
   image_shader_->use();
   bind(open_gl.context);
-  open_gl.context.extensions.glActiveTexture(GL_TEXTURE0);
+  GNARL_GL_EXT(open_gl.context) glActiveTexture(GL_TEXTURE0);
 
   if (texture_uniform_ != nullptr && background_.getWidth())
     texture_uniform_->set(0);
@@ -137,8 +138,8 @@ void OpenGlBackground::render(OpenGlWrapper& open_gl) {
   disableAttributes(open_gl.context);
   background_.unbind();
 
-  open_gl.context.extensions.glBindBuffer(GL_ARRAY_BUFFER, 0);
-  open_gl.context.extensions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ARRAY_BUFFER, 0);
+  GNARL_GL_EXT(open_gl.context) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   mutex_.unlock();
 }
