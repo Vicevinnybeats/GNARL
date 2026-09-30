@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: logo colours pinned to the brand blue.
  */
 
 #include "header_section.h"
@@ -141,8 +143,15 @@ void LogoSection::resized() {
 
 void LogoSection::paintBackground(Graphics& g) {
   if (logo_button_) {
-    logo_button_->setRingColors(findColour(Skin::kWidgetPrimary1, true), findColour(Skin::kWidgetPrimary2, true));
-    logo_button_->setLetterColors(findColour(Skin::kWidgetSecondary1, true), findColour(Skin::kWidgetSecondary2, true));
+    // GNARL: the logo is the brand, not a widget - the website's accent,
+    // #64e6ff, whatever skin is loaded. The same constants are pinned in
+    // synth_section.h for the other place the mark is drawn; this header
+    // button is the one people actually see, and Phase 1 pinned only the
+    // other one, so the header logo stayed the skin's purple.
+    static const Colour kBrandBlue(0xff64e6ff);        // site --accent
+    static const Colour kBrandBlueDeep(0xff2fa8e0);    // same hue, for the gradient's foot
+    logo_button_->setRingColors(kBrandBlue, kBrandBlueDeep);
+    logo_button_->setLetterColors(kBrandBlue, kBrandBlueDeep);
   }
 }
 

@@ -79,12 +79,21 @@ def main():
     d, w = word_paths('GNARL', H, PAD, PAD, G)
     (icons / 'gnarl_word.svg').write_text(svg(w + 2 * PAD, H + 2 * PAD, paths(d)))
 
-    #  The mark: the G alone, square box, same weight as the wordmark.
-    d, w = word_paths('G', H, PAD, PAD, G)
-    (icons / 'gnarl_mark.svg').write_text(svg(w + 2 * PAD, H + 2 * PAD, paths(d)))
-
-    #  The ring is the boot screen's dial. Same thickness as a glyph stroke.
-    (icons / 'gnarl_ring.svg').write_text(svg(100, 100, ring(50, 50, 48, STROKE * 32)))
+    #  The header's logo button draws the ring and the mark TOGETHER, in one
+    #  shared frame of kLogoWidth = 1701 units (paths.h pads both paths to
+    #  0..1701 so they scale identically) - upstream's frame, sized for its
+    #  own artwork. The first marks here were drawn in their own 100-unit
+    #  boxes and came out as a single speck in the corner of the running
+    #  app: correct SVGs, checked as SVGs, never looked at in the plugin.
+    #  So both are drawn in 1701 units: the ring filling the frame, the G
+    #  centred inside it - which is the website's boot dial, a mark in a ring.
+    F = 1701.0
+    ring_r, ring_t = F * 0.47, F * 0.045
+    g_h = F * 0.40
+    d, g_w = word_paths('G', g_h, 0, 0, G)
+    d, _ = word_paths('G', g_h, (F - g_w) / 2, (F - g_h) / 2, G)
+    (icons / 'gnarl_mark.svg').write_text(svg(F, F, paths(d)))
+    (icons / 'gnarl_ring.svg').write_text(svg(F, F, ring(F / 2, F / 2, ring_r, ring_t)))
 
     #  Lockup: the wordmark inside the dial, as the boot screen composes it.
     S = 400.0

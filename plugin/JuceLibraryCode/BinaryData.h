@@ -78,10 +78,10 @@ namespace BinaryData
     const int            shuffle_svgSize = 382;
 
     extern const char*   gnarl_ring_svg;
-    const int            gnarl_ring_svgSize = 264;
+    const int            gnarl_ring_svgSize = 396;
 
     extern const char*   gnarl_mark_svg;
-    const int            gnarl_mark_svgSize = 1740;
+    const int            gnarl_mark_svgSize = 1902;
 
     extern const char*   gnarl_word_svg;
     const int            gnarl_word_svgSize = 5255;

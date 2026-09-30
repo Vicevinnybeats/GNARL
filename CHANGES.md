@@ -92,3 +92,21 @@ the merge commit forward: `git log 7651809..`.
   `tests/host_parameters.txt` + `tools/check_param_order.py` fail CI if the
   order changes anywhere but the end.
 
+
+## 2026-09-30 - Logo fixes (standalone, header)
+
+- The standalone and tests projects had their own `BinaryData` still holding
+  upstream's logo and icon references to deleted files; they did not compile.
+  `tools/embed_logo.py` now rewrites every `*/JuceLibraryCode/BinaryData`,
+  and `check_fork.py` checks all of them plus every `.jucer` icon reference.
+- `gnarl_ring.svg` and `gnarl_mark.svg` are drawn in the shared 1701-unit
+  logo frame, so the header's G is no longer a speck.
+- The header logo button paints the pinned brand blue `#64e6ff` instead of
+  skin colours.
+
+## 2026-09-30 - Phase 2: the wobble macro (UI)
+
+- `WobbleSection` (`lfo_section.{h,cpp}`): shape editor, RATE, POLARITY and
+  the WT / CUTOFF / FM depth knobs.
+- It is the first tab (WOBBLE) of the LFO area in `ModulationInterface`;
+  LFO 1-8 follow it.

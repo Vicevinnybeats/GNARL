@@ -97,14 +97,27 @@ for p in files('AppConfig.h'):
     if not re.search(r'#define\s+NO_AUTH\s+1', text(p)):
         fail(f'{p.relative_to(ROOT)} does not define NO_AUTH 1')
 
-# 5. embedded logo bytes match the SVGs they were made from
-hdr = text(ROOT / 'plugin/JuceLibraryCode/BinaryData.h')
-for sym in ('gnarl_ring_svg', 'gnarl_mark_svg', 'gnarl_word_svg', 'gnarl_word_ring_svg'):
-    m = re.search(r'%sSize = (\d+);' % sym, hdr)
-    svg = ROOT / 'icons' / (sym[:-4] + '.svg')
-    if not m: fail(f'BinaryData.h has no {sym}'); continue
-    if int(m.group(1)) != svg.stat().st_size:
-        fail(f'BinaryData {sym} is {m.group(1)} bytes, icons/{svg.name} is {svg.stat().st_size} - run tools/embed_logo.py')
+# 5. embedded logo bytes match the SVGs they were made from - in EVERY
+#    BinaryData. The plugin, the standalone app and the test runner each have
+#    their own; checking only the plugin's let the standalone keep Vital's
+#    logo bytes and stop compiling, unseen, because CI built only the VST3.
+for hdr_path in sorted(ROOT.glob('*/JuceLibraryCode/BinaryData.h')):
+    hdr = text(hdr_path)
+    rel = hdr_path.relative_to(ROOT)
+    if re.search(r'\bvital_(ring|v|word|word_ring)_svg\b', hdr):
+        fail(f'{rel} still embeds Vital\'s logo - run tools/embed_logo.py')
+    for sym in ('gnarl_ring_svg', 'gnarl_mark_svg', 'gnarl_word_svg', 'gnarl_word_ring_svg'):
+        m = re.search(r'%sSize = (\d+);' % sym, hdr)
+        svg = ROOT / 'icons' / (sym[:-4] + '.svg')
+        if not m: fail(f'{rel} has no {sym}'); continue
+        if int(m.group(1)) != svg.stat().st_size:
+            fail(f'{rel}: {sym} is {m.group(1)} bytes, icons/{svg.name} is {svg.stat().st_size} - run tools/embed_logo.py')
+
+# 6. no project references an icon file that does not exist
+for p in files('*.jucer'):
+    for ref in re.findall(r'file="\.\./icons/([^"]+)"', text(p)):
+        if not (ROOT / 'icons' / ref).exists():
+            fail(f'{p.relative_to(ROOT)} references icons/{ref}, which does not exist')
 
 print(f'check_fork: {len(fails)} failure(s)')
 sys.exit(min(len(fails), 100))
