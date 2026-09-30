@@ -1,47 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm --prefix ui ci && npm --prefix ui run build && npm --prefix site ci && npm --prefix site run build && node tools/assemble_deploy.mjs",
+  "buildCommand": "npm --prefix site ci && npm --prefix site run build && node tools/assemble_deploy.mjs",
   "outputDirectory": "dist",
   "installCommand": "echo 'installed per-package by buildCommand'",
   "framework": null,
   "headers": [
     {
-      "source": "/app/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/app/"
-        }
-      ]
-    },
-    {
-      "source": "/app/manifest.webmanifest",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/manifest+json"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/app/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/app/(index.html)?",
+      "source": "/app/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

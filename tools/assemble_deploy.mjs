@@ -1,15 +1,19 @@
-/*  Puts the marketing site and the installable app in one deployment.
+/*  Copies the built marketing site into dist/ for Vercel.
  *
- *  ONE ORIGIN, TWO THINGS. The site is `site/`, the app is the plugin's own
- *  React interface out of `ui/`, and they are separate builds with separate
- *  dependencies. Deploying them as one origin means the app can be linked to
- *  from the page that sells it, and - the part that actually matters - a
- *  service worker may only claim a scope at or below its own path, so an app
- *  at /app can cache itself and nothing else on the domain.
+ *  THIS USED TO ASSEMBLE TWO THINGS. The site was at /, and the plugin's
+ *  React interface was published as an installable web app at /app -
+ *  under a path rather than a subdomain, because a service worker may only
+ *  claim a scope at or below its own path.
  *
- *  THE SERVICE WORKER'S SCOPE IS WHY /app AND NOT A SUBDOMAIN. A subdomain
- *  would need its own certificate and its own Vercel project, and the site
- *  could not then link to an installable thing on the same origin.
+ *  That interface is gone: GNARL's UI is now Vital's OpenGL one, inside the
+ *  plugin, and there is no web build of it to publish. What remains at /app
+ *  is a tombstone page shipped from site/public/app/, because the demo was
+ *  installed to at least one home screen and deleting the path outright
+ *  turns a real icon into an unexplained 404.
+ *
+ *  The step is kept rather than folded into `outputDirectory: site/dist`
+ *  so the checks below still run. A deploy that silently produces an empty
+ *  directory looks exactly like a deploy that worked.
  */
 import { cpSync, existsSync, mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -17,25 +21,16 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist');
-
 const siteDist = join(root, 'site', 'dist');
-const uiDist = join(root, 'ui', 'dist');
 
-for (const [label, path] of [['site', siteDist], ['ui', uiDist]]) {
-  if (!existsSync(path)) {
-    console.error(`assemble_deploy: ${label} was not built (${path} missing)`);
-    process.exit(1);
-  }
+if (!existsSync(siteDist)) {
+  console.error(`assemble_deploy: site was not built (${siteDist} missing)`);
+  process.exit(1);
 }
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-
-//  The site at the root.
 cpSync(siteDist, out, { recursive: true });
-
-//  The app under /app, where its service worker's scope can reach it.
-cpSync(uiDist, join(out, 'app'), { recursive: true });
 
 function count(dir) {
   let n = 0;
@@ -46,15 +41,15 @@ function count(dir) {
   return n;
 }
 
-console.log(`assemble_deploy: ${count(out)} files -> dist/ (site at /, app at /app)`);
+console.log(`assemble_deploy: ${count(out)} files -> dist/`);
 
-//  A missing worker or manifest means the app installs as a bookmark rather
-//  than as an app, which looks like success until somebody tries it offline.
-for (const required of ['app/index.html', 'app/sw.js', 'app/manifest.webmanifest']) {
+//  The pages the site is actually made of. An empty or half-copied dist
+//  deploys green and serves nothing, which is the failure worth catching.
+for (const required of ['index.html', 'checkout.html', 'app/index.html']) {
   if (!existsSync(join(out, required))) {
     console.error(`assemble_deploy: missing ${required}`);
     process.exit(1);
   }
 }
 
-console.log('assemble_deploy: manifest and service worker present');
+console.log('assemble_deploy: site pages present');
