@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      viewport-fit=cover lets the app paint under the notch, which is the
+      point of the translucent status bar above. user-scalable=no because
+      every control here is a DRAG surface: pinch-to-zoom and a two-finger
+      knob gesture are the same event to the browser, and it resolves them
+      as zoom.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'"
+    />
+    <title>GNARL</title>
+    <!--
+      An empty inline icon. Nothing in a plugin webview shows a tab icon, so
+      this is not decoration: without it the browser requests /favicon.ico,
+      gets a 404, and logs a console error - and tools/screenshot_ui.mjs exits
+      non-zero on ANY console error, which made its "no console errors" check
+      useless as a signal for the layout work it exists to verify. A data URI
+      rather than a file so there is nothing extra to embed in the binary; the
+      CSP already allows img-src data:.
+    -->
+    <link rel="icon" href="data:," />
+
+    <!--
+      PWA. These are inert inside the plugin: a webview serving from a custom
+      scheme shows no install prompt and the worker is never registered (see
+      the guard in main.tsx), so the same bundle is the plugin's UI and the
+      installable app without a second build.
+
+      The manifest is referenced with a RELATIVE href because the plugin
+      resolves resources against its own provider origin and the site is
+      served from a subdirectory on some hosts; an absolute /manifest would
+      404 in both.
+    -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="theme-color" content="#05040f" />
+
+    <!--
+      iOS ignores the manifest almost entirely. `apple-mobile-web-app-capable`
+      is what removes Safari's chrome when launched from the home screen,
+      `status-bar-style` black-translucent lets the app draw under the notch,
+      and the touch icon is read from this tag rather than from the manifest's
+      icon list.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="GNARL" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <script type="module" crossorigin src="./assets/index.js?v=cf1981b5d766"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index.css?v=cf1981b5d766">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -65,6 +65,22 @@
 //==============================================================================
 // juce_audio_devices flags:
 
+#ifndef    NO_AUTH
+ /*  GNARL HAS NO ACCOUNT SYSTEM AND MUST NOT HAVE ONE.
+
+     Upstream guards its login, token refresh and preset download behind
+     `#if NDEBUG && !NO_AUTH`, and ships a no-op AuthenticationSection for
+     the other branch - so this single define compiles the whole thing out
+     and is the supported way to do it.
+
+     It is also a licence requirement rather than a preference. Vital's
+     README forbids builds from this source connecting to vital.audio,
+     account.vital.audio or store.vital.audio, which is exactly what that
+     code does. GNARL's own licensing lives in backend/ and is reached
+     over its own endpoint. */
+ #define NO_AUTH 1
+#endif
+
 #ifndef    JUCE_USE_WINRT_MIDI
  //#define JUCE_USE_WINRT_MIDI 0
 #endif
