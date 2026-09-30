@@ -79,3 +79,7 @@ backend/worker-configuration.d.ts
 .screenshots/
 renders/
 *.webm
+
+# --- python bytecode (tools/check_fork.py imports tools/pbxproj.py) ------
+__pycache__/
+*.pyc
