@@ -136,6 +136,11 @@ json LoadSave::stateToJson(SynthBase* synth, const CriticalSection& critical_sec
 
   settings_data["lfos"] = lfos;
 
+  // GNARL: the wobble macro's drawn shape. A separate key rather than a
+  // ninth entry in "lfos", so a preset can still be opened by software that
+  // expects exactly eight.
+  settings_data["wobble_shape"] = synth->getWobbleSource()->stateToJson();
+
   json data;
   data["synth_version"] = ProjectInfo::versionString;
   data["preset_name"] = synth->getPresetName().toStdString();
@@ -1046,6 +1051,15 @@ bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save
   loadSample(synth, sample);
   loadWavetables(synth, wavetables);
   loadLfos(synth, lfos);
+
+  // GNARL: a preset from before the wobble has no shape; it gets the
+  // default rather than whatever the previous patch left behind.
+  LineGenerator* wobble_source = synth->getWobbleSource();
+  if (settings.count("wobble_shape") && settings["wobble_shape"].is_object())
+    wobble_source->jsonToState(settings["wobble_shape"]);
+  else
+    wobble_source->initTriangle();
+  wobble_source->render();
   loadSaveState(save_info, data);
   synth->checkOversampling();
   

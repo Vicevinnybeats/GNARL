@@ -65,6 +65,22 @@ jobs:
           headless/builds/linux/build/gnarl-render --headless -o init.wav -l 2 -m C3 -b 140
           test -s init.wav
 
+      #  A DAW keys automation lanes by parameter index and ID. The committed
+      #  snapshot must stay an exact prefix of the live list: appending is
+      #  fine, inserting / renaming / removing moves every lane after it.
+      - name: Host parameter order is append-only
+        run: |
+          ./vst3_probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so" --params > params.txt
+          python3 tools/check_param_order.py params.txt tests/host_parameters.txt
+
+      #  Renders through the real engine and measures: rates, tempo, transport
+      #  lock (with a negative control), bit-identity with the equivalent
+      #  matrix connection, and zero depth changing nothing.
+      - name: Wobble macro tests
+        run: |
+          sudo apt-get install -y -qq python3-numpy
+          python3 tests/test_wobble.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: GNARL-linux-vst3

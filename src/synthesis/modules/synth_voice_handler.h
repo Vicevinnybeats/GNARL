@@ -31,6 +31,7 @@ namespace vital {
   class LegatoFilter;
   class LineMap;
   class LfoModule;
+  class WobbleModule;
   class EnvelopeModule;
   class RandomLfoModule;
   class TriggerRandom;
@@ -58,6 +59,8 @@ namespace vital {
       Wavetable* getWavetable(int index) { return producers_->getWavetable(index); }
       Sample* getSample() { return producers_->getSample(); }
       LineGenerator* getLfoSource(int index) { return &lfo_sources_[index]; }
+      // GNARL: the wobble macro's drawn shape.
+      LineGenerator* getWobbleSource() { return &wobble_source_; }
       Output* getDirectOutput() { return getAccumulatedOutput(direct_output_->output()); }
 
       Output* note_retrigger() { return &note_retriggered_; }
@@ -76,6 +79,7 @@ namespace vital {
       void createModulators();
       void createVoiceOutput();
       void createFilters(Output* keytrack);
+      void connectWobbleRoutes();
 
       void setupPolyModulationReadouts();
 
@@ -100,6 +104,14 @@ namespace vital {
       Output note_retriggered_;
 
       LineGenerator lfo_sources_[kNumLfos];
+
+      // GNARL: the wobble macro (docs/design/phase2-01-wobble.md). Four fixed
+      // routes driven by three depth parameters - the WT depth moves both
+      // oscillators' wave frames.
+      static constexpr int kNumWobbleRoutes = 4;
+      WobbleModule* wobble_;
+      LineGenerator wobble_source_;
+      ModulationConnectionProcessor* wobble_routes_[kNumWobbleRoutes];
 
       TriggerRandom* random_;
       RandomLfoModule* random_lfos_[kNumRandomLfos];

@@ -295,6 +295,10 @@ LineGenerator* SynthBase::getLfoSource(int index) {
   return engine_->getLfoSource(index);
 }
 
+LineGenerator* SynthBase::getWobbleSource() {
+  return engine_->getWobbleSource();
+}
+
 json SynthBase::saveToJson() {
   return LoadSave::stateToJson(this, getCriticalSection());
 }
@@ -314,6 +318,7 @@ void SynthBase::initEngine() {
 
   for (int i = 0; i < vital::kNumLfos; ++i)
     getLfoSource(i)->initTriangle();
+  getWobbleSource()->initTriangle();
 
   vital::control_map controls = engine_->getControls();
   for (auto& control : controls) {
@@ -381,7 +386,7 @@ bool SynthBase::loadFromFile(File preset, std::string& error) {
 }
 
 void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images,
-                                  int bits_per_sample, int block_size) {
+                                  int bits_per_sample, int block_size, double start_seconds) {
   static constexpr int kSampleRate = 44100;
   static constexpr int kPreProcessSamples = 44100;
   static constexpr int kFadeSamples = 200;
@@ -405,7 +410,10 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   engine_->updateAllModulationSwitches();
 
   double sample_time = 1.0 / getSampleRate();
-  double current_time = -kPreProcessSamples * sample_time;
+  // GNARL: start_seconds is the transport position at note-on, so a test
+  // can start the same note at different points in the bar and check that
+  // tempo-synced modulation follows the transport, not the note.
+  double current_time = start_seconds - kPreProcessSamples * sample_time;
 
   // GNARL: exact sample counts, not whole blocks. Upstream rounded the
   // pre-roll up to a multiple of the block size, so the transport time at

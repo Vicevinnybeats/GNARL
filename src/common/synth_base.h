@@ -77,6 +77,7 @@ class SynthBase : public MidiManager::Listener {
     WavetableCreator* getWavetableCreator(int index);
     vital::Sample* getSample();
     LineGenerator* getLfoSource(int index);
+    LineGenerator* getWobbleSource();  // GNARL: the wobble macro's shape
 
     int getSampleRate();
     void initEngine();
@@ -88,7 +89,7 @@ class SynthBase : public MidiManager::Listener {
     // floor; block_size lets a test render the same note in different
     // chunkings and assert the output does not depend on them.
     void renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images,
-                           int bits_per_sample = 16, int block_size = 64);
+                           int bits_per_sample = 16, int block_size = 64, double start_seconds = 0.0);
     void renderAudioForResynthesis(float* data, int samples, int note);
     bool saveToFile(File preset);
     bool saveToActiveFile();

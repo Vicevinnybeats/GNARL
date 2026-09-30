@@ -39,6 +39,15 @@ namespace vital {
       };
 
       ModulationConnectionProcessor(int index);
+
+      // GNARL: a connection whose bipolar/stereo/bypass controls are supplied
+      // rather than created from "modulation_N_*" names - for fixed routes
+      // (the wobble macro's) that must behave EXACTLY like a matrix
+      // connection of the same amount, and so use this class rather than a
+      // re-implementation of it. A re-implementation with identical
+      // arithmetic was built first and measured: it matched a matrix
+      // connection to only -15 dB at 128-sample blocks.
+      ModulationConnectionProcessor(Value* bipolar, Value* stereo, Value* bypass);
       virtual ~ModulationConnectionProcessor() { }
 
       void init() override;

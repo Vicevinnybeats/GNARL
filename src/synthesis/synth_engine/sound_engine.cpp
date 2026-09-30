@@ -363,6 +363,10 @@ namespace vital {
     return voice_handler_->getLfoSource(index);
   }
 
+  LineGenerator* SoundEngine::getWobbleSource() {
+    return voice_handler_->getWobbleSource();
+  }
+
   void SoundEngine::sustainOn(int channel) {
     voice_handler_->sustainOn(channel);
   }

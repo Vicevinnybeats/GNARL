@@ -126,7 +126,14 @@ void doRenderToFile(HeadlessSynth& headless_synth, int argc, const char* argv[])
   if (string_block.isNotEmpty())
     block_size = string_block.getIntValue();
 
-  headless_synth.renderAudioToFile(output_file, length, bpm, midi_notes, render_images, bits, block_size);
+  // GNARL: --start S puts note-on at transport position S seconds.
+  double start_seconds = 0.0;
+  String string_start = getArgumentValue(argc, argv, "--start", "--start");
+  if (string_start.isNotEmpty())
+    start_seconds = string_start.getDoubleValue();
+
+  headless_synth.renderAudioToFile(output_file, length, bpm, midi_notes, render_images, bits, block_size,
+                                   start_seconds);
 }
 
 // GNARL: --save FILE writes the loaded (or init) patch back out as a complete

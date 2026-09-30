@@ -346,6 +346,25 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "MPE Enabled", strings::kOffOnNames },
     { "view_spectrogram", 0x000803, 0.0, 2.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "View Spectrogram", strings::kOffOnNames },
+
+    // GNARL: the wobble macro. version_added 0x010007 is newer than every
+    // upstream parameter (the highest is 0x000803), and the host's automation
+    // list is sorted by (version_added, name) - so these land at the END of
+    // it and every existing automation lane keeps its index.
+    //
+    // All depths default to 0, so a patch that predates the wobble plays
+    // exactly as before. Unipolar by default: a wobble on cutoff should open
+    // FROM the knob, not swing a full depth below it on every note-on.
+    { "wobble_rate", 0x010007, 0.0, 3.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Wobble Rate", strings::kWobbleRateNames },
+    { "wobble_amount_wave_frame", 0x010007, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Wobble WT Depth", nullptr },
+    { "wobble_amount_cutoff", 0x010007, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Wobble Cutoff Depth", nullptr },
+    { "wobble_amount_fm", 0x010007, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Wobble FM/Warp Depth", nullptr },
+    { "wobble_bipolar", 0x010007, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Wobble Polarity", strings::kUnipolarBipolarNames },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {

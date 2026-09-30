@@ -83,6 +83,7 @@ namespace vital {
       Wavetable* getWavetable(int index);
       Sample* getSample();
       LineGenerator* getLfoSource(int index);
+      LineGenerator* getWobbleSource();  // GNARL
 
       void sustainOn(int channel);
       void sustainOff(int sample, int channel);

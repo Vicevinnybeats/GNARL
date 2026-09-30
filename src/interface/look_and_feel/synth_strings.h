@@ -25,6 +25,20 @@ namespace strings {
     "On"
   };
 
+  // GNARL: wobble_rate display names. APPEND ONLY, in step with
+  // WobbleRate::kCyclesPerBeat - a preset stores the index.
+  const std::string kWobbleRateNames[] = {
+    "1/4",
+    "1/8",
+    "1/8T",
+    "1/16"
+  };
+
+  const std::string kUnipolarBipolarNames[] = {
+    "Unipolar",
+    "Bipolar"
+  };
+
   const std::string kWavetableDimensionNames[] = {
     "3D",
     "2D",

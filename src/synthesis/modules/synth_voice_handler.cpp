@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the wobble macro and its four routes.
  */
 
 #include "synth_voice_handler.h"
@@ -28,6 +30,7 @@
 #include "trigger_random.h"
 #include "value_switch.h"
 #include "modulation_connection_processor.h"
+#include "synth_parameters.h"
 
 namespace vital {
 
@@ -95,7 +98,41 @@ namespace vital {
       processor->enable(false);
     }
 
+    // GNARL: the wobble's four fixed routes. Each is a
+    // ModulationConnectionProcessor - the SAME class a matrix connection uses
+    // - so a wobble depth of 0.6 moves its destination exactly as a 0.6
+    // matrix connection from the wobble would. They are built here, at the
+    // point the matrix's 64 processors are, so they are part of the voice
+    // graph, and connected after VoiceHandler::init() once the destination
+    // controls exist.
+    Value* wobble_bipolar = createBaseControl("wobble_bipolar");
+    Value* wobble_off = new Value(0.0f);
+    cr::Value* wobble_power = new cr::Value(0.0f);
+    addIdleProcessor(wobble_off);
+    addIdleProcessor(wobble_power);
+
+    const char* wobble_amount_names[kNumWobbleRoutes] = {
+      "wobble_amount_wave_frame", "wobble_amount_wave_frame", "wobble_amount_cutoff", "wobble_amount_fm"
+    };
+    std::map<std::string, Output*> wobble_amounts;
+    for (const char* name : wobble_amount_names) {
+      if (wobble_amounts.count(name) == 0)
+        wobble_amounts[name] = createPolyModControl(name);
+    }
+
+    for (int i = 0; i < kNumWobbleRoutes; ++i) {
+      ModulationConnectionProcessor* route = new ModulationConnectionProcessor(wobble_bipolar, wobble_off, wobble_off);
+      route->plug(reset(), ModulationConnectionProcessor::kReset);
+      route->plug(wobble_amounts[wobble_amount_names[i]], ModulationConnectionProcessor::kModulationAmount);
+      route->initializeBaseValue(data_->controls[wobble_amount_names[i]]);
+      route->plug(wobble_power, ModulationConnectionProcessor::kModulationPower);
+      addProcessor(route);
+      addSubmodule(route);
+      wobble_routes_[i] = route;
+    }
+
     VoiceHandler::init();
+    connectWobbleRoutes();
     producers_->setFilter1On(filters_module_->getFilter1OnValue());
     producers_->setFilter2On(filters_module_->getFilter2OnValue());
     setupPolyModulationReadouts();
@@ -168,6 +205,21 @@ namespace vital {
       createStatusOutput(prefix + "_phase", lfo->output(LfoModule::kOscPhase));
       createStatusOutput(prefix + "_frequency", lfo->output(LfoModule::kOscFrequency));
     }
+
+    // GNARL: the wobble is a modulation source like any LFO, so it can also
+    // be routed anywhere through the ordinary matrix.
+    wobble_source_.setLoop(false);
+    wobble_source_.initTriangle();
+    wobble_ = new WobbleModule(&wobble_source_, beats_per_second_);
+    addSubmodule(wobble_);
+    addProcessor(wobble_);
+    wobble_->plug(retrigger(), WobbleModule::kNoteTrigger);
+    wobble_->plug(note_count(), WobbleModule::kNoteCount);
+
+    data_->mod_sources["wobble"] = wobble_->output(WobbleModule::kValue);
+    createStatusOutput("wobble", wobble_->output(WobbleModule::kValue));
+    createStatusOutput("wobble_phase", wobble_->output(WobbleModule::kOscPhase));
+    createStatusOutput("wobble_frequency", wobble_->output(WobbleModule::kOscFrequency));
 
     for (int i = 0; i < kNumEnvelopes; ++i) {
       std::string prefix = std::string("env_") + std::to_string(i + 1);
@@ -363,6 +415,8 @@ namespace vital {
     for (int i = 0; i < kNumLfos; ++i)
       lfos_[i]->correctToTime(seconds);
 
+    wobble_->correctToTime(seconds);
+
     for (int i = 0; i < kNumRandomLfos; ++i)
       random_lfos_[i]->correctToTime(seconds);
   }
@@ -383,6 +437,61 @@ namespace vital {
   void SynthVoiceHandler::disableModSource(const std::string& source) {
     if (source != "env_1")
       getModulationSource(source)->owner->enable(false);
+  }
+
+  // GNARL: connects each wobble route the way SoundEngine::connectModulation
+  // connects a matrix connection from a polyphonic source, step for step -
+  // once, at construction, rather than on the audio thread.
+  //
+  // It stays connected: disconnectModulation only switches a destination's
+  // modulation path off when the destination has NO inputs left, and a
+  // wobble route always counts as one. So removing a matrix connection to
+  // cutoff cannot silence the wobble.
+  void SynthVoiceHandler::connectWobbleRoutes() {
+    const char* destinations[kNumWobbleRoutes] = {
+      "osc_1_wave_frame", "osc_2_wave_frame", "filter_1_cutoff", "osc_1_distortion_amount"
+    };
+    const Output* source = wobble_->output(WobbleModule::kValue);
+    for (int i = 0; i < kNumWobbleRoutes; ++i) {
+      ModulationConnectionProcessor* route = wobble_routes_[i];
+      Processor* destination = getPolyModulationDestination(destinations[i]);
+      ValueSwitch* mono_switch = getMonoModulationSwitch(destinations[i]);
+      ValueSwitch* poly_switch = getPolyModulationSwitch(destinations[i]);
+      VITAL_ASSERT(destination && mono_switch && poly_switch);
+      if (destination == nullptr || mono_switch == nullptr || poly_switch == nullptr)
+        continue;
+
+      route->plug(source, ModulationConnectionProcessor::kModulationInput);
+      route->setDestinationScale(Parameters::getParameterRange(destinations[i]));
+      route->setPolyphonicModulation(true);
+      enableModulationConnection(route);
+      setActiveNonaccumulatedOutput(destination->output());
+
+      // THE STEP THAT MATTERS, and the one first left out as a detail. An
+      // Output reports control rate only if its buffer is ONE sample long,
+      // and a module's outputs are full length - so for an audio-rate
+      // destination such as filter cutoff, connectModulation switches the
+      // SOURCE and the connection to audio rate. That is why a matrix
+      // connection from an LFO is smooth per sample and does not depend on
+      // the block size. Without it the wobble reached the cutoff once per
+      // block: -15 dB against the identical matrix connection at 128-sample
+      // blocks, -65 dB at 1, using the very same processor class.
+      //
+      // Cost: the wobble LFO now runs at audio rate for every voice, always,
+      // because the cutoff route is always connected - where the matrix pays
+      // only while connected. Worth measuring before the preset pack.
+      if (!destination->isControlRate() && !source->isControlRate()) {
+        wobble_->setControlRate(false);
+        route->setControlRate(false);
+      }
+
+      wobble_->enable(true);
+      route->enable(true);
+      destination->plugNext(route);
+
+      mono_switch->set(1);
+      poly_switch->set(1);
+    }
   }
 
   void SynthVoiceHandler::enableModulationConnection(ModulationConnectionProcessor* processor) {

@@ -35,8 +35,31 @@ namespace vital {
     map_generator_ = std::make_shared<LineGenerator>();
     map_generator_->initLinear();
   }
+  // GNARL: see the header.
+  ModulationConnectionProcessor::ModulationConnectionProcessor(Value* bipolar, Value* stereo, Value* bypass) :
+      SynthModule(kNumInputs, kNumOutputs), index_(-1), polyphonic_(true), current_value_(nullptr),
+      bipolar_(bipolar), stereo_(stereo), bypass_(bypass) {
+    setControlRate(true);
+
+    modulation_amount_ = 0.0f;
+
+    destination_scale_ = std::make_shared<mono_float>();
+    *destination_scale_ = 0.0f;
+    last_destination_scale_ = 0.0f;
+
+    power_ = 0.0f;
+
+    map_generator_ = std::make_shared<LineGenerator>();
+    map_generator_->initLinear();
+  }
 
   void ModulationConnectionProcessor::init() {
+    // GNARL: controls supplied by the fixed-route constructor.
+    if (index_ < 0) {
+      SynthModule::init();
+      return;
+    }
+
     std::string bipolar_name = "modulation_" + std::to_string(index_ + 1) + "_bipolar";
     bipolar_ = createBaseControl(bipolar_name);
 

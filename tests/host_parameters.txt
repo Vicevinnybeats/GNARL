@@ -1,0 +1,777 @@
+0	48	Beats Per Minute
+1	49	Chorus Filter Cutoff
+2	50	Chorus Delay 1
+3	51	Chorus Delay 2
+4	52	Chorus Mix
+5	53	Chorus Feedback
+6	54	Chorus Frequency
+7	55	Chorus Mod Depth
+8	56	Chorus Switch
+9	57	Chorus Sync
+10	1567	Chorus Tempo
+11	1568	Compressor Attack
+12	1569	Compressor Band Gain
+13	1570	Band Lower Ratio
+14	1571	Band Lower Threshold
+15	1572	Band Upper Ratio
+16	1573	Band Upper Threshold
+17	1574	Compressor Enabled Bands
+18	1575	Compressor High Gain
+19	1576	High Lower Ratio
+20	1598	High Lower Threshold
+21	1599	High Upper Ratio
+22	1600	High Upper Threshold
+23	1601	Compressor Low Gain
+24	1602	Low Lower Ratio
+25	1603	Low Lower Threshold
+26	1604	Low Upper Ratio
+27	1605	Low Upper Threshold
+28	1606	Compressor Switch
+29	1607	Compressor Release
+30	1629	Delay Mix
+31	1630	Delay Feedback
+32	1631	Delay Filter Cutoff
+33	1632	Delay Filter Spread
+34	1633	Delay Frequency
+35	1634	Delay Switch
+36	1635	Delay Style
+37	1636	Delay Sync
+38	1637	Delay Tempo
+39	1638	Distortion Drive
+40	1660	Distortion Filter Blend
+41	1661	Distortion Filter Cutoff
+42	1662	Distortion Filter Order
+43	1663	Distortion Filter Resonance
+44	1664	Distortion Mix
+45	1665	Distortion Switch
+46	1666	Distortion Type
+47	1667	Effect Chain Order
+48	1668	Envelope 1 Attack
+49	1669	Envelope 1 Attack Power
+50	1691	Envelope 1 Decay
+51	1692	Envelope 1 Decay Power
+52	1693	Envelope 1 Release
+53	1694	Envelope 1 Release Power
+54	1695	Envelope 1 Sustain
+55	1696	Envelope 2 Attack
+56	1697	Envelope 2 Attack Power
+57	1698	Envelope 2 Decay
+58	1699	Envelope 2 Decay Power
+59	1700	Envelope 2 Release
+60	1722	Envelope 2 Release Power
+61	1723	Envelope 2 Sustain
+62	1724	Envelope 3 Attack
+63	1725	Envelope 3 Attack Power
+64	1726	Envelope 3 Decay
+65	1727	Envelope 3 Decay Power
+66	1728	Envelope 3 Release
+67	1729	Envelope 3 Release Power
+68	1730	Envelope 3 Sustain
+69	1731	Envelope 4 Attack
+70	1753	Envelope 4 Attack Power
+71	1754	Envelope 4 Decay
+72	1755	Envelope 4 Decay Power
+73	1756	Envelope 4 Release
+74	1757	Envelope 4 Release Power
+75	1758	Envelope 4 Sustain
+76	1759	Envelope 5 Attack
+77	1760	Envelope 5 Attack Power
+78	1761	Envelope 5 Decay
+79	1762	Envelope 5 Decay Power
+80	1784	Envelope 5 Release
+81	1785	Envelope 5 Release Power
+82	1786	Envelope 5 Sustain
+83	1787	Envelope 6 Attack
+84	1788	Envelope 6 Attack Power
+85	1789	Envelope 6 Decay
+86	1790	Envelope 6 Decay Power
+87	1791	Envelope 6 Release
+88	1792	Envelope 6 Release Power
+89	1793	Envelope 6 Sustain
+90	1815	EQ Band Cutoff
+91	1816	EQ Band Gain
+92	1817	EQ Band Resonance
+93	1818	EQ High Cutoff
+94	1819	EQ High Gain
+95	1820	EQ High Mode
+96	1821	EQ High Resonance
+97	1822	EQ Low Cutoff
+98	1823	EQ Low Gain
+99	1824	EQ Low Mode
+100	48625	EQ Low Resonance
+101	48626	EQ Switch
+102	48627	Filter 1 Blend
+103	48628	Filter 1 Comb Blend Offset
+104	48629	Filter 1 Cutoff
+105	48630	Filter 1 Drive
+106	48631	Filter 1 FILTER Input
+107	48632	Filter 1 Formant Resonance
+108	48633	Filter 1 Formant Transpose
+109	48634	Filter 1 Formant X
+110	48656	Filter 1 Formant Y
+111	48657	Filter 1 Key Track
+112	48658	Filter 1 Mix
+113	48659	Filter 1 Model
+114	48660	Filter 1 Switch
+115	48661	Filter 1 Resonance
+116	48662	Filter 1 Style
+117	48663	Filter 2 Blend
+118	48664	Filter 2 Comb Blend Offset
+119	48665	Filter 2 Cutoff
+120	48687	Filter 2 Drive
+121	48688	Filter 2 FILTER Input
+122	48689	Filter 2 Formant Resonance
+123	48690	Filter 2 Formant Transpose
+124	48691	Filter 2 Formant X
+125	48692	Filter 2 Formant Y
+126	48693	Filter 2 Key Track
+127	48694	Filter 2 Mix
+128	48695	Filter 2 Model
+129	48696	Filter 2 Switch
+130	48718	Filter 2 Resonance
+131	48719	Filter 2 Style
+132	48720	Filter fx Blend
+133	48721	Filter fx Comb Blend Offset
+134	48722	Filter fx Cutoff
+135	48723	Filter fx Drive
+136	48724	Filter fx Formant Resonance
+137	48725	Filter fx Formant Transpose
+138	48726	Filter fx Formant X
+139	48727	Filter fx Formant Y
+140	48749	Filter fx Key Track
+141	48750	Filter fx Mix
+142	48751	Filter fx Model
+143	48752	Filter fx Switch
+144	48753	Filter fx Resonance
+145	48754	Filter fx Style
+146	48755	Flanger Mix
+147	48756	Flanger Feedback
+148	48757	Flanger Frequency
+149	48758	Flanger Mod Depth
+150	48780	Flanger Switch
+151	48781	Flanger Phase Offset
+152	48782	Flanger Sync
+153	48783	Flanger Tempo
+154	48784	Legato
+155	48785	LFO 1 Delay
+156	48786	LFO 1 Fade In
+157	48787	LFO 1 Frequency
+158	48788	LFO 1 Phase
+159	48789	LFO 1 Sync
+160	48811	LFO 1 Sync Type
+161	48812	LFO 1 Tempo
+162	48813	LFO 2 Delay
+163	48814	LFO 2 Fade In
+164	48815	LFO 2 Frequency
+165	48816	LFO 2 Phase
+166	48817	LFO 2 Sync
+167	48818	LFO 2 Sync Type
+168	48819	LFO 2 Tempo
+169	48820	LFO 3 Delay
+170	48842	LFO 3 Fade In
+171	48843	LFO 3 Frequency
+172	48844	LFO 3 Phase
+173	48845	LFO 3 Sync
+174	48846	LFO 3 Sync Type
+175	48847	LFO 3 Tempo
+176	48848	LFO 4 Delay
+177	48849	LFO 4 Fade In
+178	48850	LFO 4 Frequency
+179	48851	LFO 4 Phase
+180	48873	LFO 4 Sync
+181	48874	LFO 4 Sync Type
+182	48875	LFO 4 Tempo
+183	48876	LFO 5 Delay
+184	48877	LFO 5 Fade In
+185	48878	LFO 5 Frequency
+186	48879	LFO 5 Phase
+187	48880	LFO 5 Sync
+188	48881	LFO 5 Sync Type
+189	48882	LFO 5 Tempo
+190	48904	LFO 6 Delay
+191	48905	LFO 6 Fade In
+192	48906	LFO 6 Frequency
+193	48907	LFO 6 Phase
+194	48908	LFO 6 Sync
+195	48909	LFO 6 Sync Type
+196	48910	LFO 6 Tempo
+197	48911	LFO 7 Delay
+198	48912	LFO 7 Fade In
+199	48913	LFO 7 Frequency
+200	49586	LFO 7 Phase
+201	49587	LFO 7 Sync
+202	49588	LFO 7 Sync Type
+203	49589	LFO 7 Tempo
+204	49590	LFO 8 Delay
+205	49591	LFO 8 Fade In
+206	49592	LFO 8 Frequency
+207	49593	LFO 8 Phase
+208	49594	LFO 8 Sync
+209	49595	LFO 8 Sync Type
+210	49617	LFO 8 Tempo
+211	49618	Macro 1
+212	49619	Macro 2
+213	49620	Macro 3
+214	49621	Macro 4
+215	49622	Modulation 10 Amount
+216	49623	Modulation 10 Bipolar
+217	49624	Modulation 10 Bypass
+218	49625	Modulation 10 Power
+219	49626	Modulation 10 Stereo
+220	49648	Modulation 11 Amount
+221	49649	Modulation 11 Bipolar
+222	49650	Modulation 11 Bypass
+223	49651	Modulation 11 Power
+224	49652	Modulation 11 Stereo
+225	49653	Modulation 12 Amount
+226	49654	Modulation 12 Bipolar
+227	49655	Modulation 12 Bypass
+228	49656	Modulation 12 Power
+229	49657	Modulation 12 Stereo
+230	49679	Modulation 13 Amount
+231	49680	Modulation 13 Bipolar
+232	49681	Modulation 13 Bypass
+233	49682	Modulation 13 Power
+234	49683	Modulation 13 Stereo
+235	49684	Modulation 14 Amount
+236	49685	Modulation 14 Bipolar
+237	49686	Modulation 14 Bypass
+238	49687	Modulation 14 Power
+239	49688	Modulation 14 Stereo
+240	49710	Modulation 15 Amount
+241	49711	Modulation 15 Bipolar
+242	49712	Modulation 15 Bypass
+243	49713	Modulation 15 Power
+244	49714	Modulation 15 Stereo
+245	49715	Modulation 16 Amount
+246	49716	Modulation 16 Bipolar
+247	49717	Modulation 16 Bypass
+248	49718	Modulation 16 Power
+249	49719	Modulation 16 Stereo
+250	49741	Modulation 17 Amount
+251	49742	Modulation 17 Bipolar
+252	49743	Modulation 17 Bypass
+253	49744	Modulation 17 Power
+254	49745	Modulation 17 Stereo
+255	49746	Modulation 18 Amount
+256	49747	Modulation 18 Bipolar
+257	49748	Modulation 18 Bypass
+258	49749	Modulation 18 Power
+259	49750	Modulation 18 Stereo
+260	49772	Modulation 19 Amount
+261	49773	Modulation 19 Bipolar
+262	49774	Modulation 19 Bypass
+263	49775	Modulation 19 Power
+264	49776	Modulation 19 Stereo
+265	49777	Modulation 1 Amount
+266	49778	Modulation 1 Bipolar
+267	49779	Modulation 1 Bypass
+268	49780	Modulation 1 Power
+269	49781	Modulation 1 Stereo
+270	49803	Modulation 20 Amount
+271	49804	Modulation 20 Bipolar
+272	49805	Modulation 20 Bypass
+273	49806	Modulation 20 Power
+274	49807	Modulation 20 Stereo
+275	49808	Modulation 21 Amount
+276	49809	Modulation 21 Bipolar
+277	49810	Modulation 21 Bypass
+278	49811	Modulation 21 Power
+279	49812	Modulation 21 Stereo
+280	49834	Modulation 22 Amount
+281	49835	Modulation 22 Bipolar
+282	49836	Modulation 22 Bypass
+283	49837	Modulation 22 Power
+284	49838	Modulation 22 Stereo
+285	49839	Modulation 23 Amount
+286	49840	Modulation 23 Bipolar
+287	49841	Modulation 23 Bypass
+288	49842	Modulation 23 Power
+289	49843	Modulation 23 Stereo
+290	49865	Modulation 24 Amount
+291	49866	Modulation 24 Bipolar
+292	49867	Modulation 24 Bypass
+293	49868	Modulation 24 Power
+294	49869	Modulation 24 Stereo
+295	49870	Modulation 25 Amount
+296	49871	Modulation 25 Bipolar
+297	49872	Modulation 25 Bypass
+298	49873	Modulation 25 Power
+299	49874	Modulation 25 Stereo
+300	50547	Modulation 26 Amount
+301	50548	Modulation 26 Bipolar
+302	50549	Modulation 26 Bypass
+303	50550	Modulation 26 Power
+304	50551	Modulation 26 Stereo
+305	50552	Modulation 27 Amount
+306	50553	Modulation 27 Bipolar
+307	50554	Modulation 27 Bypass
+308	50555	Modulation 27 Power
+309	50556	Modulation 27 Stereo
+310	50578	Modulation 28 Amount
+311	50579	Modulation 28 Bipolar
+312	50580	Modulation 28 Bypass
+313	50581	Modulation 28 Power
+314	50582	Modulation 28 Stereo
+315	50583	Modulation 29 Amount
+316	50584	Modulation 29 Bipolar
+317	50585	Modulation 29 Bypass
+318	50586	Modulation 29 Power
+319	50587	Modulation 29 Stereo
+320	50609	Modulation 2 Amount
+321	50610	Modulation 2 Bipolar
+322	50611	Modulation 2 Bypass
+323	50612	Modulation 2 Power
+324	50613	Modulation 2 Stereo
+325	50614	Modulation 30 Amount
+326	50615	Modulation 30 Bipolar
+327	50616	Modulation 30 Bypass
+328	50617	Modulation 30 Power
+329	50618	Modulation 30 Stereo
+330	50640	Modulation 31 Amount
+331	50641	Modulation 31 Bipolar
+332	50642	Modulation 31 Bypass
+333	50643	Modulation 31 Power
+334	50644	Modulation 31 Stereo
+335	50645	Modulation 32 Amount
+336	50646	Modulation 32 Bipolar
+337	50647	Modulation 32 Bypass
+338	50648	Modulation 32 Power
+339	50649	Modulation 32 Stereo
+340	50671	Modulation 3 Amount
+341	50672	Modulation 3 Bipolar
+342	50673	Modulation 3 Bypass
+343	50674	Modulation 3 Power
+344	50675	Modulation 3 Stereo
+345	50676	Modulation 4 Amount
+346	50677	Modulation 4 Bipolar
+347	50678	Modulation 4 Bypass
+348	50679	Modulation 4 Power
+349	50680	Modulation 4 Stereo
+350	50702	Modulation 5 Amount
+351	50703	Modulation 5 Bipolar
+352	50704	Modulation 5 Bypass
+353	50705	Modulation 5 Power
+354	50706	Modulation 5 Stereo
+355	50707	Modulation 6 Amount
+356	50708	Modulation 6 Bipolar
+357	50709	Modulation 6 Bypass
+358	50710	Modulation 6 Power
+359	50711	Modulation 6 Stereo
+360	50733	Modulation 7 Amount
+361	50734	Modulation 7 Bipolar
+362	50735	Modulation 7 Bypass
+363	50736	Modulation 7 Power
+364	50737	Modulation 7 Stereo
+365	50738	Modulation 8 Amount
+366	50739	Modulation 8 Bipolar
+367	50740	Modulation 8 Bypass
+368	50741	Modulation 8 Power
+369	50742	Modulation 8 Stereo
+370	50764	Modulation 9 Amount
+371	50765	Modulation 9 Bipolar
+372	50766	Modulation 9 Bypass
+373	50767	Modulation 9 Power
+374	50768	Modulation 9 Stereo
+375	50769	Oscillator 1 Detune Power
+376	50770	Oscillator 1 Detune Range
+377	50771	Oscillator 1 Distortion Amount
+378	50772	Oscillator 1 Distortion Phase
+379	50773	Oscillator 1 Distortion Spread
+380	50795	Oscillator 1 Distortion Type
+381	50796	Oscillator 1 Unison Frame Spread
+382	50797	Oscillator 1 Level
+383	50798	Oscillator 1 Midi Track
+384	50799	Oscillator 1 Switch
+385	50800	Oscillator 1 Pan
+386	50801	Oscillator 1 Phase
+387	50802	Oscillator 1 Phase Randomization
+388	50803	Oscillator 1 Smooth Interpolation
+389	50804	Oscillator 1 Stack Style
+390	50826	Oscillator 1 Stereo Spread
+391	50827	Oscillator 1 Transpose
+392	50828	Oscillator 1 Transpose Quantize
+393	50829	Oscillator 1 Tune
+394	50830	Oscillator 1 Blend
+395	50831	Oscillator 1 Unison Detune
+396	50832	Oscillator 1 Unison Voices
+397	50833	Oscillator 1 Wave Frame
+398	50834	Oscillator 2 Detune Power
+399	50835	Oscillator 2 Detune Range
+400	51508	Oscillator 2 Distortion Amount
+401	51509	Oscillator 2 Distortion Phase
+402	51510	Oscillator 2 Distortion Spread
+403	51511	Oscillator 2 Distortion Type
+404	51512	Oscillator 2 Unison Frame Spread
+405	51513	Oscillator 2 Level
+406	51514	Oscillator 2 Midi Track
+407	51515	Oscillator 2 Switch
+408	51516	Oscillator 2 Pan
+409	51517	Oscillator 2 Phase
+410	51539	Oscillator 2 Phase Randomization
+411	51540	Oscillator 2 Smooth Interpolation
+412	51541	Oscillator 2 Stack Style
+413	51542	Oscillator 2 Stereo Spread
+414	51543	Oscillator 2 Transpose
+415	51544	Oscillator 2 Transpose Quantize
+416	51545	Oscillator 2 Tune
+417	51546	Oscillator 2 Blend
+418	51547	Oscillator 2 Unison Detune
+419	51548	Oscillator 2 Unison Voices
+420	51570	Oscillator 2 Wave Frame
+421	51571	Oversampling
+422	51572	Phaser Center
+423	51573	Phaser Mix
+424	51574	Phaser Feedback
+425	51575	Phaser Frequency
+426	51576	Phaser Mod Depth
+427	51577	Phaser Switch
+428	51578	Phaser Phase Offset
+429	51579	Phaser Sync
+430	51601	Phaser Tempo
+431	51602	Pitch Bend Range
+432	51603	Polyphony
+433	51604	Portamento Force
+434	51605	Portamento Scale
+435	51606	Portamento Slope
+436	51607	Portamento Time
+437	51608	Reverb Chorus Amount
+438	51609	Reverb Chorus Frequency
+439	51610	Reverb Decay Time
+440	51632	Reverb Mix
+441	51633	Reverb High Cutoff
+442	51634	Reverb High Gain
+443	51635	Reverb Low Cutoff
+444	51636	Reverb Low Gain
+445	51637	Reverb Switch
+446	51638	Reverb Pre High Cutoff
+447	51639	Reverb Pre Low Cutoff
+448	51640	Sample Keytrack
+449	51641	Sample Level
+450	51663	Sample Loop
+451	51664	Sample Switch
+452	51665	Sample Pan
+453	51666	Sample Random Phase
+454	51667	Sample Transpose
+455	51668	Sample Transpose Quantize
+456	51669	Sample Tune
+457	51670	Stereo Routing
+458	51671	Velocity Track
+459	51672	Voice Amplitude
+460	51694	Voice Priority
+461	51695	Voice Tune
+462	51696	Volume
+463	51697	Mod Wheel
+464	51698	Pitch Wheel
+465	51699	Random LFO 1 Frequency
+466	51700	Random LFO 1 Stereo
+467	51701	Random LFO 1 Style
+468	51702	Random LFO 1 Sync
+469	51703	Random LFO 1 Tempo
+470	51725	Random LFO 2 Frequency
+471	51726	Random LFO 2 Stereo
+472	51727	Random LFO 2 Style
+473	51728	Random LFO 2 Sync
+474	51729	Random LFO 2 Tempo
+475	51730	Random LFO 3 Frequency
+476	51731	Random LFO 3 Stereo
+477	51732	Random LFO 3 Style
+478	51733	Random LFO 3 Sync
+479	51734	Random LFO 3 Tempo
+480	51756	Random LFO 4 Frequency
+481	51757	Random LFO 4 Stereo
+482	51758	Random LFO 4 Style
+483	51759	Random LFO 4 Sync
+484	51760	Random LFO 4 Tempo
+485	51761	Oscillator 1 View 2D
+486	51762	Oscillator 2 View 2D
+487	51763	LFO 1 Stereo
+488	51764	LFO 2 Stereo
+489	51765	LFO 3 Stereo
+490	51787	LFO 4 Stereo
+491	51788	LFO 5 Stereo
+492	51789	LFO 6 Stereo
+493	51790	LFO 7 Stereo
+494	51791	LFO 8 Stereo
+495	51792	Oscillator 1 Frequency Morph Amount
+496	51793	Oscillator 1 Frequency Morph Spread
+497	51794	Oscillator 1 Frequency Morph Type
+498	51795	Oscillator 2 Frequency Morph Amount
+499	51796	Oscillator 2 Frequency Morph Spread
+500	52469	Oscillator 2 Frequency Morph Type
+501	52470	Oscillator 1 Destination
+502	52471	Oscillator 1 Spectral Unison
+503	52472	Oscillator 2 Destination
+504	52473	Oscillator 2 Spectral Unison
+505	52474	Oscillator 3 Destination
+506	52475	Oscillator 3 Detune Power
+507	52476	Oscillator 3 Detune Range
+508	52477	Oscillator 3 Distortion Amount
+509	52478	Oscillator 3 Distortion Phase
+510	52500	Oscillator 3 Distortion Spread
+511	52501	Oscillator 3 Distortion Type
+512	52502	Oscillator 3 Unison Frame Spread
+513	52503	Oscillator 3 Level
+514	52504	Oscillator 3 Midi Track
+515	52505	Oscillator 3 Switch
+516	52506	Oscillator 3 Pan
+517	52507	Oscillator 3 Phase
+518	52508	Oscillator 3 Phase Randomization
+519	52509	Oscillator 3 Smooth Interpolation
+520	52531	Oscillator 3 Frequency Morph Amount
+521	52532	Oscillator 3 Frequency Morph Spread
+522	52533	Oscillator 3 Frequency Morph Type
+523	52534	Oscillator 3 Spectral Unison
+524	52535	Oscillator 3 Stack Style
+525	52536	Oscillator 3 Stereo Spread
+526	52537	Oscillator 3 Transpose
+527	52538	Oscillator 3 Transpose Quantize
+528	52539	Oscillator 3 Tune
+529	52540	Oscillator 3 Blend
+530	52562	Oscillator 3 Unison Detune
+531	52563	Oscillator 3 Unison Voices
+532	52564	Oscillator 3 View 2D
+533	52565	Oscillator 3 Wave Frame
+534	52566	Sample Destination
+535	52567	MPE Enabled
+536	52568	Envelope 1 Delay
+537	52569	Envelope 2 Delay
+538	52570	Envelope 3 Delay
+539	52571	Envelope 4 Delay
+540	52593	Envelope 5 Delay
+541	52594	Envelope 6 Delay
+542	52595	Envelope 1 Hold
+543	52596	Envelope 2 Hold
+544	52597	Envelope 3 Hold
+545	52598	Envelope 4 Hold
+546	52599	Envelope 5 Hold
+547	52600	Envelope 6 Hold
+548	52601	Flanger Center
+549	52602	EQ Band Mode
+550	52624	Reverb Size
+551	52625	Delay Frequency 2
+552	52626	Delay Sync 2
+553	52627	Delay Tempo 2
+554	52628	Chorus Voices
+555	52629	Phaser Blend
+556	52630	Random LFO 1 Sync Type
+557	52631	Random LFO 2 Sync Type
+558	52632	Random LFO 3 Sync Type
+559	52633	Random LFO 4 Sync Type
+560	52655	Modulation 33 Amount
+561	52656	Modulation 33 Bipolar
+562	52657	Modulation 33 Bypass
+563	52658	Modulation 33 Power
+564	52659	Modulation 33 Stereo
+565	52660	Modulation 34 Amount
+566	52661	Modulation 34 Bipolar
+567	52662	Modulation 34 Bypass
+568	52663	Modulation 34 Power
+569	52664	Modulation 34 Stereo
+570	52686	Modulation 35 Amount
+571	52687	Modulation 35 Bipolar
+572	52688	Modulation 35 Bypass
+573	52689	Modulation 35 Power
+574	52690	Modulation 35 Stereo
+575	52691	Modulation 36 Amount
+576	52692	Modulation 36 Bipolar
+577	52693	Modulation 36 Bypass
+578	52694	Modulation 36 Power
+579	52695	Modulation 36 Stereo
+580	52717	Modulation 37 Amount
+581	52718	Modulation 37 Bipolar
+582	52719	Modulation 37 Bypass
+583	52720	Modulation 37 Power
+584	52721	Modulation 37 Stereo
+585	52722	Modulation 38 Amount
+586	52723	Modulation 38 Bipolar
+587	52724	Modulation 38 Bypass
+588	52725	Modulation 38 Power
+589	52726	Modulation 38 Stereo
+590	52748	Modulation 39 Amount
+591	52749	Modulation 39 Bipolar
+592	52750	Modulation 39 Bypass
+593	52751	Modulation 39 Power
+594	52752	Modulation 39 Stereo
+595	52753	Modulation 40 Amount
+596	52754	Modulation 40 Bipolar
+597	52755	Modulation 40 Bypass
+598	52756	Modulation 40 Power
+599	52757	Modulation 40 Stereo
+600	53430	Modulation 41 Amount
+601	53431	Modulation 41 Bipolar
+602	53432	Modulation 41 Bypass
+603	53433	Modulation 41 Power
+604	53434	Modulation 41 Stereo
+605	53435	Modulation 42 Amount
+606	53436	Modulation 42 Bipolar
+607	53437	Modulation 42 Bypass
+608	53438	Modulation 42 Power
+609	53439	Modulation 42 Stereo
+610	53461	Modulation 43 Amount
+611	53462	Modulation 43 Bipolar
+612	53463	Modulation 43 Bypass
+613	53464	Modulation 43 Power
+614	53465	Modulation 43 Stereo
+615	53466	Modulation 44 Amount
+616	53467	Modulation 44 Bipolar
+617	53468	Modulation 44 Bypass
+618	53469	Modulation 44 Power
+619	53470	Modulation 44 Stereo
+620	53492	Modulation 45 Amount
+621	53493	Modulation 45 Bipolar
+622	53494	Modulation 45 Bypass
+623	53495	Modulation 45 Power
+624	53496	Modulation 45 Stereo
+625	53497	Modulation 46 Amount
+626	53498	Modulation 46 Bipolar
+627	53499	Modulation 46 Bypass
+628	53500	Modulation 46 Power
+629	53501	Modulation 46 Stereo
+630	53523	Modulation 47 Amount
+631	53524	Modulation 47 Bipolar
+632	53525	Modulation 47 Bypass
+633	53526	Modulation 47 Power
+634	53527	Modulation 47 Stereo
+635	53528	Modulation 48 Amount
+636	53529	Modulation 48 Bipolar
+637	53530	Modulation 48 Bypass
+638	53531	Modulation 48 Power
+639	53532	Modulation 48 Stereo
+640	53554	Modulation 49 Amount
+641	53555	Modulation 49 Bipolar
+642	53556	Modulation 49 Bypass
+643	53557	Modulation 49 Power
+644	53558	Modulation 49 Stereo
+645	53559	Modulation 50 Amount
+646	53560	Modulation 50 Bipolar
+647	53561	Modulation 50 Bypass
+648	53562	Modulation 50 Power
+649	53563	Modulation 50 Stereo
+650	53585	Modulation 51 Amount
+651	53586	Modulation 51 Bipolar
+652	53587	Modulation 51 Bypass
+653	53588	Modulation 51 Power
+654	53589	Modulation 51 Stereo
+655	53590	Modulation 52 Amount
+656	53591	Modulation 52 Bipolar
+657	53592	Modulation 52 Bypass
+658	53593	Modulation 52 Power
+659	53594	Modulation 52 Stereo
+660	53616	Modulation 53 Amount
+661	53617	Modulation 53 Bipolar
+662	53618	Modulation 53 Bypass
+663	53619	Modulation 53 Power
+664	53620	Modulation 53 Stereo
+665	53621	Modulation 54 Amount
+666	53622	Modulation 54 Bipolar
+667	53623	Modulation 54 Bypass
+668	53624	Modulation 54 Power
+669	53625	Modulation 54 Stereo
+670	53647	Modulation 55 Amount
+671	53648	Modulation 55 Bipolar
+672	53649	Modulation 55 Bypass
+673	53650	Modulation 55 Power
+674	53651	Modulation 55 Stereo
+675	53652	Modulation 56 Amount
+676	53653	Modulation 56 Bipolar
+677	53654	Modulation 56 Bypass
+678	53655	Modulation 56 Power
+679	53656	Modulation 56 Stereo
+680	53678	Modulation 57 Amount
+681	53679	Modulation 57 Bipolar
+682	53680	Modulation 57 Bypass
+683	53681	Modulation 57 Power
+684	53682	Modulation 57 Stereo
+685	53683	Modulation 58 Amount
+686	53684	Modulation 58 Bipolar
+687	53685	Modulation 58 Bypass
+688	53686	Modulation 58 Power
+689	53687	Modulation 58 Stereo
+690	53709	Modulation 59 Amount
+691	53710	Modulation 59 Bipolar
+692	53711	Modulation 59 Bypass
+693	53712	Modulation 59 Power
+694	53713	Modulation 59 Stereo
+695	53714	Modulation 60 Amount
+696	53715	Modulation 60 Bipolar
+697	53716	Modulation 60 Bypass
+698	53717	Modulation 60 Power
+699	53718	Modulation 60 Stereo
+700	54391	Modulation 61 Amount
+701	54392	Modulation 61 Bipolar
+702	54393	Modulation 61 Bypass
+703	54394	Modulation 61 Power
+704	54395	Modulation 61 Stereo
+705	54396	Modulation 62 Amount
+706	54397	Modulation 62 Bipolar
+707	54398	Modulation 62 Bypass
+708	54399	Modulation 62 Power
+709	54400	Modulation 62 Stereo
+710	54422	Modulation 63 Amount
+711	54423	Modulation 63 Bipolar
+712	54424	Modulation 63 Bypass
+713	54425	Modulation 63 Power
+714	54426	Modulation 63 Stereo
+715	54427	Modulation 64 Amount
+716	54428	Modulation 64 Bipolar
+717	54429	Modulation 64 Bypass
+718	54430	Modulation 64 Power
+719	54431	Modulation 64 Stereo
+720	54453	Compressor Mix
+721	54454	Sample Bounce
+722	54455	Voice Transpose
+723	54456	Stereo Mode
+724	54457	Chorus Filter Spread
+725	54458	Reverb Delay
+726	54459	Voice Override
+727	54460	Bypass
+728	54461	LFO 1 Transpose
+729	54462	LFO 1 Tune
+730	54484	LFO 2 Transpose
+731	54485	LFO 2 Tune
+732	54486	LFO 3 Transpose
+733	54487	LFO 3 Tune
+734	54488	LFO 4 Transpose
+735	54489	LFO 4 Tune
+736	54490	LFO 5 Transpose
+737	54491	LFO 5 Tune
+738	54492	LFO 6 Transpose
+739	54493	LFO 6 Tune
+740	54515	LFO 7 Transpose
+741	54516	LFO 7 Tune
+742	54517	LFO 8 Transpose
+743	54518	LFO 8 Tune
+744	54519	Random LFO 1 Transpose
+745	54520	Random LFO 1 Tune
+746	54521	Random LFO 2 Transpose
+747	54522	Random LFO 2 Tune
+748	54523	Random LFO 3 Transpose
+749	54524	Random LFO 3 Tune
+750	54546	Random LFO 4 Transpose
+751	54547	Random LFO 4 Tune
+752	54548	Filter 1 Formant Spread
+753	54549	Filter 2 Formant Spread
+754	54550	Filter fx Formant Spread
+755	54551	LFO 1 Smooth Mode
+756	54552	LFO 1 Smooth Time
+757	54553	LFO 2 Smooth Mode
+758	54554	LFO 2 Smooth Time
+759	54555	LFO 3 Smooth Mode
+760	54577	LFO 3 Smooth Time
+761	54578	LFO 4 Smooth Mode
+762	54579	LFO 4 Smooth Time
+763	54580	LFO 5 Smooth Mode
+764	54581	LFO 5 Smooth Time
+765	54582	LFO 6 Smooth Mode
+766	54583	LFO 6 Smooth Time
+767	54584	LFO 7 Smooth Mode
+768	54585	LFO 7 Smooth Time
+769	54586	LFO 8 Smooth Mode
+770	54608	LFO 8 Smooth Time
+771	54609	View Spectrogram
+772	54610	Wobble Cutoff Depth
+773	54611	Wobble FM/Warp Depth
+774	54612	Wobble WT Depth
+775	54613	Wobble Polarity
+776	54614	Wobble Rate
