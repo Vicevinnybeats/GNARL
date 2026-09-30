@@ -1,70 +1,58 @@
 # GNARL
 
-A VST3 / AU / Standalone synthesizer for riddim and dubstep sound design.
-Hybrid wavetable + graintable oscillators, a morphable formant filter, a
-drawable tempo-synced LFO with first-class triplet rates, and a ten-slot FX
-chain.
+A wavetable synthesizer for riddim and dubstep sound design. VST3 for
+Windows and macOS.
 
-> **Status: Phase 0.** The plugin builds, loads in a host, and outputs silence.
-> The voice architecture is Phase 1 and the sound engine is Phase 2. See the
-> phase table in [`CLAUDE.md`](CLAUDE.md).
+GNARL is a fork of **[Vital](https://github.com/mtytel/vital)** by Matt
+Tytel, used under the GNU General Public License v3. See
+[LICENSING.md](LICENSING.md) for what that means for this repository, and
+[LICENSE](LICENSE) for the licence itself.
 
-## Stack
+GNARL is **not** Vital, is not endorsed by or affiliated with Matt Tytel or
+Vital Audio, and does not use their names or branding. It will not connect
+to any Vital service.
 
-| Layer | Technology |
-|---|---|
-| Audio engine | C++20, JUCE 8.0.4, CMake |
-| Interface | React 19 + TypeScript + Vite, in `juce::WebBrowserComponent` |
-| Backend | Next.js on Vercel, Supabase, Stripe *(Phase 7)* |
-| Tests | Catch2 + `pluginval` strictness 10 |
-
-## Requirements
-
-Building an audio plugin needs a desktop toolchain — this cannot be built or
-tested from a phone or a cloud shell.
-
-- **macOS**: Xcode 15+ (for AU, universal binaries, and notarization)
-- **Windows**: Visual Studio 2022 with the C++ desktop workload, **plus the
-  Microsoft.Web.WebView2 NuGet package** — see
-  [`docs/windows-setup.md`](docs/windows-setup.md). This is mandatory: without
-  it there is no Windows UI.
-- CMake 3.22+
-- Node 20+
-- A DAW to test in (FL Studio, Ableton, Bitwig, Reaper)
-
-## Build
-
-```bash
-git clone https://github.com/Vicevinnybeats/GNARL.git
-cd GNARL
-
-# Configure (fetches JUCE 8.0.4 and Catch2 — first run takes a few minutes)
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-
-# Build VST3 + AU + Standalone, and install them to the system plugin folders
-cmake --build build --parallel
-
-# Run the test suite
-ctest --test-dir build --output-on-failure
-```
-
-### Working on the UI alone
-
-```bash
-npm --prefix ui install
-npm --prefix ui run dev     # http://localhost:5173, mock backend, no audio
-```
-
-JUCE's JavaScript frontend library is not published on npm; it is copied out of
-the JUCE checkout by `ui/scripts/sync-juce-frontend.mjs`. Before the first
-CMake configure, a dev-mode fallback with in-memory parameter state is used
-instead. After configuring once, run `npm --prefix ui run sync-juce`.
+---
 
 ## Layout
 
-See [`CLAUDE.md`](CLAUDE.md) for the full architecture, the real-time audio
-thread rules, and the parameter conventions. Read it before contributing.
+```
+src/synthesis/     the audio engine - oscillators, filters, effects,
+                   modulators. Almost entirely JUCE-free.
+src/interface/     the OpenGL UI, skinned through src/interface/look_and_feel
+src/common/        preset load/save, tuning, the synth base class
+src/plugin/        the VST3 / AU entry point
+src/standalone/    the standalone application
+src/headless/      an offline renderer: preset in, WAV out
 
-## Licence
+plugin/ standalone/ headless/   Projucer projects and generated build files
+third_party/       JUCE 6.0.5, the VST3 SDK, kissfft, json, concurrentqueue
 
-Proprietary. All rights reserved.
+site/              the marketing site (separate program, not GPL)
+backend/           the Cloudflare Worker for licence activation (ditto)
+tools/             site tooling and, from Phase 3, render + compare scripts
+docs/
+```
+
+## Building
+
+See [CLAUDE.md](CLAUDE.md) for the full build notes and the constraints
+that apply when changing audio code.
+
+```bash
+# Linux (VST3)
+make vst3 CONFIG=Release
+
+# Linux (headless renderer - preset in, WAV out)
+make headless CONFIG=Release
+```
+
+Windows and macOS build from the generated projects in `plugin/builds/vs17`
+and `plugin/builds/osx`, and in CI from the workflows in `.github/`.
+
+## Attribution
+
+Vital is copyright Matt Tytel and licensed GPLv3. The engine, the interface
+framework and the preset format in this repository derive from that work.
+Every modification GNARL makes is recorded in this repository's git history
+from the merge commit onward, and summarised in [CHANGES.md](CHANGES.md).
