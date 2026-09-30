@@ -173,3 +173,19 @@ the merge commit forward: `git log 7651809..`.
 - CI: Node for the JUCE 8 jobs, WebKitGTK on Linux, a pinned WebView2 SDK on
   Windows.
 
+## 2026-09-30 - Phase 2: the clean mono sub
+
+- `SubOscillator` (`producers_module.{h,cpp}`, new class): a sine at the
+  played note, 0/-1/-2 octaves, added to the voice's direct output, so it
+  rides the amp envelope and bypasses every filter and effect. Identical
+  in both channels; the phase resets on the note's own sample; optional
+  tanh drive with RMS make-up. Wired in `SynthVoiceHandler::init`.
+- Four parameters appended at `version_added` 0x010008: `mono_sub_on`
+  (default off), `mono_sub_level`, `mono_sub_octave`, `mono_sub_drive`.
+  Not Vital's `sub_*` names, which belong to its retired sub oscillator.
+  `tests/host_parameters.txt`: 4 appended, 777 unchanged.
+- `tests/test_sub.py` (new), in CI for both builds. `tools/vst3_probe.cpp`:
+  `offset=N` starts the note mid-block. `tools/compare_plugins.py` includes
+  the sub.
+- The panel's SUB section is bound to the new parameters.
+

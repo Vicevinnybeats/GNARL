@@ -54,7 +54,7 @@ interface Binding {
 // Controls that are the page's own business, not an engine parameter:
 // the envelope page tab, and the wobble's shape and on/off, which the bridge
 // turns into a LineGenerator shape and three route depths.
-const PAGE_ONLY = new Set(['env.page', 'wobble.shape', 'wobble.on']);
+const PAGE_ONLY = new Set(['env.page', 'wobble.shape', 'wobble.on', 'sub.mono']);
 
 const WOBBLE_NAMES: readonly string[] = WOBBLE_DESTINATIONS.flatMap((d) => (d.vital ? [d.vital] : []));
 
@@ -273,6 +273,12 @@ export async function connect(): Promise<void> {
   const bound = new Set<string>();
   for (const b of bindings.values()) if (b.name in result.values) bound.add(b.id);
   markUnbound(bound);
+  // The sub is mono by construction, so MONO is a statement, not a switch.
+  for (const node of document.querySelectorAll<HTMLButtonElement>('button[data-param="sub.mono"]')) {
+    node.disabled = true;
+    node.dataset.on = 'true';
+    node.title = 'The sub is always mono: both channels carry the same samples';
+  }
   receiveValues(result.values);
 
   backend.addEventListener('gnarlValues', (payload) => receiveValues(payload as Record<string, Entry>));

@@ -10,7 +10,10 @@
 //                                         and writes interleaved stereo float32;
 //                                         each ID=VALUE (host parameter ID from
 //                                         --params, normalised 0..1) is sent as
-//                                         a parameter change in the first block
+//                                         a parameter change in the first block;
+//                                         offset=N starts the note N samples
+//                                         into that block, as a host does when
+//                                         a note falls between block starts
 //
 // --render drives the plugin exactly as a host does - setupProcessing, bus
 // activation, a transport, note events - so two builds of the plugin can be
@@ -130,7 +133,14 @@ static Event noteEvent(bool on, int32 offset) {
 
 static int render(IComponent* component, const char* path, const char* settings) {
   ParameterChanges initial;
+  int32 note_offset = 0;
   for (const char* p = settings; p && *p;) {
+    int used_offset = 0;
+    if (std::sscanf(p, "offset=%d%n", &note_offset, &used_offset) == 1) {
+      p += used_offset;
+      if (*p == ',') ++p;
+      continue;
+    }
     unsigned id = 0;
     double value = 0.0;
     int used = 0;
@@ -149,6 +159,7 @@ static int render(IComponent* component, const char* path, const char* settings)
   constexpr int32 kBlock = 256;
   constexpr int kBlocks = (int) (4.0 * kRate / kBlock);
   constexpr int kNoteOffBlock = (int) (2.0 * kRate / kBlock);
+  if (note_offset < 0 || note_offset >= kBlock) { printf("offset must be 0..%d\n", kBlock - 1); return 2; }
 
   ProcessSetup setup = { kOffline, kSample32, kBlock, kRate };
   if (processor->setupProcessing(setup) != kResultOk) { printf("setupProcessing FAILED\n"); return 1; }
@@ -175,7 +186,7 @@ static int render(IComponent* component, const char* path, const char* settings)
 
   for (int b = 0; b < kBlocks; ++b) {
     EventList events;
-    if (b == 0) events.events.push_back(noteEvent(true, 0));
+    if (b == 0) events.events.push_back(noteEvent(true, note_offset));
     if (b == kNoteOffBlock) events.events.push_back(noteEvent(false, 0));
 
     context.projectTimeSamples = (int64) b * kBlock;

@@ -17,10 +17,12 @@ Exits non-zero unless all of them are identical.
 import filecmp, os, subprocess, sys, tempfile
 
 # Host parameter IDs (from `probe --params`) and normalised values: every
-# effect's switch, filter 1, and the wobble depths and rate (1/8T).
+# effect's switch, filter 1, the wobble depths and rate (1/8T), and the mono
+# sub on with 50% drive.
 SETTINGS = ','.join([
     '56=1', '1606=1', '1634=1', '1665=1', '48660=1', '48780=1', '51577=1', '51637=1',
     '54610=0.85', '54611=0.7', '54612=0.8', '54614=0.6667',
+    '54639=1', '54615=0.5',
 ])
 
 
@@ -49,7 +51,7 @@ def main():
                     print(f'    old: {line_a}\n    new: {line_b}')
                     break
 
-    for name, extra in (('audio init', []), ('audio +12', [SETTINGS])):
+    for name, extra in (('audio init', []), ('audio +14', [SETTINGS])):
         outs = []
         for tag, plugin in (('old', old), ('new', new)):
             path = os.path.join(tmp, f'{name.replace(" ", "_")}-{tag}.f32')

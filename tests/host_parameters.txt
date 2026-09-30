@@ -775,3 +775,7 @@
 774	54612	Wobble WT Depth
 775	54613	Wobble Polarity
 776	54614	Wobble Rate
+777	54615	Mono Sub Drive
+778	54616	Mono Sub Level
+779	54617	Mono Sub Octave
+780	54639	Mono Sub On

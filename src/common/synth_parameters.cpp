@@ -365,6 +365,21 @@ namespace vital {
       ValueDetails::kLinear, false, "%", "Wobble FM/Warp Depth", nullptr },
     { "wobble_bipolar", 0x010007, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Wobble Polarity", strings::kUnipolarBipolarNames },
+
+    // GNARL: the clean mono sub (docs/design/phase2-05-mono-sub.md). NOT the
+    // sub_* names above: those are Vital's retired sub oscillator, still
+    // host parameters and migrated into osc 3 by LoadSave for old presets.
+    // 0x010008 sorts after the wobble, so every existing lane keeps its
+    // index. Off by default: an existing patch renders exactly as before.
+    // The level is quadratic like every Vital level: 0.707 is amplitude 0.5.
+    { "mono_sub_on", 0x010008, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Mono Sub On", strings::kOffOnNames },
+    { "mono_sub_level", 0x010008, 0.0, 1.0, 0.70710678119, 0.0, 1.0,
+      ValueDetails::kQuadratic, false, "", "Mono Sub Level", nullptr },
+    { "mono_sub_octave", 0x010008, 0.0, 2.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Mono Sub Octave", strings::kMonoSubOctaveNames },
+    { "mono_sub_drive", 0x010008, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Mono Sub Drive", nullptr },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {

@@ -13,7 +13,8 @@
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Modified by Gnarl Audio, 2026: the wobble macro and its four routes.
+ * Modified by Gnarl Audio, 2026: the wobble macro and its four routes; the
+ * clean mono sub.
  */
 
 #include "synth_voice_handler.h"
@@ -66,7 +67,19 @@ namespace vital {
     voice_sum->plug(producers_->output(ProducersModule::kRawOut), 1);
     output_->plug(voice_sum, 0);
     output_->plug(amplitude_, 1);
-    direct_output_->plug(producers_->output(ProducersModule::kDirectOut), 0);
+    // GNARL: the clean mono sub joins the direct output, which is multiplied
+    // by the amp envelope and summed after the effect chain.
+    SubOscillator* sub = new SubOscillator();
+    sub->plug(producers_->output(ProducersModule::kDirectOut), SubOscillator::kAudio);
+    sub->plug(createBaseControl("mono_sub_on"), SubOscillator::kOn);
+    sub->plug(createPolyModControl("mono_sub_level"), SubOscillator::kLevel);
+    sub->plug(createBaseControl("mono_sub_octave"), SubOscillator::kOctave);
+    sub->plug(createPolyModControl("mono_sub_drive"), SubOscillator::kDrive);
+    sub->plug(bent_midi_, SubOscillator::kMidi);
+    sub->plug(reset(), SubOscillator::kReset);
+    addProcessor(sub);
+
+    direct_output_->plug(sub, 0);
     direct_output_->plug(amplitude_, 1);
 
     addProcessor(voice_sum);

@@ -34,6 +34,13 @@ namespace strings {
     "1/16"
   };
 
+  // GNARL: mono_sub_octave. APPEND ONLY - a preset stores the index.
+  const std::string kMonoSubOctaveNames[] = {
+    "0 Oct",
+    "-1 Oct",
+    "-2 Oct",
+  };
+
   const std::string kUnipolarBipolarNames[] = {
     "Unipolar",
     "Bipolar"

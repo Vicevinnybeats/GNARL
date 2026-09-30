@@ -12,9 +12,16 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: SubOscillator added (the clean mono sub,
+ * docs/design/phase2-05-mono-sub.md).
  */
 
 #include "producers_module.h"
+
+#include "futils.h"
+
+#include <cmath>
 
 namespace vital {
   ProducersModule::ProducersModule() :
@@ -140,5 +147,108 @@ namespace vital {
       utils::addBuffers(filter2_output, filter2_output, sample, num_samples);
     if (sample_direct_out)
       utils::addBuffers(direct_output, direct_output, sample, num_samples);
+  }
+
+  SubOscillator::SubOscillator() : Processor(kNumInputs, 1),
+      phase_(0.0f), phase_delta_(0.0f), level_(0.0f), drive_(0.0f), gain_(1.0f) {
+    // RMS make-up gain for each drive: the sine's RMS over the shaped
+    // sine's, so DRIVE changes the tone and not the level (CLAUDE.md §3).
+    // Computed here, off the audio thread, over one cycle.
+    static constexpr int kCycleSamples = 4096;
+    for (int j = 0; j < kGainTableSize; ++j) {
+      mono_float k = kMaxDriveK * j / (kGainTableSize - 1.0f);
+      if (k < kMinDriveK) {
+        gain_table_[j] = 1.0f;
+        continue;
+      }
+      double sum_squares = 0.0;
+      for (int n = 0; n < kCycleSamples; ++n) {
+        double shaped = std::tanh(k * std::sin(2.0 * kPi * n / kCycleSamples)) / std::tanh(k);
+        sum_squares += shaped * shaped;
+      }
+      gain_table_[j] = std::sqrt(0.5 / (sum_squares / kCycleSamples));
+    }
+  }
+
+  mono_float SubOscillator::makeUpGain(mono_float drive) const {
+    mono_float position = utils::clamp(drive, 0.0f, 1.0f) * (kGainTableSize - 1);
+    int index = std::min<int>(position, kGainTableSize - 2);
+    return utils::interpolate(gain_table_[index], gain_table_[index + 1], position - index);
+  }
+
+  void SubOscillator::process(int num_samples) {
+    const poly_float* audio_in = input(kAudio)->source->buffer;
+    poly_float* audio_out = output()->buffer;
+
+    if (input(kOn)->at(0)[0] == 0.0f) {
+      // Copied, not added to zero: -0.0 + 0.0 is +0.0, and a patch that does
+      // not use the sub must render bit-identically to one from before it.
+      utils::copyBuffer(audio_out, audio_in, num_samples);
+      // Switched on mid-note, the sub fades in over one block, not a click.
+      level_ = 0.0f;
+      return;
+    }
+
+    int octave = utils::iclamp(static_cast<int>(std::lround(input(kOctave)->at(0)[0])), 0, 2);
+    poly_float midi = input(kMidi)->at(0) - static_cast<mono_float>(kNotesPerOctave * octave);
+    poly_float target_delta = futils::midiNoteToFrequency(midi) * (1.0f / getSampleRate());
+    poly_float target_level = utils::clamp(input(kLevel)->at(0), 0.0f, 1.0f);
+    poly_float target_drive = utils::clamp(input(kDrive)->at(0), 0.0f, 1.0f);
+    poly_float target_gain;
+    for (size_t lane = 0; lane < poly_float::kSize; ++lane)
+      target_gain.set(lane, makeUpGain(target_drive[lane]));
+
+    // A new note starts from its own values, not a ramp from the last note's.
+    poly_mask reset_mask = getResetMask(kReset);
+    phase_delta_ = utils::maskLoad(phase_delta_, target_delta, reset_mask);
+    level_ = utils::maskLoad(level_, target_level, reset_mask);
+    drive_ = utils::maskLoad(drive_, target_drive, reset_mask);
+    gain_ = utils::maskLoad(gain_, target_gain, reset_mask);
+
+    mono_float tick = 1.0f / num_samples;
+    poly_float delta_step = (target_delta - phase_delta_) * tick;
+    poly_float level_step = (target_level - level_) * tick;
+    poly_float drive_step = (target_drive - drive_) * tick;
+    poly_float gain_step = (target_gain - gain_) * tick;
+    bool shaping = poly_float::greaterThan(utils::max(drive_, target_drive), 0.0f).anyMask();
+
+    // The phase restarts at the sample the note starts on, so every hit
+    // begins at zero crossing whatever the block size.
+    poly_int reset_offset = input(kReset)->source->trigger_offset;
+    poly_mask reset_lanes = reset_mask;
+
+    poly_float phase = phase_;
+    poly_float delta = phase_delta_;
+    poly_float level = level_;
+    poly_float drive = drive_;
+    poly_float gain = gain_;
+    for (int i = 0; i < num_samples; ++i) {
+      poly_mask reset_now = poly_int::equal(reset_offset, i) & reset_lanes;
+      phase = utils::maskLoad(phase, 0.0f, reset_now);
+
+      delta += delta_step;
+      level += level_step;
+      drive += drive_step;
+      gain += gain_step;
+
+      // sinf, not Vital's polynomial approximation: the point of a
+      // dedicated sub is a pure one. Costs four sinf per voice pair per
+      // sample, only while the sub is on.
+      poly_float value = utils::sin(phase * (2.0f * kPi));
+      if (shaping) {
+        poly_float k = drive * kMaxDriveK;
+        poly_float safe_k = utils::max(k, kMinDriveK);
+        poly_float shaped = futils::tanh(value * safe_k) * gain / futils::tanh(safe_k);
+        value = utils::maskLoad(shaped, value, poly_float::lessThan(k, kMinDriveK));
+      }
+      audio_out[i] = audio_in[i] + value * level;
+      phase = utils::mod(phase + delta);
+    }
+
+    phase_ = phase;
+    phase_delta_ = target_delta;
+    level_ = target_level;
+    drive_ = target_drive;
+    gain_ = target_gain;
   }
 } // namespace vital

@@ -55,8 +55,9 @@ export const PARAMS: readonly Param[] = [
   ...osc(1, 0.3, 0.25, 0.35),
   ...osc(2, 0.2, 0.25, 0.2),
 
-  P('sub.level', 'LEVEL', 0.66, null),
-  P('sub.drive', 'DRIVE', 0.25, null),
+  // The clean mono sub (docs/design/phase2-05-mono-sub.md).
+  P('sub.level', 'LEVEL', 0.71, 'mono_sub_level'),
+  P('sub.drive', 'DRIVE', 0, 'mono_sub_drive'),
 
   P('vowel.cutoff', 'CUTOFF', 0.5, 'filter_1_cutoff', 'hz'),
   P('vowel.res', 'RES', 0.38, 'filter_1_resonance'),
@@ -103,7 +104,9 @@ export const CHOICES: readonly Choice[] = [
   { id: 'osc1.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 0, vital: 'osc_1_distortion_type', values: [2, 1, 4, null] },
   { id: 'osc2.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 1, vital: 'osc_2_distortion_type', values: [2, 1, 4, null] },
   { id: 'sub.mono', options: ['MONO'], def: 1, vital: null },
-  { id: 'sub.oct', options: ['-1 OCT'], def: 0, vital: null },
+  // A one-button toggle: off is mono_sub_octave 0, on is 1 (-1 octave).
+  // The engine's -2 octaves lights neither.
+  { id: 'sub.oct', options: ['-1 OCT'], def: 1, vital: 'mono_sub_octave', values: [0, 1] },
   { id: 'vowel.vowel', options: ['A', 'E', 'I', 'O', 'U'], def: 3, vital: null },
   // The one wobble parameter that already exists in the engine (Phase 2 #1).
   { id: 'wobble.rate', options: ['1/4', '1/8', '1/8T', '1/16'], def: 1, vital: 'wobble_rate', values: [0, 1, 2, 3] },
@@ -134,7 +137,7 @@ export const POWER: Readonly<Record<string, string | null>> = {
   'vowel.on': 'filter_1_on',
   'dist.on': 'distortion_on',
   'ott.on': 'compressor_on',
-  'sub.on': null,
+  'sub.on': 'mono_sub_on',
   'fold.on': null,
   'crush.on': null,
   'wobble.on': null,

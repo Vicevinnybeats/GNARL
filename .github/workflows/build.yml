@@ -85,12 +85,20 @@ jobs:
           sudo apt-get install -y -qq python3-numpy
           python3 tests/test_wobble.py
 
+      #  The clean mono sub (docs/design/phase2-05-mono-sub.md): off changes
+      #  nothing, pitch, purity (also under full distortion + OTT), mono,
+      #  level, drive, block size - and, through the VST3, a phase reset on
+      #  the note's own sample mid-block, which the renderer cannot reach.
+      - name: Mono sub tests
+        run: |
+          python3 tests/test_sub.py --plugin ./vst3_probe \
+            "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
+
       #  The JUCE 8 / CMake renderer (docs/design/phase2-03-juce8.md) must be
       #  sample-for-sample identical to the Projucer / JUCE 6 one: the engine
-      #  did not change, so its output may not. Then the wobble tests again,
-      #  on the new build.
-      #  The JUCE 8 plugin embeds the web panel (ui/), built with npm by
-      #  CMake (docs/design/phase2-04-web-panel.md).
+      #  did not change, so its output may not. Then the wobble and sub tests
+      #  again, on the new build. The JUCE 8 plugin embeds the web panel
+      #  (ui/), built with npm by CMake (docs/design/phase2-04-web-panel.md).
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -102,11 +110,13 @@ jobs:
           python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
             build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+          python3 tests/test_sub.py build-cmake/gnarl_render_artefacts/Release/gnarl-render --plugin ./vst3_probe \
+            "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 
       #  The JUCE 8 plugin against the JUCE 6 one, as a host sees them: same
       #  identity and class IDs, the same host parameters in the same order,
       #  and bit-identical audio through the VST3 wrapper - on init and after
-      #  the host changes twelve parameters.
+      #  the host changes fourteen parameters (the sub among them).
       - name: JUCE 8 plugin matches JUCE 6
         run: |
           python3 tools/compare_plugins.py ./vst3_probe \

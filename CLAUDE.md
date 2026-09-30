@@ -79,6 +79,8 @@ g++ -std=c++17 -I third_party/VST_SDK/VST3_SDK tools/vst3_probe.cpp -o /tmp/prob
 headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140 patch.vital
 
 python3 tests/test_wobble.py          # renders + measures the wobble macro
+python3 tests/test_sub.py --plugin /tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
+                                      # the mono sub; --plugin adds the mid-block note check
 
 # The CMake + JUCE 8 renderer and VST3 (docs/design/phase2-03-juce8.md),
 # and the gates they must pass: identical to the JUCE 6 builds
@@ -303,6 +305,13 @@ codebase:
   `valueChangedInternal` like a Vital knob, which does NOT redraw Vital's
   editor: call `updateFullGui()` before showing it. The panel's page must be
   ASCII (`inline.mjs` enforces it) and must fetch nothing - bundle fonts.
+- **Vital's `sub_*` parameters are not free.** They are the retired sub
+  oscillator's: still host parameters, dead in the engine, migrated into osc
+  3 by `LoadSave` for old presets (a preset holding `sub_octave` triggers it).
+  GNARL's sub is `mono_sub_*`. Check a new name against the whole table.
+- **The engine ends in a ±2.1 clamp** (`SoundEngine::init`). A test that
+  raises volume to 0 dB with a driven growl can hit it and measure the clamp
+  instead of the thing under test: keep test renders below it and assert so.
 - **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
   write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
@@ -359,7 +368,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
@@ -371,7 +380,7 @@ Phase 2 candidates, with what already exists in upstream:
 | Vowel/formant filter with morph | `formant_filter`, `formant_manager`, `vocal_tract` exist |
 | Waveshaper / fold / bitcrush chain | `distortion.h` has all six modes; one stage, not a chain |
 | OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |
-| Clean mono sub under the growl | no dedicated sub path |
+| Clean mono sub under the growl | **done** — `mono_sub_*`, `tests/test_sub.py`, docs/design/phase2-05-mono-sub.md |
 | Riddim preset pack | nothing; upstream ships no presets |
 | Hardening: denormals | **done** — see §3 |
 

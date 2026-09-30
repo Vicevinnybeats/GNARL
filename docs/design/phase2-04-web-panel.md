@@ -52,13 +52,13 @@ text to three significant figures (`tidyText`).
 | section dots | `osc_1_on`, `osc_2_on`, `filter_1_on`, `distortion_on`, `compressor_on` |
 | wobble DEPTH × destination toggles × section dot | `wobble_amount_wave_frame` / `_cutoff` / `_fm` = DEPTH when both are on, else 0 |
 | wobble SHAPE | the wobble's LineGenerator: sine, rounded square, or the 16 drawn steps |
+| SUB dot, LEVEL, DRIVE, -1 OCT | `mono_sub_on`, `_level`, `_drive`, `_octave` (docs/design/phase2-05-mono-sub.md); MONO is fixed on, since the sub is mono by construction |
 | scope press, keys | MIDI note on/off through the plugin's keyboard state |
 
 Anything with no engine parameter behind it yet is **dimmed**, and struck
 through on a button, with "Not in the engine yet" on hover:
 
 - FM amount
-- SUB
 - the vowel buttons
 - FOLD and CRUSH
 - TUBE, 2-BAND and the FOLD warp mode
