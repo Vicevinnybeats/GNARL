@@ -1,0 +1,370 @@
+diff --git a/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp b/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp
+index c4d34f0..15ba681 100644
+--- a/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp
++++ b/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp
+@@ -929,6 +929,28 @@ namespace WavFileHelpers
+ 
+     } JUCE_PACKED;
+ 
++    //==============================================================================
++    // GNARL (from Vital's JUCE 6.0.5): the "clm " chunk wavetable WAVs carry
++    // (frame size and name), written from the "clm " metadata value.
++    struct ClmChunk
++    {
++        static MemoryBlock createFrom (const StringMap& values)
++        {
++            MemoryOutputStream out;
++            auto s = getValueWithDefault (values, "clm ");
++
++            if (s.isNotEmpty())
++            {
++                out.writeString (s);
++
++                if ((out.getDataSize() & 1) != 0)
++                    out.writeByte (0);
++            }
++
++            return out.getMemoryBlock();
++        }
++    };
++
+     //==============================================================================
+     struct TracktionChunk
+     {
+@@ -1617,6 +1639,7 @@ public:
+             listInfoChunk = ListInfoChunk::createFrom (metadataValues);
+             acidChunk     = AcidChunk::createFrom (metadataValues);
+             trckChunk     = TracktionChunk::createFrom (metadataValues);
++            clmChunk      = ClmChunk::createFrom (metadataValues);
+         }
+ 
+         headerPosition = out->getPosition();
+@@ -1679,7 +1702,7 @@ public:
+     }
+ 
+ private:
+-    MemoryBlock tempBlock, bwavChunk, ixmlChunk, axmlChunk, smplChunk, instChunk, cueChunk, listChunk, listInfoChunk, acidChunk, trckChunk;
++    MemoryBlock tempBlock, bwavChunk, ixmlChunk, axmlChunk, smplChunk, instChunk, cueChunk, listChunk, listInfoChunk, acidChunk, trckChunk, clmChunk;
+     uint64 lengthInSamples = 0, bytesWritten = 0;
+     int64 headerPosition = 0;
+     bool writeFailed = false;
+@@ -1718,6 +1741,7 @@ private:
+                                        + chunkSize (listInfoChunk)
+                                        + chunkSize (acidChunk)
+                                        + chunkSize (trckChunk)
++                                       + chunkSize (clmChunk)
+                                        + (8 + 28)); // (ds64 chunk)
+ 
+         riffChunkSize += (riffChunkSize & 1);
+@@ -1805,6 +1829,7 @@ private:
+         writeChunk (listInfoChunk, chunkName ("LIST"));
+         writeChunk (acidChunk,     chunkName ("acid"));
+         writeChunk (trckChunk,     chunkName ("Trkn"));
++        writeChunk (clmChunk,      chunkName ("clm "));
+ 
+         writeChunkHeader (chunkName ("data"), isRF64 ? -1 : (int) (lengthInSamples * bytesPerFrame));
+     }
+diff --git a/modules/juce_gui_basics/buttons/juce_Button.cpp b/modules/juce_gui_basics/buttons/juce_Button.cpp
+index d06fd22..c88b448 100644
+--- a/modules/juce_gui_basics/buttons/juce_Button.cpp
++++ b/modules/juce_gui_basics/buttons/juce_Button.cpp
+@@ -512,10 +512,8 @@ void Button::mouseDrag (const MouseEvent& e)
+ 
+ bool Button::isMouseSourceOver (const MouseEvent& e)
+ {
+-    if (e.source.isTouch() || e.source.isPen())
+-        return getLocalBounds().toFloat().contains (e.position);
+-
+-    return isMouseOver();
++    // GNARL (from Vital's JUCE 6.0.5): by position for every source.
++    return getLocalBounds().toFloat().contains (e.position);
+ }
+ 
+ void Button::focusGained (FocusChangeType)
+diff --git a/modules/juce_gui_basics/components/juce_Component.cpp b/modules/juce_gui_basics/components/juce_Component.cpp
+index 40c4376..84ded3e 100644
+--- a/modules/juce_gui_basics/components/juce_Component.cpp
++++ b/modules/juce_gui_basics/components/juce_Component.cpp
+@@ -1167,13 +1167,16 @@ Component* Component::getComponentAt (Point<int> position)
+ 
+ Component* Component::getComponentAt (Point<float> position)
+ {
++    // GNARL (from Vital's JUCE 6.0.5): children are laid out in scaled pixels.
++    const auto scaled = position * getPixelScaling();
++
+     if (flags.visibleFlag && detail::ComponentHelpers::hitTest (*this, position))
+     {
+         for (int i = childComponentList.size(); --i >= 0;)
+         {
+             auto* child = childComponentList.getUnchecked (i);
+ 
+-            child = child->getComponentAt (detail::ComponentHelpers::convertFromParentSpace (*child, position));
++            child = child->getComponentAt (detail::ComponentHelpers::convertFromParentSpace (*child, scaled));
+ 
+             if (child != nullptr)
+                 return child;
+@@ -2986,7 +2989,9 @@ void Component::modifierKeysChanged (const ModifierKeys& modifiers)
+ 
+ void Component::internalModifierKeysChanged()
+ {
+-    sendFakeMouseMove();
++    // GNARL (from Vital's JUCE 6.0.5): also while dragging, so pressing a
++    // modifier mid-drag (fine adjustment) takes effect at once.
++    Desktop::getInstance().getMainMouseSource().triggerFakeMove();
+     modifierKeysChanged (ModifierKeys::currentModifiers);
+ }
+ 
+diff --git a/modules/juce_gui_basics/components/juce_Component.h b/modules/juce_gui_basics/components/juce_Component.h
+index 97c42bc..082d80a 100644
+--- a/modules/juce_gui_basics/components/juce_Component.h
++++ b/modules/juce_gui_basics/components/juce_Component.h
+@@ -449,7 +449,7 @@ public:
+ 
+         @see setBounds, ComponentListener::componentMovedOrResized
+     */
+-    void setTopLeftPosition (Point<int> newTopLeftPosition);
++    virtual void setTopLeftPosition (Point<int> newTopLeftPosition); // GNARL: virtual (TextEditor)
+ 
+     /** Moves the component to a new position.
+ 
+@@ -2518,6 +2518,18 @@ public:
+     */
+     bool getViewportIgnoreDragFlag() const noexcept                     { return flags.viewportIgnoreDragFlag; }
+ 
++    /** GNARL (from Vital's JUCE 6.0.5): a component that lays its children out
++        in physical pixels returns the display scale here, and mouse positions
++        and hit tests are converted through it. */
++    virtual float getPixelScaling() const { return 1.0f; }
++    float getTotalPixelScaling() const
++    {
++        float pixelScaling = 1.0f;
++        for (auto* c = this; c != nullptr; c = c->getParentComponent())
++            pixelScaling *= c->getPixelScaling();
++        return pixelScaling;
++    }
++
+     //==============================================================================
+     /** Returns the title text for this component.
+ 
+diff --git a/modules/juce_gui_basics/detail/juce_ComponentHelpers.h b/modules/juce_gui_basics/detail/juce_ComponentHelpers.h
+index 65b2e41..c76108c 100644
+--- a/modules/juce_gui_basics/detail/juce_ComponentHelpers.h
++++ b/modules/juce_gui_basics/detail/juce_ComponentHelpers.h
+@@ -161,6 +161,10 @@ struct ComponentHelpers
+     template <typename PointOrRect>
+     static PointOrRect convertCoordinate (const Component* target, const Component* source, PointOrRect p)
+     {
++        // GNARL (from Vital's JUCE 6.0.5): undo getPixelScaling() on the way out.
++        const float totalScaling = source != nullptr ? source->getTotalPixelScaling() : 1.0f;
++        const Component* top = source != nullptr ? source->getTopLevelComponent() : nullptr;
++
+         while (source != nullptr)
+         {
+             if (source == target)
+@@ -173,6 +177,9 @@ struct ComponentHelpers
+ 
+             JUCE_END_IGNORE_WARNINGS_MSVC
+ 
++            if (source == top)
++                p /= totalScaling;
++
+             p = convertToParentSpace (*source, p);
+             source = source->getParentComponent();
+         }
+diff --git a/modules/juce_gui_basics/detail/juce_ScalingHelpers.h b/modules/juce_gui_basics/detail/juce_ScalingHelpers.h
+index 457fcd1..18c7f5a 100644
+--- a/modules/juce_gui_basics/detail/juce_ScalingHelpers.h
++++ b/modules/juce_gui_basics/detail/juce_ScalingHelpers.h
+@@ -120,7 +120,7 @@ struct ScalingHelpers
+     {
+         if (auto* peer = comp.getPeer())
+         {
+-            pos = peer->globalToLocal (pos);
++            pos = peer->globalToLocal (pos) * comp.getTotalPixelScaling(); // GNARL: pixel scaling
+             auto& peerComp = peer->getComponent();
+             return comp.getLocalPoint (&peerComp, unscaledScreenPosToScaled (peerComp, pos));
+         }
+diff --git a/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp b/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp
+index 1f938ce..c91ccf0 100644
+--- a/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp
++++ b/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp
+@@ -59,8 +59,7 @@ void CaretComponent::timerCallback()
+ 
+ void CaretComponent::setCaretPosition (const Rectangle<int>& characterArea)
+ {
+-    startTimer (380);
+-    setVisible (shouldBeShown());
++    setVisible (shouldBeShown()); // GNARL: no blink timer
+     setBounds (characterArea.withWidth (2));
+ }
+ 
+diff --git a/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp b/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp
+index e2318fc..42e58bd 100644
+--- a/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp
++++ b/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp
+@@ -290,22 +290,7 @@ void ComponentBoundsConstrainer::checkBounds (Rectangle<int>& bounds,
+             }
+         }
+ 
+-        if ((isStretchingTop || isStretchingBottom) && ! (isStretchingLeft || isStretchingRight))
+-        {
+-            bounds.setX (old.getX() + (old.getWidth() - bounds.getWidth()) / 2);
+-        }
+-        else if ((isStretchingLeft || isStretchingRight) && ! (isStretchingTop || isStretchingBottom))
+-        {
+-            bounds.setY (old.getY() + (old.getHeight() - bounds.getHeight()) / 2);
+-        }
+-        else
+-        {
+-            if (isStretchingLeft)
+-                bounds.setX (old.getRight() - bounds.getWidth());
+-
+-            if (isStretchingTop)
+-                bounds.setY (old.getBottom() - bounds.getHeight());
+-        }
++        // GNARL (from Vital's JUCE 6.0.5): no re-centring while resizing.
+     }
+ 
+     jassert (! bounds.isEmpty());
+diff --git a/modules/juce_gui_basics/native/juce_Windowing_windows.cpp b/modules/juce_gui_basics/native/juce_Windowing_windows.cpp
+index c89140b..92ab665 100644
+--- a/modules/juce_gui_basics/native/juce_Windowing_windows.cpp
++++ b/modules/juce_gui_basics/native/juce_Windowing_windows.cpp
+@@ -2004,7 +2004,7 @@ public:
+             if (peerIsDeleted)
+                 return S_FALSE;
+ 
+-            peer.handleDragExit (dragInfo);
++            peer.handleDragDrop (dragInfo); // GNARL (from Vital's JUCE 6.0.5)
+             return S_OK;
+         }
+ 
+diff --git a/modules/juce_gui_basics/widgets/juce_Slider.cpp b/modules/juce_gui_basics/widgets/juce_Slider.cpp
+index d28f7f4..ef4b91a 100644
+--- a/modules/juce_gui_basics/widgets/juce_Slider.cpp
++++ b/modules/juce_gui_basics/widgets/juce_Slider.cpp
+@@ -782,7 +782,7 @@ public:
+                               ? e.position.x - mouseDragStartPos.x
+                               : mouseDragStartPos.y - e.position.y;
+ 
+-            newPos = owner.valueToProportionOfLength (valueOnMouseDown)
++            newPos = owner.valueToProportionOfLength (valueWhenLastDragged) // GNARL: incremental
+                        + mouseDiff * (1.0 / pixelsForFullDragExtent);
+ 
+             if (style == IncDecButtons)
+@@ -796,7 +796,7 @@ public:
+             auto mouseDiff = (e.position.x - mouseDragStartPos.x)
+                                + (mouseDragStartPos.y - e.position.y);
+ 
+-            newPos = owner.valueToProportionOfLength (valueOnMouseDown)
++            newPos = owner.valueToProportionOfLength (valueWhenLastDragged) // GNARL: incremental
+                        + mouseDiff * (1.0 / pixelsForFullDragExtent);
+         }
+         else
+@@ -807,6 +807,7 @@ public:
+                 newPos = 1.0 - newPos;
+         }
+ 
++        mouseDragStartPos = e.position; // GNARL: incremental drag
+         newPos = (isRotary() && ! rotaryParams.stopAtEnd) ? newPos - std::floor (newPos)
+                                                           : jlimit (0.0, 1.0, newPos);
+         valueWhenLastDragged = owner.proportionOfLengthToValue (newPos);
+diff --git a/modules/juce_gui_basics/widgets/juce_TextEditor.cpp b/modules/juce_gui_basics/widgets/juce_TextEditor.cpp
+index 1be8dd5..5bc9bb8 100644
+--- a/modules/juce_gui_basics/widgets/juce_TextEditor.cpp
++++ b/modules/juce_gui_basics/widgets/juce_TextEditor.cpp
+@@ -145,6 +145,14 @@ struct TextEditor::TextHolderComponent final : public Component,
+         owner.drawContent (g);
+     }
+ 
++    // GNARL (from Vital's JUCE 6.0.5): Vital draws text in OpenGL and must
++    // hear when the text holder moves.
++    void setTopLeftPosition (Point<int> newPosition) override
++    {
++        Component::setTopLeftPosition (newPosition);
++        owner.textChanged();
++    }
++
+     void restartTimer()
+     {
+         startTimer (350);
+@@ -1153,6 +1161,9 @@ void TextEditor::moveCaretTo (const int newPosition, const bool isSelecting)
+         moveCaret (newPosition);
+         setSelection (Range<int>::emptyRange (getCaretPosition()));
+     }
++
++    if (listeners.size() != 0 || onTextChange != nullptr) // GNARL
++        postCommandMessage (TextEditorDefs::textChangeMessageId);
+ }
+ 
+ int TextEditor::getTextIndexAt (const int x, const int y) const
+@@ -1973,6 +1984,9 @@ void TextEditor::focusGained (FocusChangeType cause)
+ 
+     repaint();
+     updateCaretPosition();
++
++    if (listeners.size() != 0 || onTextChange != nullptr) // GNARL
++        postCommandMessage (TextEditorDefs::textChangeMessageId);
+ }
+ 
+ void TextEditor::focusLost (FocusChangeType)
+diff --git a/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp b/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp
+index cf7aee0..875e2e2 100644
+--- a/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp
++++ b/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp
+@@ -501,7 +501,7 @@ bool ComponentPeer::handleDragMove (const ComponentPeer::DragInfo& info)
+             if (DragHelpers::isSuitableTarget (info, newTarget))
+             {
+                 dragAndDropTargetComponent = newTarget;
+-                auto pos = newTarget->getLocalPoint (&component, info.position);
++                auto pos = newTarget->getLocalPoint (&component, info.position * newTarget->getTotalPixelScaling()); // GNARL
+ 
+                 if (DragHelpers::isFileDrag (info))
+                     dynamic_cast<FileDragAndDropTarget*> (newTarget)->fileDragEnter (info.files, pos.x, pos.y);
+@@ -518,7 +518,7 @@ bool ComponentPeer::handleDragMove (const ComponentPeer::DragInfo& info)
+     if (! DragHelpers::isSuitableTarget (info, newTarget))
+         return false;
+ 
+-    auto pos = newTarget->getLocalPoint (&component, info.position);
++    auto pos = newTarget->getLocalPoint (&component, info.position * newTarget->getTotalPixelScaling()); // GNARL
+ 
+     if (DragHelpers::isFileDrag (info))
+         dynamic_cast<FileDragAndDropTarget*> (newTarget)->fileDragMove (info.files, pos.x, pos.y);
+diff --git a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp b/modules/juce_opengl/opengl/juce_OpenGLContext.cpp
+index 27f8ace..bac39bb 100644
+--- a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp
++++ b/modules/juce_opengl/opengl/juce_OpenGLContext.cpp
+@@ -449,7 +449,15 @@ public:
+         {
+             auto& desktop = Desktop::getInstance();
+             const auto localBounds = component.getLocalBounds();
+-            const auto globalArea = component.getScreenBounds() * desktop.getGlobalScaleFactor();
++            // GNARL: measured relative to the window, as JUCE 6 did, then moved to
++            // screen space. getScreenBounds() goes through getPixelScaling()
++            // (see juce_Component.h), and a component that lays its children out
++            // in physical pixels - Vital's FullInterface - would come out at
++            // 1/scale of its size, drawing the frame into one corner. For any
++            // component without pixel scaling the two are the same.
++            auto& peerComponent = peer->getComponent();
++            const auto globalArea = (peerComponent.getLocalArea (&component, localBounds)
++                                     + peerComponent.getScreenPosition()) * desktop.getGlobalScaleFactor();
+ 
+            #if JUCE_MAC
+             updateScreen();
+diff --git a/modules/juce_opengl/opengl/juce_OpenGLTexture.cpp b/modules/juce_opengl/opengl/juce_OpenGLTexture.cpp
+index 17c2d3a..2ce8672 100644
+--- a/modules/juce_opengl/opengl/juce_OpenGLTexture.cpp
++++ b/modules/juce_opengl/opengl/juce_OpenGLTexture.cpp
+@@ -80,7 +80,11 @@ void OpenGLTexture::create (const int w, const int h, const void* pixels, GLenum
+     glPixelStorei (GL_UNPACK_ALIGNMENT, 1);
+     JUCE_CHECK_OPENGL_ERROR
+ 
+-    const auto textureNpotSupported = ownerContext->isTextureNpotSupported();
++    // GNARL: always a power of two, as JUCE 6 did. Vital's image components
++    // compute their quads from nextPowerOfTwo() of the image size
++    // (OpenGlImageComponent::redrawImage); with the exact size JUCE 8 uses
++    // when NPOT is supported, every label is drawn enlarged by that ratio.
++    const auto textureNpotSupported = false && ownerContext->isTextureNpotSupported();
+ 
+     const auto getAllowedTextureSize = [&] (int n)
+     {

@@ -1,0 +1,810 @@
+Only in JUCE-6.0.5/modules: CMakeLists.txt
+Only in JUCE-6.0.5/modules: juce_analytics
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp /home/user/GNARL/third_party/JUCE/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp
+--- JUCE-6.0.5/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp	2026-09-30 16:35:00.436433619 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_formats/codecs/juce_WavAudioFormat.cpp	2026-09-30 08:15:17.212046343 +0000
+@@ -842,6 +842,26 @@
+             return out.getMemoryBlock();
+         }
+     };
++    
++    //==============================================================================
++    struct Clm_Chunk
++    {
++        static MemoryBlock createFrom (const StringPairArray& values)
++        {
++            MemoryOutputStream out;
++            auto s = values["clm "];
++
++            if (s.isNotEmpty())
++            {
++                out.writeString (s);
++
++                if ((out.getDataSize() & 1) != 0)
++                  out.writeByte(0);
++            }
++
++            return out.getMemoryBlock();
++        }
++    };
+ 
+     //==============================================================================
+     namespace AXMLChunk
+@@ -1319,6 +1339,7 @@
+             listInfoChunk = ListInfoChunk::createFrom (metadataValues);
+             acidChunk     = AcidChunk::createFrom (metadataValues);
+             trckChunk     = TracktionChunk::createFrom (metadataValues);
++            clm_Chunk     = Clm_Chunk::createFrom (metadataValues);
+         }
+ 
+         headerPosition = out->getPosition();
+@@ -1381,7 +1402,7 @@
+     }
+ 
+ private:
+-    MemoryBlock tempBlock, bwavChunk, axmlChunk, smplChunk, instChunk, cueChunk, listChunk, listInfoChunk, acidChunk, trckChunk;
++    MemoryBlock tempBlock, bwavChunk, axmlChunk, smplChunk, instChunk, cueChunk, listChunk, listInfoChunk, acidChunk, trckChunk, clm_Chunk;
+     uint64 lengthInSamples = 0, bytesWritten = 0;
+     int64 headerPosition = 0;
+     bool writeFailed = false;
+@@ -1419,6 +1440,7 @@
+                                        + chunkSize (listInfoChunk)
+                                        + chunkSize (acidChunk)
+                                        + chunkSize (trckChunk)
++                                       + chunkSize (clm_Chunk)
+                                        + (8 + 28)); // (ds64 chunk)
+ 
+         riffChunkSize += (riffChunkSize & 1);
+@@ -1501,6 +1523,7 @@
+         writeChunk (listInfoChunk, chunkName ("LIST"));
+         writeChunk (acidChunk,     chunkName ("acid"));
+         writeChunk (trckChunk,     chunkName ("Trkn"));
++        writeChunk (clm_Chunk,     chunkName ("clm "));
+ 
+         writeChunkHeader (chunkName ("data"), isRF64 ? -1 : (int) (lengthInSamples * bytesPerFrame));
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_plugin_client/VST/juce_VST_Wrapper.cpp /home/user/GNARL/third_party/JUCE/modules/juce_audio_plugin_client/VST/juce_VST_Wrapper.cpp
+--- JUCE-6.0.5/modules/juce_audio_plugin_client/VST/juce_VST_Wrapper.cpp	2026-09-30 16:35:00.471560917 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_plugin_client/VST/juce_VST_Wrapper.cpp	2026-09-30 08:15:17.234474712 +0000
+@@ -2139,10 +2139,6 @@
+             {
+                 if (audioMaster (nullptr, Vst2::audioMasterVersion, 0, 0, nullptr, 0) != 0)
+                 {
+-                   #if JUCE_LINUX
+-                    MessageManagerLock mmLock;
+-                   #endif
+-
+                     auto* processor = createPluginFilterOfType (AudioProcessor::wrapperType_VST);
+                     auto* wrapper = new JuceVSTWrapper (audioMaster, processor);
+                     auto* aEffect = wrapper->getAEffect();
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_plugin_client/VST3/juce_VST3_Wrapper.cpp /home/user/GNARL/third_party/JUCE/modules/juce_audio_plugin_client/VST3/juce_VST3_Wrapper.cpp
+--- JUCE-6.0.5/modules/juce_audio_plugin_client/VST3/juce_VST3_Wrapper.cpp	2026-09-30 16:35:00.471560917 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_plugin_client/VST3/juce_VST3_Wrapper.cpp	2026-09-30 08:15:17.234807068 +0000
+@@ -28,6 +28,9 @@
+ 
+ //==============================================================================
+ #if JucePlugin_Build_VST3 && (JUCE_MAC || JUCE_WINDOWS || JUCE_LINUX)
++#if JUCE_LINUX^M
++ #include <arpa/inet.h>^M
++#endif^M
+ 
+ #if JUCE_PLUGINHOST_VST3
+  #if JUCE_MAC
+@@ -2541,6 +2544,9 @@
+     //==============================================================================
+     void processParameterChanges (Vst::IParameterChanges& paramChanges)
+     {
++        if (juceVST3EditController == nullptr)
++            return;
++
+         jassert (pluginInstance != nullptr);
+ 
+         auto numParamsChanged = paramChanges.getParameterCount();
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.cpp /home/user/GNARL/third_party/JUCE/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.cpp
+--- JUCE-6.0.5/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.cpp	2026-09-30 16:35:00.488553755 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_processors/processors/juce_AudioProcessorEditor.cpp	2026-09-30 08:15:17.255420473 +0000
+@@ -69,8 +69,6 @@
+ 
+     // BEGIN SECTION A
+ 
+-    splashScreen = new JUCESplashScreen (*this);
+-
+     // END SECTION A
+ 
+     resizable = false;
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.cpp /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.cpp
+--- JUCE-6.0.5/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.cpp	2026-09-30 16:35:00.492734334 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.cpp	2026-09-30 08:15:17.260570955 +0000
+@@ -393,6 +393,7 @@
+             AlertWindow::showMessageBoxAsync (AlertWindow::WarningIcon,
+                                               TRANS("Error when trying to open audio device!"),
+                                               error);
++        resized();
+     }
+ 
+     bool showDeviceControlPanel()
+@@ -1120,6 +1121,8 @@
+         deviceManager.setDefaultMidiOutputDevice ({});
+     else
+         deviceManager.setDefaultMidiOutputDevice (currentMidiOutputs[selectedId - 1].identifier);
++
++    resized();
+ }
+ 
+ void AudioDeviceSelectorComponent::changeListenerCallback (ChangeBroadcaster*)
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.h /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.h
+--- JUCE-6.0.5/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.h	2026-09-30 16:35:00.492734334 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_AudioDeviceSelectorComponent.h	2026-09-30 08:15:17.260570955 +0000
+@@ -88,7 +88,7 @@
+ 
+     //==============================================================================
+     /** @internal */
+-    void resized() override;
++    virtual void resized() override;
+     /** @internal */
+     void timerCallback() override;
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_audio_utils/gui/juce_MidiKeyboardComponent.h /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_MidiKeyboardComponent.h
+--- JUCE-6.0.5/modules/juce_audio_utils/gui/juce_MidiKeyboardComponent.h	2026-09-30 16:35:00.492734334 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_audio_utils/gui/juce_MidiKeyboardComponent.h	2026-09-30 08:15:17.260570955 +0000
+@@ -428,6 +428,7 @@
+     int xyToNote (Point<float>, float& mousePositionVelocity);
+     int remappedXYToNote (Point<float>, float& mousePositionVelocity) const;
+     void resetAnyKeysInUse();
++    void updateNoteUnderMouse (Point<float>, int note, bool isDown, int fingerNum);
+     void updateNoteUnderMouse (Point<float>, bool isDown, int fingerNum);
+     void updateNoteUnderMouse (const MouseEvent&, bool isDown);
+     void repaintNote (int midiNoteNumber);
+Only in JUCE-6.0.5/modules: juce_blocks_basics
+Only in JUCE-6.0.5/modules: juce_box2d
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_core/native/juce_curl_Network.cpp /home/user/GNARL/third_party/JUCE/modules/juce_core/native/juce_curl_Network.cpp
+--- JUCE-6.0.5/modules/juce_core/native/juce_curl_Network.cpp	2026-09-30 16:35:00.511365722 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_core/native/juce_curl_Network.cpp	2026-09-30 08:15:17.274703609 +0000
+@@ -332,6 +332,9 @@
+         // or 3) data is in the in buffer
+         while ((! finished) && curlBuffer.getSize() == 0)
+         {
++            if (Thread::currentThreadShouldExit())
++                return false;
++
+             {
+                 const ScopedLock lock (cleanupLock);
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_core/native/juce_mac_SystemStats.mm /home/user/GNARL/third_party/JUCE/modules/juce_core/native/juce_mac_SystemStats.mm
+--- JUCE-6.0.5/modules/juce_core/native/juce_mac_SystemStats.mm	2026-09-30 16:35:00.511365722 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_core/native/juce_mac_SystemStats.mm	2026-09-30 08:15:17.274703609 +0000
+@@ -157,7 +157,7 @@
+         return (OperatingSystemType) (minor + MacOSX_10_7 - 7);
+     }
+ 
+-    jassert (major == 11 && minor == 0);
++    jassert (major == 11);
+     return MacOSX_11_0;
+    #endif
+ }
+Only in JUCE-6.0.5/modules: juce_cryptography
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_dsp/juce_dsp.cpp /home/user/GNARL/third_party/JUCE/modules/juce_dsp/juce_dsp.cpp
+--- JUCE-6.0.5/modules/juce_dsp/juce_dsp.cpp	2026-09-30 16:35:00.527730795 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_dsp/juce_dsp.cpp	2026-09-30 08:15:17.297065184 +0000
+@@ -70,7 +70,6 @@
+ #include "maths/juce_Matrix.cpp"
+ #include "maths/juce_LookupTable.cpp"
+ #include "frequency/juce_FFT.cpp"
+-#include "frequency/juce_Convolution.cpp"
+ #include "frequency/juce_Windowing.cpp"
+ #include "filter_design/juce_FilterDesign.cpp"
+ #include "widgets/juce_LadderFilter.cpp"
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_dsp/native/juce_sse_SIMDNativeOps.h /home/user/GNARL/third_party/JUCE/modules/juce_dsp/native/juce_sse_SIMDNativeOps.h
+--- JUCE-6.0.5/modules/juce_dsp/native/juce_sse_SIMDNativeOps.h	2026-09-30 16:35:00.528928683 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_dsp/native/juce_sse_SIMDNativeOps.h	2026-09-30 08:15:17.299399873 +0000
+@@ -73,7 +73,8 @@
+     static forcedinline void JUCE_VECTOR_CALLTYPE store (__m128 value, float* dest) noexcept             { _mm_store_ps (dest, value); }
+     static forcedinline __m128 JUCE_VECTOR_CALLTYPE add (__m128 a, __m128 b) noexcept                    { return _mm_add_ps (a, b); }
+     static forcedinline __m128 JUCE_VECTOR_CALLTYPE sub (__m128 a, __m128 b) noexcept                    { return _mm_sub_ps (a, b); }
+-    static forcedinline __m128 JUCE_VECTOR_CALLTYPE mul (__m128 a, __m128 b) noexcept                    { return _mm_mul_ps (a, b); }
++    static forcedinline __m128 JUCE_VECTOR_CALLTYPE mul (__m128 a, __m128 b) noexcept                    { return _mm_mul_ps (a, b); }
++    static forcedinline __m128 JUCE_VECTOR_CALLTYPE div (__m128 a, __m128 b) noexcept                    { return _mm_div_ps (a, b); }
+     static forcedinline __m128 JUCE_VECTOR_CALLTYPE bit_and (__m128 a, __m128 b) noexcept                { return _mm_and_ps (a, b); }
+     static forcedinline __m128 JUCE_VECTOR_CALLTYPE bit_or  (__m128 a, __m128 b) noexcept                { return _mm_or_ps  (a, b); }
+     static forcedinline __m128 JUCE_VECTOR_CALLTYPE bit_xor (__m128 a, __m128 b) noexcept                { return _mm_xor_ps (a, b); }
+@@ -141,7 +142,8 @@
+     static forcedinline void JUCE_VECTOR_CALLTYPE store (__m128d value, double* dest) noexcept               { _mm_store_pd (dest, value); }
+     static forcedinline __m128d JUCE_VECTOR_CALLTYPE add (__m128d a, __m128d b) noexcept                     { return _mm_add_pd (a, b); }
+     static forcedinline __m128d JUCE_VECTOR_CALLTYPE sub (__m128d a, __m128d b) noexcept                     { return _mm_sub_pd (a, b); }
+-    static forcedinline __m128d JUCE_VECTOR_CALLTYPE mul (__m128d a, __m128d b) noexcept                     { return _mm_mul_pd (a, b); }
++    static forcedinline __m128d JUCE_VECTOR_CALLTYPE mul (__m128d a, __m128d b) noexcept                     { return _mm_mul_pd (a, b); }
++    static forcedinline __m128d JUCE_VECTOR_CALLTYPE div (__m128d a, __m128d b) noexcept                     { return _mm_div_pd (a, b); }
+     static forcedinline __m128d JUCE_VECTOR_CALLTYPE bit_and (__m128d a, __m128d b) noexcept                 { return _mm_and_pd (a, b); }
+     static forcedinline __m128d JUCE_VECTOR_CALLTYPE bit_or  (__m128d a, __m128d b) noexcept                 { return _mm_or_pd  (a, b); }
+     static forcedinline __m128d JUCE_VECTOR_CALLTYPE bit_xor (__m128d a, __m128d b) noexcept                 { return _mm_xor_pd (a, b); }
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_events/native/juce_mac_MessageManager.mm /home/user/GNARL/third_party/JUCE/modules/juce_events/native/juce_mac_MessageManager.mm
+--- JUCE-6.0.5/modules/juce_events/native/juce_mac_MessageManager.mm	2026-09-30 16:35:00.533580048 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_events/native/juce_mac_MessageManager.mm	2026-09-30 08:15:17.306223421 +0000
+@@ -354,6 +354,7 @@
+ static void shutdownNSApp()
+ {
+     [NSApp stop: nil];
++    [NSEvent stopPeriodicEvents];
+     [NSEvent startPeriodicEventsAfterDelay: 0  withPeriod: 0.1];
+ }
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_Button.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_Button.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_Button.cpp	2026-09-30 16:35:00.551449223 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_Button.cpp	2026-09-30 08:15:17.333673382 +0000
+@@ -482,10 +482,7 @@
+ 
+ bool Button::isMouseSourceOver (const MouseEvent& e)
+ {
+-    if (e.source.isTouch() || e.source.isPen())
+-        return getLocalBounds().toFloat().contains (e.position);
+-
+-    return isMouseOver();
++    return getLocalBounds().toFloat().contains (e.position);
+ }
+ 
+ void Button::focusGained (FocusChangeType)
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_ShapeButton.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_ShapeButton.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_ShapeButton.cpp	2026-09-30 16:35:00.551449223 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_ShapeButton.cpp	2026-09-30 08:15:17.333673382 +0000
+@@ -76,9 +76,6 @@
+     shape = newShape;
+     maintainShapeProportions = maintainShapeProportions_;
+ 
+-    shadow.setShadowProperties (DropShadow (Colours::black.withAlpha (0.5f), 3, Point<int>()));
+-    setComponentEffect (hasShadow ? &shadow : nullptr);
+-
+     if (resizeNowToFitThisShape)
+     {
+         auto newBounds = shape.getBounds();
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_ShapeButton.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_ShapeButton.h
+--- JUCE-6.0.5/modules/juce_gui_basics/buttons/juce_ShapeButton.h	2026-09-30 16:35:00.551449223 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/buttons/juce_ShapeButton.h	2026-09-30 08:15:17.333673382 +0000
+@@ -88,6 +88,8 @@
+                        Colour overColourOn,
+                        Colour downColourOn);
+ 
++    void setShadowColour (Colour shadow) { shadowColour = shadow; }
++
+     /** Set whether the button should use the 'on' set of colours when its toggle state is 'on'.
+         By default these will be the same as the normal colours but the setOnColours method can be
+         used to provide a different set of colours.
+@@ -112,9 +114,8 @@
+ private:
+     //==============================================================================
+     Colour normalColour,   overColour,   downColour,
+-           normalColourOn, overColourOn, downColourOn, outlineColour;
++           normalColourOn, overColourOn, downColourOn, outlineColour, shadowColour;
+     bool useOnColours;
+-    DropShadowEffect shadow;
+     Path shape;
+     BorderSize<int> border;
+     bool maintainShapeProportions;
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/components/juce_Component.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/components/juce_Component.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/components/juce_Component.cpp	2026-09-30 16:35:00.552927497 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/components/juce_Component.cpp	2026-09-30 08:15:17.336150317 +0000
+@@ -387,6 +387,10 @@
+     template <typename PointOrRect>
+     static PointOrRect convertCoordinate (const Component* target, const Component* source, PointOrRect p)
+     {
++        float total_scaling = source->getTotalPixelScaling();
++        Component* top = nullptr;
++        if (source)
++            top = source->getTopLevelComponent();
+         while (source != nullptr)
+         {
+             if (source == target)
+@@ -395,6 +399,9 @@
+             if (source->isParentOf (target))
+                 return convertFromDistantParentSpace (source, *target, p);
+ 
++            if (source == top)
++              p /= total_scaling;
++
+             p = convertToParentSpace (*source, p);
+             source = source->getParentComponent();
+         }
+@@ -1384,13 +1391,14 @@
+ 
+ Component* Component::getComponentAt (Point<int> position)
+ {
++    Point<int> scale = (position.toFloat() * getPixelScaling()).roundToInt();
+     if (flags.visibleFlag && ComponentHelpers::hitTest (*this, position))
+     {
+         for (int i = childComponentList.size(); --i >= 0;)
+         {
+             auto* child = childComponentList.getUnchecked(i);
+ 
+-            child = child->getComponentAt (ComponentHelpers::convertFromParentSpace (*child, position));
++            child = child->getComponentAt (ComponentHelpers::convertFromParentSpace (*child, scale));
+ 
+             if (child != nullptr)
+                 return child;
+@@ -3004,7 +3012,8 @@
+ 
+ void Component::internalModifierKeysChanged()
+ {
+-    sendFakeMouseMove();
++    auto mainMouse = Desktop::getInstance().getMainMouseSource();
++    mainMouse.triggerFakeMove();
+     modifierKeysChanged (ModifierKeys::currentModifiers);
+ }
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/components/juce_Component.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/components/juce_Component.h
+--- JUCE-6.0.5/modules/juce_gui_basics/components/juce_Component.h	2026-09-30 16:35:00.552927497 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/components/juce_Component.h	2026-09-30 08:15:17.336899130 +0000
+@@ -439,7 +439,7 @@
+ 
+         @see setBounds, ComponentListener::componentMovedOrResized
+     */
+-    void setTopLeftPosition (Point<int> newTopLeftPosition);
++    virtual void setTopLeftPosition (Point<int> newTopLeftPosition);
+ 
+     /** Moves the component to a new position.
+ 
+@@ -2284,6 +2284,17 @@
+     */
+     bool getViewportIgnoreDragFlag() const noexcept                     { return flags.viewportIgnoreDragFlag; }
+ 
++    virtual float getPixelScaling() const { return 1.0f; }
++    float getTotalPixelScaling() const {
++      const Component* component = this;
++      float pixel_scaling = 1.0f;
++      while (component) {
++        pixel_scaling *= component->getPixelScaling();
++        component = component->getParentComponent();
++      }
++      return pixel_scaling;
++    }
++
+ private:
+     //==============================================================================
+     friend class ComponentPeer;
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/juce_gui_basics.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/juce_gui_basics.cpp	2026-09-30 16:35:00.555259690 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/juce_gui_basics.cpp	2026-09-30 08:15:17.340863643 +0000
+@@ -218,7 +218,6 @@
+ #include "application/juce_Application.cpp"
+ #include "misc/juce_BubbleComponent.cpp"
+ #include "misc/juce_DropShadower.cpp"
+-#include "misc/juce_JUCESplashScreen.cpp"
+ 
+ #include "layout/juce_FlexBox.cpp"
+ #include "layout/juce_GridItem.cpp"
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/juce_gui_basics.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/juce_gui_basics.h
+--- JUCE-6.0.5/modules/juce_gui_basics/juce_gui_basics.h	2026-09-30 16:35:00.555259690 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/juce_gui_basics.h	2026-09-30 08:15:17.340863643 +0000
+@@ -250,7 +250,6 @@
+ #include "menus/juce_BurgerMenuComponent.h"
+ #include "buttons/juce_ToolbarButton.h"
+ #include "misc/juce_DropShadower.h"
+-#include "misc/juce_JUCESplashScreen.h"
+ #include "widgets/juce_TreeView.h"
+ #include "windows/juce_TopLevelWindow.h"
+ #include "windows/juce_AlertWindow.h"
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp	2026-09-30 16:35:00.555259690 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/keyboard/juce_CaretComponent.cpp	2026-09-30 08:15:17.340863643 +0000
+@@ -43,14 +43,9 @@
+     g.fillRect (getLocalBounds());
+ }
+ 
+-void CaretComponent::timerCallback()
+-{
+-    setVisible (shouldBeShown() && ! isVisible());
+-}
+ 
+ void CaretComponent::setCaretPosition (const Rectangle<int>& characterArea)
+ {
+-    startTimer (380);
+     setVisible (shouldBeShown());
+     setBounds (characterArea.withWidth (2));
+ }
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/keyboard/juce_CaretComponent.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/keyboard/juce_CaretComponent.h
+--- JUCE-6.0.5/modules/juce_gui_basics/keyboard/juce_CaretComponent.h	2026-09-30 16:35:00.556806212 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/keyboard/juce_CaretComponent.h	2026-09-30 08:15:17.343201540 +0000
+@@ -31,8 +31,7 @@
+ 
+     @tags{GUI}
+ */
+-class JUCE_API  CaretComponent   : public Component,
+-                                   private Timer
++class JUCE_API  CaretComponent   : public Component
+ {
+ public:
+     //==============================================================================
+@@ -73,7 +72,6 @@
+     Component* owner;
+ 
+     bool shouldBeShown() const;
+-    void timerCallback() override;
+ 
+     JUCE_DECLARE_NON_COPYABLE (CaretComponent)
+ };
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp	2026-09-30 16:35:00.557589737 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/layout/juce_ComponentBoundsConstrainer.cpp	2026-09-30 08:15:17.344574211 +0000
+@@ -271,23 +271,6 @@
+                 bounds.setWidth (roundToInt (bounds.getHeight() * aspectRatio));
+             }
+         }
+-
+-        if ((isStretchingTop || isStretchingBottom) && ! (isStretchingLeft || isStretchingRight))
+-        {
+-            bounds.setX (old.getX() + (old.getWidth() - bounds.getWidth()) / 2);
+-        }
+-        else if ((isStretchingLeft || isStretchingRight) && ! (isStretchingTop || isStretchingBottom))
+-        {
+-            bounds.setY (old.getY() + (old.getHeight() - bounds.getHeight()) / 2);
+-        }
+-        else
+-        {
+-            if (isStretchingLeft)
+-                bounds.setX (old.getRight() - bounds.getWidth());
+-
+-            if (isStretchingTop)
+-                bounds.setY (old.getBottom() - bounds.getHeight());
+-        }
+     }
+ 
+     jassert (! bounds.isEmpty());
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.cpp	2026-09-30 16:35:00.560773568 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.cpp	2026-09-30 08:15:17.349727565 +0000
+@@ -41,8 +41,6 @@
+     setColour (PopupMenu::highlightedBackgroundColourId,  Colour (0xbfa4c2ce));
+     setColour (PopupMenu::highlightedTextColourId,        Colours::black);
+     setColour (TextEditor::focusedOutlineColourId,  findColour (TextButton::buttonColourId));
+-
+-    scrollbarShadow.setShadowProperties (DropShadow (Colours::black.withAlpha (0.5f), 2, Point<int>()));
+ }
+ 
+ LookAndFeel_V1::~LookAndFeel_V1()
+@@ -291,7 +289,7 @@
+ 
+ ImageEffectFilter* LookAndFeel_V1::getScrollbarEffect()
+ {
+-    return &scrollbarShadow;
++    return nullptr;
+ }
+ 
+ 
+@@ -477,7 +475,7 @@
+ 
+ ImageEffectFilter* LookAndFeel_V1::getSliderEffect (Slider&)
+ {
+-    return &scrollbarShadow;
++    return nullptr;
+ }
+ 
+ int LookAndFeel_V1::getSliderThumbRadius (Slider&)
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.h
+--- JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.h	2026-09-30 16:35:00.560773568 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V1.h	2026-09-30 08:15:17.349727565 +0000
+@@ -97,8 +97,6 @@
+                                         bool positionTitleBarButtonsOnLeft) override;
+ 
+ private:
+-    DropShadowEffect scrollbarShadow;
+-
+     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LookAndFeel_V1)
+ };
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V4.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V4.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V4.cpp	2026-09-30 16:35:00.560773568 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/lookandfeel/juce_LookAndFeel_V4.cpp	2026-09-30 08:15:17.351667236 +0000
+@@ -1292,8 +1292,6 @@
+     {
+         cachedImage = { Image::ARGB, box.getWidth(), box.getHeight(), true };
+         Graphics g2 (cachedImage);
+-
+-        DropShadow (Colours::black.withAlpha (0.7f), 8, { 0, 2 }).drawForPath (g2, path);
+     }
+ 
+     g.setColour (Colours::black);
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/misc/juce_BubbleComponent.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/misc/juce_BubbleComponent.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/misc/juce_BubbleComponent.cpp	2026-09-30 16:35:00.562381452 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/misc/juce_BubbleComponent.cpp	2026-09-30 08:15:17.351924932 +0000
+@@ -30,9 +30,6 @@
+   : allowablePlacements (above | below | left | right)
+ {
+     setInterceptsMouseClicks (false, false);
+-
+-    shadow.setShadowProperties (DropShadow (Colours::black.withAlpha (0.35f), 5, Point<int>()));
+-    setComponentEffect (&shadow);
+ }
+ 
+ BubbleComponent::~BubbleComponent() {}
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/misc/juce_BubbleComponent.h /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/misc/juce_BubbleComponent.h
+--- JUCE-6.0.5/modules/juce_gui_basics/misc/juce_BubbleComponent.h	2026-09-30 16:35:00.563156603 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/misc/juce_BubbleComponent.h	2026-09-30 08:15:17.353337916 +0000
+@@ -178,7 +178,6 @@
+     Rectangle<int> content;
+     Point<int> arrowTip;
+     int allowablePlacements;
+-    DropShadowEffect shadow;
+ 
+     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BubbleComponent)
+ };
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/mouse/juce_MouseInputSource.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/mouse/juce_MouseInputSource.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/mouse/juce_MouseInputSource.cpp	2026-09-30 16:35:00.563437429 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/mouse/juce_MouseInputSource.cpp	2026-09-30 08:15:17.354405044 +0000
+@@ -61,7 +61,7 @@
+     {
+         if (auto* peer = comp.getPeer())
+         {
+-            pos = peer->globalToLocal (pos);
++            pos = peer->globalToLocal (pos) * comp.getTotalPixelScaling();
+             auto& peerComp = peer->getComponent();
+             return comp.getLocalPoint (&peerComp, ScalingHelpers::unscaledScreenPosToScaled (peerComp, pos));
+         }
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/native/juce_win32_Windowing.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/native/juce_win32_Windowing.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/native/juce_win32_Windowing.cpp	2026-09-30 16:35:00.565009933 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/native/juce_win32_Windowing.cpp	2026-09-30 08:15:17.361780926 +0000
+@@ -1745,7 +1745,7 @@
+             if (peerIsDeleted)
+                 return S_FALSE;
+ 
+-            peer.handleDragExit (dragInfo);
++            peer.handleDragDrop (dragInfo);
+             return S_OK;
+         }
+ 
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/widgets/juce_Slider.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/widgets/juce_Slider.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/widgets/juce_Slider.cpp	2026-09-30 16:35:00.570192305 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/widgets/juce_Slider.cpp	2026-09-30 08:15:17.366186245 +0000
+@@ -749,7 +749,7 @@
+                               ? e.position.x - mouseDragStartPos.x
+                               : mouseDragStartPos.y - e.position.y;
+ 
+-            newPos = owner.valueToProportionOfLength (valueOnMouseDown)
++            newPos = owner.valueToProportionOfLength (valueWhenLastDragged)
+                        + mouseDiff * (1.0 / pixelsForFullDragExtent);
+ 
+             if (style == IncDecButtons)
+@@ -763,7 +763,7 @@
+             auto mouseDiff = (e.position.x - mouseDragStartPos.x)
+                                + (mouseDragStartPos.y - e.position.y);
+ 
+-            newPos = owner.valueToProportionOfLength (valueOnMouseDown)
++            newPos = owner.valueToProportionOfLength (valueWhenLastDragged)
+                        + mouseDiff * (1.0 / pixelsForFullDragExtent);
+         }
+         else
+@@ -774,6 +774,7 @@
+                 newPos = 1.0 - newPos;
+         }
+ 
++        mouseDragStartPos = e.position;
+         newPos = (isRotary() && ! rotaryParams.stopAtEnd) ? newPos - std::floor (newPos)
+                                                           : jlimit (0.0, 1.0, newPos);
+         valueWhenLastDragged = owner.proportionOfLengthToValue (newPos);
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/widgets/juce_TextEditor.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/widgets/juce_TextEditor.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/widgets/juce_TextEditor.cpp	2026-09-30 16:35:00.570192305 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/widgets/juce_TextEditor.cpp	2026-09-30 08:15:17.367539906 +0000
+@@ -821,6 +821,11 @@
+     {
+         owner.drawContent (g);
+     }
++    
++    void setTopLeftPosition(Point<int> new_position) override {
++      Component::setTopLeftPosition(new_position);
++      owner.textChanged();
++    }
+ 
+     void restartTimer()
+     {
+@@ -1572,6 +1577,9 @@
+         moveCaret (newPosition);
+         selection = Range<int>::emptyRange (getCaretPosition());
+     }
++  
++    if (listeners.size() != 0 || onTextChange != nullptr)
++        postCommandMessage (TextEditorDefs::textChangeMessageId);
+ }
+ 
+ int TextEditor::getTextIndexAt (const int x, const int y)
+@@ -2155,6 +2163,9 @@
+ 
+     repaint();
+     updateCaretPosition();
++  
++    if (listeners.size() != 0 || onTextChange != nullptr)
++        postCommandMessage (TextEditorDefs::textChangeMessageId);
+ }
+ 
+ void TextEditor::focusLost (FocusChangeType)
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp	2026-09-30 16:35:00.572955653 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/windows/juce_ComponentPeer.cpp	2026-09-30 08:15:17.370870734 +0000
+@@ -474,7 +474,7 @@
+             if (DragHelpers::isSuitableTarget (info, newTarget))
+             {
+                 dragAndDropTargetComponent = newTarget;
+-                auto pos = newTarget->getLocalPoint (&component, info.position);
++                auto pos = newTarget->getLocalPoint (&component, info.position * newTarget->getTotalPixelScaling());
+ 
+                 if (DragHelpers::isFileDrag (info))
+                     dynamic_cast<FileDragAndDropTarget*> (newTarget)->fileDragEnter (info.files, pos.x, pos.y);
+@@ -491,7 +491,7 @@
+     if (! DragHelpers::isSuitableTarget (info, newTarget))
+         return false;
+ 
+-    auto pos = newTarget->getLocalPoint (&component, info.position);
++    auto pos = newTarget->getLocalPoint (&component, info.position * newTarget->getTotalPixelScaling());
+ 
+     if (DragHelpers::isFileDrag (info))
+         dynamic_cast<FileDragAndDropTarget*> (newTarget)->fileDragMove (info.files, pos.x, pos.y);
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_gui_basics/windows/juce_ResizableWindow.cpp /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/windows/juce_ResizableWindow.cpp
+--- JUCE-6.0.5/modules/juce_gui_basics/windows/juce_ResizableWindow.cpp	2026-09-30 16:35:00.572955653 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_gui_basics/windows/juce_ResizableWindow.cpp	2026-09-30 08:15:17.370870734 +0000
+@@ -75,10 +75,6 @@
+ 
+     // BEGIN SECTION A
+ 
+-   #if ! JucePlugin_Build_Standalone
+-    splashScreen = new JUCESplashScreen (*this);
+-   #endif
+-
+     // END SECTION A
+ 
+     defaultConstrainer.setMinimumOnscreenAmounts (0x10000, 16, 24, 16);
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/juce_opengl.h /home/user/GNARL/third_party/JUCE/modules/juce_opengl/juce_opengl.h
+--- JUCE-6.0.5/modules/juce_opengl/juce_opengl.h	2026-09-30 16:35:00.579084230 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/juce_opengl.h	2026-09-30 08:15:17.381308307 +0000
+@@ -124,7 +124,7 @@
+     It's mandatory in OpenGL 3.0 to specify the GLSL version.
+ */
+ #if JUCE_OPENGL3
+- #if JUCE_OPENGL_ES
++ #if JUCE_OPENGL_ES || OPENGL_ES
+   #define JUCE_GLSL_VERSION "#version 300 es"
+  #else
+   #define JUCE_GLSL_VERSION "#version 150"
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/native/juce_MissingGLDefinitions.h /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_MissingGLDefinitions.h
+--- JUCE-6.0.5/modules/juce_opengl/native/juce_MissingGLDefinitions.h	2026-09-30 16:35:00.579353475 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_MissingGLDefinitions.h	2026-09-30 08:15:17.381818742 +0000
+@@ -126,6 +126,14 @@
+     GL_DYNAMIC_DRAW                 = 0x88E8,
+     GL_STREAM_DRAW                  = 0x88E0,
+ 
++    GL_GEOMETRY_SHADER              = 0x8DD9,
++    GL_LINE_STRIP_ADJACENCY         = 0x000B,
++    GL_INTERLEAVED_ATTRIBS          = 0x8C8C,
++    GL_STATIC_READ                  = 0x88E5,
++    GL_TRANSFORM_FEEDBACK_BUFFER    = 0x8C8E,
++    GL_RASTERIZER_DISCARD           = 0x8C89,
++    GL_MAP_READ_BIT                 = 0x0001,
++
+     WGL_NUMBER_PIXEL_FORMATS_ARB    = 0x2000,
+     WGL_DRAW_TO_WINDOW_ARB          = 0x2001,
+     WGL_ACCELERATION_ARB            = 0x2003,
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGLExtensions.h /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGLExtensions.h
+--- JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGLExtensions.h	2026-09-30 16:35:00.579353475 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGLExtensions.h	2026-09-30 08:15:17.381818742 +0000
+@@ -83,7 +83,13 @@
+     USE_FUNCTION (glCheckFramebufferStatus, GLenum, (GLenum p1), (p1))\
+     USE_FUNCTION (glFramebufferTexture2D,   void, (GLenum p1, GLenum p2, GLenum p3, GLuint p4, GLint p5), (p1, p2, p3, p4, p5))\
+     USE_FUNCTION (glFramebufferRenderbuffer,  void, (GLenum p1, GLenum p2, GLenum p3, GLuint p4), (p1, p2, p3, p4))\
+-    USE_FUNCTION (glGetFramebufferAttachmentParameteriv, void, (GLenum p1, GLenum p2, GLenum p3, GLint* p4), (p1, p2, p3, p4))
++    USE_FUNCTION (glGetFramebufferAttachmentParameteriv, void, (GLenum p1, GLenum p2, GLenum p3, GLint* p4), (p1, p2, p3, p4))\
++    USE_FUNCTION (glTransformFeedbackVaryings, void, (GLuint p1, GLsizei p2, const char **p3, GLenum p4), (p1, p2, p3, p4))\
++    USE_FUNCTION (glBeginTransformFeedback, void, (GLenum p1), (p1))\
++    USE_FUNCTION (glEndTransformFeedback, void, (), ())\
++    USE_FUNCTION (glBindBufferBase, void, (GLenum p1, GLuint p2, GLuint p3), (p1, p2, p3))\
++    USE_FUNCTION (glMapBufferRange, void*, (GLenum p1, GLintptr p2, GLsizeiptr p3, GLbitfield p4), (p1, p2, p3, p4))\
++    USE_FUNCTION (glUnmapBuffer, GLboolean, (GLenum p1), (p1));
+ 
+ /** @internal This macro contains a list of GL extension functions that need to be dynamically loaded on Windows/Linux.
+     @see OpenGLExtensionFunctions
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGL_linux_X11.h /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGL_linux_X11.h
+--- JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGL_linux_X11.h	2026-09-30 16:35:00.579353475 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGL_linux_X11.h	2026-09-30 08:15:17.381818742 +0000
+@@ -69,8 +69,8 @@
+ 
+         GLint attribs[] =
+         {
+-            GLX_RGBA,
+-            GLX_DOUBLEBUFFER,
++            GLX_RENDER_TYPE,      GLX_RGBA_BIT,
++            GLX_DOUBLEBUFFER,     True,
+             GLX_RED_SIZE,         cPixelFormat.redBits,
+             GLX_GREEN_SIZE,       cPixelFormat.greenBits,
+             GLX_BLUE_SIZE,        cPixelFormat.blueBits,
+@@ -81,13 +81,21 @@
+             GLX_ACCUM_GREEN_SIZE, cPixelFormat.accumulationBufferGreenBits,
+             GLX_ACCUM_BLUE_SIZE,  cPixelFormat.accumulationBufferBlueBits,
+             GLX_ACCUM_ALPHA_SIZE, cPixelFormat.accumulationBufferAlphaBits,
++            GLX_X_RENDERABLE,     True,
+             None
+         };
+ 
+-        bestVisual = glXChooseVisual (display, X11Symbols::getInstance()->xDefaultScreen (display), attribs);
+-        if (bestVisual == nullptr)
++        int countFbConfigs;
++        fbConfig = glXChooseFBConfig (display, DefaultScreen (display), attribs, &countFbConfigs);
++        if (fbConfig == nullptr)
+             return;
+ 
++        bestVisual = glXGetVisualFromFBConfig (display, *fbConfig);
++        if (bestVisual == nullptr) {
++            X11Symbols::getInstance()->xFree (fbConfig);
++            return;
++        }
++
+         auto* peer = component.getPeer();
+         jassert (peer != nullptr);
+ 
+@@ -139,6 +147,9 @@
+             }
+         }
+ 
++        if (fbConfig != nullptr)
++            X11Symbols::getInstance()->xFree (fbConfig);
++
+         if (bestVisual != nullptr)
+             X11Symbols::getInstance()->xFree (bestVisual);
+     }
+@@ -146,7 +157,18 @@
+     bool initialiseOnRenderThread (OpenGLContext& c)
+     {
+         XWindowSystemUtilities::ScopedXLock xLock;
+-        renderContext = glXCreateContext (display, bestVisual, (GLXContext) contextToShareWith, GL_TRUE);
++        PFNGLXCREATECONTEXTATTRIBSARBPROC createContextAttribs;
++        int attribs[] = {
++            GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
++            GLX_CONTEXT_MINOR_VERSION_ARB, 2,
++            GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
++            0
++        };
++
++        createContextAttribs = (PFNGLXCREATECONTEXTATTRIBSARBPROC)
++            OpenGLHelpers::getExtensionFunction("glXCreateContextAttribsARB");
++
++        renderContext = createContextAttribs (display, *fbConfig, (GLXContext) contextToShareWith, GL_TRUE, attribs);
+         c.makeActive();
+         context = &c;
+ 
+@@ -240,6 +262,7 @@
+     int swapFrames = 1;
+     Rectangle<int> bounds;
+     XVisualInfo* bestVisual = nullptr;
++    GLXFBConfig* fbConfig = nullptr;
+     void* contextToShareWith;
+ 
+     OpenGLContext* context = nullptr;
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGL_win32.h /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGL_win32.h
+--- JUCE-6.0.5/modules/juce_opengl/native/juce_OpenGL_win32.h	2026-09-30 16:35:00.579353475 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/native/juce_OpenGL_win32.h	2026-09-30 08:15:17.381818742 +0000
+@@ -285,6 +285,8 @@
+ 
+             atts[n++] = WGL_DRAW_TO_WINDOW_ARB;   atts[n++] = GL_TRUE;
+             atts[n++] = WGL_SUPPORT_OPENGL_ARB;   atts[n++] = GL_TRUE;
++            atts[n++] = WGL_CONTEXT_MAJOR_VERSION_ARB;   atts[n++] = 3;
++            atts[n++] = WGL_CONTEXT_MINOR_VERSION_ARB;   atts[n++] = 2;
+             atts[n++] = WGL_DOUBLE_BUFFER_ARB;    atts[n++] = GL_TRUE;
+             atts[n++] = WGL_PIXEL_TYPE_ARB;       atts[n++] = WGL_TYPE_RGBA_ARB;
+             atts[n++] = WGL_ACCELERATION_ARB;
+diff -ru -x LV2 JUCE-6.0.5/modules/juce_opengl/opengl/juce_OpenGLHelpers.cpp /home/user/GNARL/third_party/JUCE/modules/juce_opengl/opengl/juce_OpenGLHelpers.cpp
+--- JUCE-6.0.5/modules/juce_opengl/opengl/juce_OpenGLHelpers.cpp	2026-09-30 16:35:00.579998621 +0000
++++ /home/user/GNARL/third_party/JUCE/modules/juce_opengl/opengl/juce_OpenGLHelpers.cpp	2026-09-30 08:15:17.383650586 +0000
+@@ -83,7 +83,7 @@
+ 
+ String OpenGLHelpers::translateVertexShaderToV3 (const String& code)
+ {
+-   #if JUCE_OPENGL3
++   #if JUCE_OPENGL3 || OPENGL_ES
+     if (OpenGLShaderProgram::getLanguageVersion() > 1.2)
+     {
+         String output;
+@@ -119,7 +119,7 @@
+ 
+ String OpenGLHelpers::translateFragmentShaderToV3 (const String& code)
+ {
+-   #if JUCE_OPENGL3
++   #if JUCE_OPENGL3 || OPENGL_ES
+     if (OpenGLShaderProgram::getLanguageVersion() > 1.2)
+         return JUCE_GLSL_VERSION "\n"
+                "out " JUCE_MEDIUMP " vec4 fragColor;\n"
+Only in JUCE-6.0.5/modules: juce_osc
+Only in JUCE-6.0.5/modules: juce_product_unlocking
+Only in JUCE-6.0.5/modules: juce_video
