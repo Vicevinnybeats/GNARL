@@ -213,6 +213,19 @@ export class AudioPreview {
       const noiseLevel = read('noise_level', 0);
       const filterType = readChoice('filter1_type', 1);
       const oscLevel = read('osc1_level', 0.8);
+      /*  THE ENABLE FLAGS, which were not read at all - and that is the
+          white noise. `noise_enabled` defaults to OFF while `noise_level`
+          defaults to 30%, and `sub_enabled` defaults to OFF while
+          `sub_level` defaults to 60%. Reading only the level played both on
+          every patch that had switched them off, which is most of them: a
+          permanent hiss under everything, and a sub that explains why the
+          preview sounded bottom-heavy whatever the preset said.
+
+          A level is not a switch. Both are needed, and the switch wins. */
+      const oscOn = read('osc1_enabled', 1) > 0.5;
+      const subOn = read('sub_enabled', 0) > 0.5;
+      const noiseOn = read('noise_enabled', 0) > 0.5;
+      const filterOn = read('filter1_enabled', 1) > 0.5;
       const subLevel = read('sub_level', 0.7);
       const subOctave = readChoice('sub_octave', 1) - 1;   // index -> octaves
       const cutoff = read('filter1_cutoff', 1200);
@@ -284,8 +297,12 @@ export class AudioPreview {
         : filterType === 4 || filterType === 5 ? 'bandpass'
         : filterType === 6 || filterType === 7 ? 'notch'
         : 'lowpass';
-      filter.frequency.value = Math.min(18000, Math.max(40, cutoff || 1200));
-      filter.Q.value = 0.7 + Math.min(0.95, Math.max(0, resonance)) * 12;
+      //  A filter that is switched off is open, not at whatever the cutoff
+      //  knob happens to say.
+      filter.frequency.value = filterOn
+        ? Math.min(18000, Math.max(40, cutoff || 1200))
+        : 20000;
+      filter.Q.value = filterOn ? 0.7 + Math.min(0.95, Math.max(0, resonance)) * 12 : 0.7;
 
       filter.connect(amp);
       amp.connect(master);
@@ -314,7 +331,9 @@ export class AudioPreview {
         const gain = context.createGain();
         //  Divided by the voice count, or eight unison voices are eight
         //  times as loud and every other control looks broken by comparison.
-        gain.gain.value = (Math.min(1, Math.max(0, oscLevel)) * 0.7) / Math.sqrt(voices);
+        gain.gain.value = oscOn
+          ? (Math.min(1, Math.max(0, oscLevel)) * 0.7) / Math.sqrt(voices)
+          : 0;
 
         osc.connect(gain);
         gain.connect(filter);
@@ -345,7 +364,7 @@ export class AudioPreview {
           note is cheaper than it looks against the oscillators already
           running. Without this the noise level control was another knob that
           moved and did nothing. */
-      if (noiseLevel > 0.001) {
+      if (noiseOn && noiseLevel > 0.001) {
         const frames = Math.floor(context.sampleRate * 2);
         const buffer = context.createBuffer(1, frames, context.sampleRate);
         const data = buffer.getChannelData(0);
@@ -446,7 +465,8 @@ export class AudioPreview {
       amp.gain.setTargetAtTime(peak * s, now + a, d / 3);
 
       subGain.gain.setValueAtTime(0, now);
-      subGain.gain.linearRampToValueAtTime(Math.min(1, Math.max(0, subLevel)) * 0.55, now + a);
+      subGain.gain.linearRampToValueAtTime(
+        subOn ? Math.min(1, Math.max(0, subLevel)) * 0.55 : 0, now + a);
 
       const rel = Math.max(0.03, release);
 

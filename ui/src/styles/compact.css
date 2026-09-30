@@ -429,7 +429,18 @@
   flex: 0 0 auto;
 }
 
-/* --- the LFO editor needs a height of its own ------------------------- */
+/* --- ANYTHING THAT DRAWS ITSELF NEEDS A HEIGHT OF ITS OWN ------------- */
+
+/*  `height: 100%` is right in the desktop grid, where every track has an
+    exact pixel budget (§6), and collapses to ZERO here, because compact mode
+    gives every panel `height: auto` and a percentage of auto is nothing.
+
+    This was fixed for the LFO editor alone and the envelope display had it
+    too - rendering at 0x0 on a phone, present in the DOM, drawing nothing.
+    Fixing one instance of a class of bug leaves the rest of the class, so
+    the rule is written for the SHAPE now: a display that draws itself gets
+    explicit pixels, and a new one is added to this list rather than
+    discovered later by somebody who cannot see it. */
 
 /*  `.gn-lfo-editor` is `height: 100%`, which is right in the desktop grid
     where its track has an exact pixel budget (§6) - and collapses to ZERO
@@ -445,12 +456,24 @@
   min-height: 190px;
 }
 
+/*  Shorter than the LFO editor: an envelope is READ, not drawn on, and
+    there are four of them stacked in the same scroll. */
+:root[data-compact='true'] .gn-envelope-display {
+  height: 120px;
+  min-height: 120px;
+}
+
 /*  Shorter where the whole body is about 190px - the editor cannot have all
     of it, and a curve is still readable at this size. */
 @media (max-height: 460px) {
   :root[data-compact='true'] .gn-lfo-editor {
     height: 120px;
     min-height: 120px;
+  }
+
+  :root[data-compact='true'] .gn-envelope-display {
+    height: 84px;
+    min-height: 84px;
   }
 }
 
