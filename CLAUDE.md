@@ -71,8 +71,11 @@ python3 tools/check_fork.py           # the CI guard; run before pushing
 g++ -std=c++17 -I third_party/VST_SDK/VST3_SDK tools/vst3_probe.cpp -o /tmp/probe -ldl
 /tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 
-# Render a preset (length capped at 15 s by src/headless/main.cpp)
+# Render a preset. GNARL flags: --bits 32 (float), --block N, --start S
+# (transport position at note-on), --save F (write the patch). Cap: 60 s.
 headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140 patch.vital
+
+python3 tests/test_wobble.py          # renders + measures the wobble macro
 ```
 
 **The renderer is deterministic**: rebuilt from clean and run again, the WAV
@@ -235,7 +238,25 @@ codebase:
 - Old presets are migrated in `LoadSave::updateFromOldVersion`, keyed on the
   `synth_version` string. A change in a parameter's *meaning* needs a
   migration there.
+- **Host order is sorted by `(version_added, name)`** (`compareValueDetails`),
+  not by position in the list. A new parameter must carry a `version_added`
+  newer than every existing one (upstream's highest is `0x000803`; GNARL's
+  first are `0x010007`), or it sorts into the middle of the host's list and
+  moves every automation lane after it. `tests/host_parameters.txt` is the
+  snapshot and CI fails unless it remains an exact prefix of the live list;
+  regenerate it with `check_param_order.py --update` in the same commit that
+  appends.
 - Ranges: skew anything frequency- or time-like so the control feels right.
+- **To route something to a parameter from inside the engine, use a
+  `ModulationConnectionProcessor` and connect it the way
+  `SoundEngine::connectModulation` does — every step.** The step that looks
+  like a detail is the audio-rate switch: an `Output` reports control rate
+  only if its buffer is one sample, so for an audio-rate destination the
+  source and connection become audio rate. A re-implementation that skipped
+  it matched the matrix to only −15 dB and stepped once per block. See
+  `SynthVoiceHandler::connectWobbleRoutes`.
+- **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
+  write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
 ## 6. Modulation rate vocabulary
 
@@ -290,7 +311,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro **proposed** (`docs/design/phase2-01-wobble.md`), awaiting approval |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI panel next |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
@@ -298,7 +319,7 @@ Phase 2 candidates, with what already exists in upstream:
 
 | Feature | Upstream |
 |---|---|
-| Tempo-synced wobble 1/4, 1/8, 1/8T, 1/16 on WT position, cutoff, FM | LFO sync incl. `kTripletTempo` exists; the macro layer does not |
+| Tempo-synced wobble 1/4, 1/8, 1/8T, 1/16 on WT position, cutoff, FM | **engine done** (`tests/test_wobble.py`); UI panel next |
 | Vowel/formant filter with morph | `formant_filter`, `formant_manager`, `vocal_tract` exist |
 | Waveshaper / fold / bitcrush chain | `distortion.h` has all six modes; one stage, not a chain |
 | OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |

@@ -1,7 +1,10 @@
 # Phase 2, feature 1 — the wobble macro (design proposal)
 
-**Status: proposed, not built.** Nothing here is implemented until it is
-approved.
+**Status: engine built and tested (2026-09-30); the WOBBLE panel in the UI is
+not built yet.** The client said to continue without answering the four
+questions below, so the proposed defaults were used: WT depth on osc 1 AND
+osc 2, cutoff on filter 1, the third knob labelled FM/WARP, the four rates.
+All cheap to change. See "What was built" at the end.
 
 ## What the producer gets
 
@@ -156,3 +159,50 @@ routing a new modulation **allocates on the audio thread** (see "How it is
 built", point 4). The fix is to pre-size every `ModulationSum`'s inputs so
 `plugNext` always finds a free slot. Not part of this feature; listed so it
 is not forgotten.
+
+## What was built — and where it differs from the proposal
+
+Measured by `tests/test_wobble.py`, which renders through the engine:
+
+| Check | Result |
+|---|---|
+| 1/4, 1/8, 1/8T, 1/16 at 140 BPM | 2.334 / 4.668 / 6.997 / 9.34 Hz (all within 0.2%) |
+| 1/8 at 100 BPM | 3.333 Hz |
+| Note started half a beat later | wobble shifted 0.499 periods; a note-triggered LFO (negative control) shifted 0.000 |
+| Depth 0.6 vs a 0.6 matrix connection from the wobble | **bit-identical**, at 32- and 128-sample blocks |
+| Zero depth | bit-identical to the same patch with no wobble keys, and to a render from the build before the wobble existed |
+| Block 32 vs 128 | −64.2 dB — the same as Vital's own LFO on the same destination |
+| CPU, one voice, 60 s | 3.28–3.52 s, against 3.39–3.71 s before the wobble existed |
+| Host parameter order | the five parameters sit at indices 772–776, after every upstream parameter |
+
+**The routes are `ModulationConnectionProcessor`s, not a new class.** The
+proposal said a route would "match a matrix connection". A re-implementation
+with identical arithmetic was built first and matched to only −15 dB. The
+routes now use the very class a matrix connection uses (given a second
+constructor that takes its bipolar/stereo/bypass controls from outside), so
+the claim is exact rather than approximate.
+
+**They run at audio rate.** The missing step was one line of
+`SoundEngine::connectModulation`: for an audio-rate destination it switches
+the source and the connection to audio rate. That is why a matrix connection
+from an LFO is smooth per sample — and without it the wobble reached the
+cutoff once per block. Cost, measured: none visible on one voice.
+
+**The drawn shape is saved as `settings.wobble_shape`,** a separate key, so a
+preset still has exactly eight `lfos`.
+
+**Three bugs found by the tests, each on the first run that could see it:**
+
+1. `utils::toInt` rounds to nearest-even (it is the SSE conversion) rather
+   than truncating, so `toInt(rate + 0.5f)` turned 1 into 2 and 3 into 4 —
+   and index 4 read past the end of the rate table. Measured: 1/8 at 7.0 Hz,
+   1/16 at 17.5 Hz, a number from outside the table.
+2. Vital's LFOs default to smoothing ON (5.5 ms); the wobble had it off.
+3. `WobbleModule` did not forward `setControlRate` to its inner `SynthLfo`,
+   as `LfoModule` does.
+
+The first block-size threshold, −100 dB, was set before measuring what the
+engine can do. Vital interpolates control values across each block, so no
+modulated patch is block-size exact; its own LFO measures −64 dB. The test
+now holds the wobble to the engine's own figure.
+

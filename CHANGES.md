@@ -73,3 +73,22 @@ the merge commit forward: `git log 7651809..`.
   `SynthEditor::getNextAudioBlock` and the offline render. Upstream had no
   denormal protection on any platform.
 
+## 2026-09-30 - Phase 2: the wobble macro (engine)
+
+- New modulation source `wobble` (`WobbleModule`, `WobbleRate` in
+  `lfo_module.{h,cpp}`): a transport-locked LFO with a drawable shape.
+- New parameters, appended with `version_added` 0x010007 so they sort after
+  every upstream parameter in the host: `wobble_rate`,
+  `wobble_amount_wave_frame`, `wobble_amount_cutoff`, `wobble_amount_fm`,
+  `wobble_bipolar`.
+- Four fixed routes in `SynthVoiceHandler` (osc 1 and 2 wave frame, filter 1
+  cutoff, osc 1 distortion amount), each a `ModulationConnectionProcessor`.
+- `ModulationConnectionProcessor` gained a constructor taking its
+  bipolar/stereo/bypass controls from outside. The existing constructor and
+  the matrix path are unchanged.
+- Presets save and load `settings.wobble_shape`.
+- Renderer: `--start S` sets the transport position at note-on.
+- `tools/vst3_probe.cpp --params` lists host parameters;
+  `tests/host_parameters.txt` + `tools/check_param_order.py` fail CI if the
+  order changes anywhere but the end.
+
