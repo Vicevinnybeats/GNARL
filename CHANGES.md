@@ -116,3 +116,5 @@ the merge commit forward: `git log 7651809..`.
 - `ui/`: a new one-page interface (the producer's layout, the retired UI's
   styling, a turning line-art logo). Runs in a browser; not yet in the
   plugin. See `docs/design/phase2-02-ui.md`.
+- `ui/`: a scope beside MASTER that draws a moving waveform when a note is
+  held, a touch keyboard, and a phone layout for upright and sideways use.

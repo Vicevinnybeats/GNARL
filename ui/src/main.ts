@@ -2,18 +2,22 @@
  * GNARL's panel. The layout is the producer's mock-up (one page, no tabs);
  * the surfaces, glow and knob readouts are the retired engine's "Dream" UI.
  *
- * The panel is laid out at one design size and SCALED to the window, never
- * reflowed - a plugin window resizes by aspect ratio, and a synth whose knobs
- * move when you resize it is a synth you cannot learn.
+ * The desktop panel is laid out at one design size and SCALED to the window,
+ * never reflowed - a plugin window resizes by aspect ratio, and a synth whose
+ * knobs move when you resize it is a synth you cannot learn.
+ *
+ * A phone gets its own layout (phone(), below) built from the same panels:
+ * one section at a time, controls at finger size, keys always in reach.
  */
 
 import './styles.css';
-import { drawEnvelope, drawOsc, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
+import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
 import { headerMark, mountLogo } from './logo';
 import { MOD_DESTINATIONS, MOD_SOURCES, PRESET_NAMES, WOBBLE_DESTINATIONS } from './params';
 import { get, resetAll, subscribe } from './store';
 import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle } from './widgets';
 import type { Display } from './widgets';
+import { currentNote, noteName, noteOff, noteOn } from './voice';
 
 const DESIGN_W = 1280;
 const DESIGN_H = 720;
@@ -28,15 +32,18 @@ const knobs = (...nodes: HTMLElement[]): HTMLElement => el('div', 'knobs', ...no
 
 /* ------------------------------------------------------------------ header */
 
-function header(): HTMLElement {
+// The preset index is shared: the desktop and phone layouts both show it.
+let presetIndex = 0;
+const presetViews = new Set<() => void>();
+
+function presetPicker(): HTMLElement {
   const name = el('span', 'preset__name');
-  let index = 0;
   const show = (): void => {
-    name.textContent = PRESET_NAMES[index] ?? '';
+    name.textContent = PRESET_NAMES[presetIndex] ?? '';
   };
   const step = (by: number): void => {
-    index = (index + by + PRESET_NAMES.length) % PRESET_NAMES.length;
-    show();
+    presetIndex = (presetIndex + by + PRESET_NAMES.length) % PRESET_NAMES.length;
+    for (const v of presetViews) v();
   };
   const prev = el('button', 'preset__step', '‹');
   const next = el('button', 'preset__step', '›');
@@ -45,33 +52,55 @@ function header(): HTMLElement {
   next.setAttribute('aria-label', 'Next preset');
   prev.addEventListener('click', () => step(-1));
   next.addEventListener('click', () => step(1));
+  presetViews.add(show);
   show();
+  return el('div', 'preset', prev, name, next);
+}
 
-  const ai = el('button', 'ai', el('span', 'ai__spark', '✦'), 'AI PRESET');
+function aiButton(label: string): HTMLButtonElement {
+  const ai = el('button', 'ai', el('span', 'ai__spark', '✦'), label);
   ai.type = 'button';
   ai.addEventListener('click', () =>
     toast('AI presets are Phase 4, not built yet. The button is where they will live.'),
   );
+  return ai;
+}
 
-  const meter = el('div', 'meter', el('span', 'meter__bar'), el('span', 'meter__bar'));
-  const syncMeter = (): void => {
-    meter.style.setProperty('--level', `${Math.round(get('master') * 100)}%`);
-  };
-  subscribe((id) => id === 'master' && syncMeter());
-  syncMeter();
+/**
+ * The live waveform beside MASTER. Pressing and holding it plays a note, so
+ * the patch can be seen moving without a keyboard.
+ */
+function scope(width: number, height: number): HTMLElement {
+  const d = display(width, height, 'scope');
+  const root = addDisplay(d, (t) => drawScope(d, t, t));
+  root.title = 'Hold to play a note (or use the keys A to K)';
+  const PREVIEW_NOTE = 36; // C2: low enough for riddim, high enough to see.
+  root.addEventListener('pointerdown', (e) => {
+    root.setPointerCapture(e.pointerId);
+    noteOn(PREVIEW_NOTE, clock());
+  });
+  const release = (): void => noteOff(PREVIEW_NOTE, clock());
+  root.addEventListener('pointerup', release);
+  root.addEventListener('pointercancel', release);
+  return root;
+}
 
+function masterKnob(): HTMLElement {
   const master = knob('master', { size: 28 });
   master.classList.add('knob--inline');
+  return master;
+}
 
+function header(): HTMLElement {
   return el(
     'header',
     'top',
     el('div', 'brand', headerMark(), el('span', 'brand__word', 'GNARL')),
-    el('div', 'preset', prev, name, next),
-    ai,
+    presetPicker(),
+    aiButton('AI PRESET'),
     el('div', 'top__spacer'),
-    meter,
-    master,
+    scope(250, 34),
+    masterKnob(),
   );
 }
 
@@ -198,13 +227,19 @@ interface Route {
   amount: number;
 }
 
+// Shared by both layouts, so a route added on the phone shows on the desktop.
+const routes: Route[] = [
+  { source: 0, dest: 0, amount: 0.72 },
+  { source: 0, dest: 2, amount: 0.45 },
+  { source: 1, dest: 3, amount: 0.55 },
+];
+const MAX_ROUTES = 4;
+const routeViews = new Set<() => void>();
+const rerenderRoutes = (): void => {
+  for (const v of routeViews) v();
+};
+
 function modPanel(): HTMLElement {
-  const routes: Route[] = [
-    { source: 0, dest: 0, amount: 0.72 },
-    { source: 0, dest: 2, amount: 0.45 },
-    { source: 1, dest: 3, amount: 0.55 },
-  ];
-  const MAX_ROUTES = 4;
   const list = el('div', 'routes');
   const count = el('span', 'panel__aside');
 
@@ -216,7 +251,7 @@ function modPanel(): HTMLElement {
         src.title = 'Click to change the source';
         src.addEventListener('click', () => {
           route.source = (route.source + 1) % MOD_SOURCES.length;
-          render();
+          rerenderRoutes();
         });
 
         const dest = el('button', 'route__dest', MOD_DESTINATIONS[route.dest] ?? '');
@@ -224,12 +259,12 @@ function modPanel(): HTMLElement {
         dest.title = 'Click to change the destination; right-click to remove';
         dest.addEventListener('click', () => {
           route.dest = (route.dest + 1) % MOD_DESTINATIONS.length;
-          render();
+          rerenderRoutes();
         });
         dest.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           routes.splice(i, 1);
-          render();
+          rerenderRoutes();
         });
 
         const fill = el('span', 'amount__fill');
@@ -242,6 +277,7 @@ function modPanel(): HTMLElement {
           fill.style.width = `${route.amount * 100}%`;
           bar.title = `${Math.round(route.amount * 100)} %`;
         };
+        bar.addEventListener('pointerup', rerenderRoutes);
         bar.addEventListener('pointerdown', (e) => {
           bar.setPointerCapture(e.pointerId);
           setFrom(e);
@@ -255,11 +291,12 @@ function modPanel(): HTMLElement {
     add.disabled = routes.length >= MAX_ROUTES;
     add.addEventListener('click', () => {
       routes.push({ source: 2, dest: 4, amount: 0.5 });
-      render();
+      rerenderRoutes();
     });
     list.append(add);
     count.textContent = `${routes.length}/${MAX_ROUTES}`;
   };
+  routeViews.add(render);
   render();
 
   return panel({ title: 'MOD MATRIX', aside: count, accent: 'violet' }, list);
@@ -274,31 +311,20 @@ function fxPanel(index: number, slot: string, title: string, a: string, b: strin
   );
 }
 
-function logoPanel(): HTMLElement {
-  const canvas = el('canvas', 'logo__canvas');
-  const paint = mountLogo(canvas);
-  logoPaint = paint;
-  logoCanvas = canvas;
-  return el('section', 'panel logo', canvas);
+const logos: { canvas: HTMLCanvasElement; paint: (t: number) => void }[] = [];
+function logoCanvas(cls: string): HTMLCanvasElement {
+  const canvas = el('canvas', cls);
+  logos.push({ canvas, paint: mountLogo(canvas) });
+  return canvas;
 }
-let logoPaint: ((t: number) => void) | null = null;
-let logoCanvas: HTMLCanvasElement | null = null;
 
-/* ------------------------------------------------------------------- toast */
-
-let toastTimer = 0;
-function toast(message: string): void {
-  const node = document.querySelector<HTMLElement>('.toast');
-  if (!node) return;
-  node.textContent = message;
-  node.dataset.show = 'true';
-  window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (node.dataset.show = 'false'), 2600);
+function logoPanel(): HTMLElement {
+  return el('section', 'panel logo', logoCanvas('logo__canvas'));
 }
 
 /* ------------------------------------------------------------------ layout */
 
-function build(): HTMLElement {
+function desktop(): HTMLElement {
   return el(
     'div',
     'app',
@@ -314,42 +340,220 @@ function build(): HTMLElement {
       fxPanel(4, 'ott', 'OTT', 'ott.depth', 'ott.time'),
       logoPanel(),
     ),
-    el('div', 'toast'),
   );
 }
 
-function fit(app: HTMLElement, stage: HTMLElement): void {
-  const scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
-  // On a phone held upright the panel is width-bound; centre it vertically.
-  app.style.transform = `scale(${scale})`;
-  app.dataset.scale = `${scale}`;
-  stage.style.width = `${DESIGN_W * scale}px`;
-  stage.style.height = `${DESIGN_H * scale}px`;
-  for (const { d } of displays) resizeDisplay(d, scale);
-  if (logoCanvas) {
-    const density = Math.min(3, (window.devicePixelRatio || 1) * scale);
-    logoCanvas.width = Math.round(logoCanvas.clientWidth * density);
-    logoCanvas.height = Math.round(logoCanvas.clientHeight * density);
+/* ---------------------------------------------------------------- keyboard */
+
+// C1 to C3: where riddim basses live, and two octaves fit a phone's width.
+const KEY_LOW = 24;
+const KEY_HIGH = 48;
+const BLACK = new Set([1, 3, 6, 8, 10]);
+
+const keyViews = new Set<() => void>();
+function keyboard(): HTMLElement {
+  const root = el('div', 'keys');
+  const whites = el('div', 'keys__whites');
+  const blacks = el('div', 'keys__blacks');
+  const byNote = new Map<number, HTMLElement>();
+  let whiteCount = 0;
+  for (let n = KEY_LOW; n <= KEY_HIGH; n += 1) if (!BLACK.has(n % 12)) whiteCount += 1;
+
+  let w = 0;
+  for (let n = KEY_LOW; n <= KEY_HIGH; n += 1) {
+    const black = BLACK.has(n % 12);
+    const key = el('span', black ? 'key key--black' : 'key key--white');
+    if (black) {
+      key.style.left = `${(w / whiteCount) * 100}%`;
+      key.style.width = `${(0.62 / whiteCount) * 100}%`;
+      blacks.append(key);
+    } else {
+      if (n % 12 === 0) key.append(el('span', 'key__label', noteName(n)));
+      whites.append(key);
+      w += 1;
+    }
+    key.dataset.note = `${n}`;
+    byNote.set(n, key);
+  }
+  root.append(whites, blacks);
+
+  // One finger, one note: a glide across the keys retriggers as it crosses.
+  let held: number | null = null;
+  const noteAt = (e: PointerEvent): number | null => {
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const key = target instanceof HTMLElement ? target.closest<HTMLElement>('.key') : null;
+    return key && root.contains(key) ? Number(key.dataset.note) : null;
+  };
+  const play = (n: number | null): void => {
+    if (n === held) return;
+    if (held !== null) noteOff(held, clock());
+    held = n;
+    if (n !== null) noteOn(n, clock());
+    for (const v of keyViews) v();
+  };
+  root.addEventListener('pointerdown', (e) => {
+    root.setPointerCapture(e.pointerId);
+    play(noteAt(e));
+  });
+  root.addEventListener('pointermove', (e) => root.hasPointerCapture(e.pointerId) && play(noteAt(e)));
+  const up = (): void => play(null);
+  root.addEventListener('pointerup', up);
+  root.addEventListener('pointercancel', up);
+
+  keyViews.add(() => {
+    const on = currentNote();
+    for (const [n, key] of byNote) key.dataset.on = n === on ? 'true' : 'false';
+  });
+  return root;
+}
+
+/* ------------------------------------------------------------------- phone */
+
+const TABS = [
+  { label: 'OSC', build: (): HTMLElement[] => [oscPanel(1, 'GROWL_TABLE_01'), oscPanel(2, 'HARD_SQUARE'), subPanel()] },
+  { label: 'FILTER', build: (): HTMLElement[] => [vowelPanel(), envelopePanel()] },
+  { label: 'WOBBLE', build: (): HTMLElement[] => [wobblePanel()] },
+  { label: 'MOD', build: (): HTMLElement[] => [modPanel()] },
+  {
+    label: 'FX',
+    build: (): HTMLElement[] => [
+      fxPanel(1, 'dist', 'DIST', 'dist.drive', 'dist.mix'),
+      fxPanel(2, 'fold', 'FOLD', 'fold.amount', 'fold.mix'),
+      fxPanel(3, 'crush', 'CRUSH', 'crush.bits', 'crush.rate'),
+      fxPanel(4, 'ott', 'OTT', 'ott.depth', 'ott.time'),
+    ],
+  },
+] as const;
+
+/**
+ * The phone layout: one section at a time behind tabs, controls at finger
+ * size, the scope and a keyboard always in reach. Upright, everything stacks;
+ * sideways, the scope and keys take the left and the section the right.
+ */
+function phone(): HTMLElement {
+  const pages = TABS.map((tab) => el('div', 'm__page', ...tab.build()));
+  const tabs = el('nav', 'm__tabs chips');
+  const buttons = TABS.map((tab, i) => {
+    const b = chipButton(tab.label);
+    b.addEventListener('click', () => select(i));
+    tabs.append(b);
+    return b;
+  });
+  const content = el('div', 'm__pages', ...pages);
+  const select = (i: number): void => {
+    pages.forEach((p, k) => (p.hidden = k !== i));
+    buttons.forEach((b, k) => (b.dataset.on = k === i ? 'true' : 'false'));
+    content.scrollTop = 0;
+    // A page that was hidden has zero width; size its displays now.
+    requestAnimationFrame(() => fit());
+  };
+  select(0);
+
+  return el(
+    'div',
+    'm',
+    el(
+      'div',
+      'm__side',
+      el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), masterKnob()),
+      el('div', 'm__preset', presetPicker(), aiButton('AI')),
+      scope(320, 64),
+      keyboard(),
+    ),
+    el('div', 'm__main', tabs, content),
+  );
+}
+
+/* ------------------------------------------------------------------- toast */
+
+let toastTimer = 0;
+function toast(message: string): void {
+  const node = document.querySelector<HTMLElement>('.toast');
+  if (!node) return;
+  node.textContent = message;
+  node.dataset.show = 'true';
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => (node.dataset.show = 'false'), 2600);
+}
+
+/* -------------------------------------------------------------------- fit */
+
+let desktopApp: HTMLElement | null = null;
+let stage: HTMLElement | null = null;
+
+/** Phone layout when the window is phone-sized in either orientation. */
+function isPhone(): boolean {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return w < 760 || (h < 500 && w < 1000);
+}
+
+function fit(): void {
+  const phoneMode = isPhone();
+  document.body.dataset.mode = phoneMode ? 'phone' : 'desktop';
+  document.body.dataset.orient = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+
+  let scale = 1;
+  if (!phoneMode && desktopApp && stage) {
+    scale = Math.min(window.innerWidth / DESIGN_W, window.innerHeight / DESIGN_H);
+    desktopApp.style.transform = `scale(${scale})`;
+    desktopApp.dataset.scale = `${scale}`;
+    stage.style.width = `${DESIGN_W * scale}px`;
+    stage.style.height = `${DESIGN_H * scale}px`;
+  }
+  for (const { d } of displays) if (isShown(d.root)) resizeDisplay(d, phoneMode ? 1 : scale);
+  for (const { canvas } of logos) {
+    if (!isShown(canvas)) continue;
+    const density = Math.min(3, (window.devicePixelRatio || 1) * (phoneMode ? 1 : scale));
+    canvas.width = Math.round(canvas.clientWidth * density);
+    canvas.height = Math.round(canvas.clientHeight * density);
   }
 }
 
-function start(): void {
-  const stage = el('div', 'stage');
-  const app = build();
-  stage.append(app);
-  document.body.append(stage);
+function isShown(node: HTMLElement): boolean {
+  return node.offsetParent !== null;
+}
 
-  fit(app, stage);
-  window.addEventListener('resize', () => fit(app, stage));
+/* ------------------------------------------------------------------ start */
+
+const t0 = performance.now();
+function clock(): number {
+  return (performance.now() - t0) / 1000;
+}
+
+// Computer keys for the desktop preview: A W S E D F T G Y H U J K = C2..C3.
+const COMPUTER_KEYS = 'awsedftgyhujk';
+
+function start(): void {
+  stage = el('div', 'stage');
+  desktopApp = desktop();
+  stage.append(desktopApp);
+  document.body.append(stage, phone(), el('div', 'toast'));
+
+  fit();
+  window.addEventListener('resize', fit);
 
   // Double-click the wordmark to reset the whole panel.
-  app.querySelector('.brand')?.addEventListener('dblclick', () => resetAll());
+  desktopApp.querySelector('.brand')?.addEventListener('dblclick', () => resetAll());
 
-  const t0 = performance.now();
-  const frame = (now: number): void => {
-    const t = (now - t0) / 1000;
-    for (const { paint } of displays) paint(t);
-    logoPaint?.(t);
+  window.addEventListener('keydown', (e) => {
+    const i = COMPUTER_KEYS.indexOf(e.key.toLowerCase());
+    if (i < 0 || e.repeat || e.metaKey || e.ctrlKey) return;
+    noteOn(36 + i, clock());
+    for (const v of keyViews) v();
+  });
+  window.addEventListener('keyup', (e) => {
+    const i = COMPUTER_KEYS.indexOf(e.key.toLowerCase());
+    if (i < 0) return;
+    noteOff(36 + i, clock());
+    for (const v of keyViews) v();
+  });
+
+  const frame = (): void => {
+    const t = clock();
+    // Only what is on screen: the hidden layout costs nothing per frame.
+    for (const { d, paint } of displays) if (isShown(d.root)) paint(t);
+    for (const { canvas, paint } of logos) if (isShown(canvas)) paint(t);
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

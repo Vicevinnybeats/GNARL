@@ -9,6 +9,7 @@
 
 import type { Display } from './widgets';
 import { get } from './store';
+import { noteName, sounding } from './voice';
 
 export const CYAN = '#5fe3ff';
 export const BLUE = '#3d8bff';
@@ -339,4 +340,76 @@ export function drawEnvelope(d: Display): void {
     return s * Math.pow(1 - f, 3);
   };
   trace(d, fn, CYAN, { glow: true, width: 1.7, fill: true });
+}
+
+/* ------------------------------------------------------------------- scope */
+
+/**
+ * One sample of the preview model at phase `ph` of the note's cycle: the two
+ * oscillators and the sub, brightened and darkened by the wobble on the
+ * cutoff, through whichever FX are on. A picture of the patch's SHAPE for the
+ * browser; the plugin's scope reads the engine's real output.
+ */
+function scopeSample(ph: number, t: number): number {
+  const wt1 = Math.min(1, Math.max(0, get('osc1.wtpos') + wobbleTo('wtpos', t) * 0.6));
+  let v = 0;
+  if (get('osc1.on')) v += oscSample(1, ph % 1, wt1);
+  if (get('osc2.on')) v += 0.5 * oscSample(2, (ph * 1.003) % 1, get('osc2.wtpos'));
+  if (get('vowel.on')) {
+    // A closed filter leaves mostly the fundamental: blend towards it.
+    const bright = Math.min(1, Math.max(0.05, get('vowel.cutoff') + wobbleTo('cutoff', t)));
+    v = v * bright + Math.sin(TAU * ph) * (1 - bright) * 0.8;
+  }
+  if (get('sub.on')) {
+    const subPh = get('sub.oct') ? ph / 2 : ph;
+    v += get('sub.level') * 0.8 * Math.sin(TAU * subPh);
+  }
+  if (get('dist.on')) {
+    const k = 1 + get('dist.drive') * 6;
+    v = v + (Math.tanh(v * k) - v) * get('dist.mix');
+  }
+  if (get('fold.on')) v = v + (Math.sin(v * (1 + get('fold.amount') * 3)) - v) * get('fold.mix');
+  if (get('crush.on')) {
+    const levels = Math.pow(2, Math.round(get('crush.bits')) - 1);
+    v = Math.round(v * levels) / levels;
+  }
+  return Math.tanh(v * 0.9);
+}
+
+export function drawScope(d: Display, t: number, now: number): void {
+  const { ctx, width, height } = d;
+  ctx.clearRect(0, 0, width, height);
+  const { midi, amp } = sounding(now);
+  const level = amp * (0.25 + get('master') * 0.75);
+
+  // A fixed 30 ms window: pitch shows as how many cycles fit, the way it
+  // does on a hardware scope. C1 is under one cycle, C3 is almost four.
+  const hz = 440 * Math.pow(2, (midi - 69) / 12);
+  const cycles = hz * 0.03;
+  // The window drifts slowly so a held note visibly moves, not a frozen frame.
+  const drift = t * 0.35;
+
+  ctx.strokeStyle = 'rgba(160, 130, 255, 0.12)';
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2 + 0.5);
+  ctx.lineTo(width, height / 2 + 0.5);
+  ctx.stroke();
+
+  if (level <= 0) {
+    ctx.fillStyle = 'rgba(184, 168, 220, 0.55)';
+    ctx.font = '500 8.5px "JetBrains Mono", ui-monospace, monospace';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('HOLD TO PLAY', 8, height / 2 - 0.5);
+    return;
+  }
+
+  trace(d, (x) => 0.5 + 0.46 * level * scopeSample(drift + x * cycles, t), CYAN, {
+    glow: true,
+    width: 1.5,
+    pad: 2,
+  });
+  ctx.fillStyle = 'rgba(244, 240, 255, 0.8)';
+  ctx.font = '700 8.5px "JetBrains Mono", ui-monospace, monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText(noteName(midi), 6, 4);
 }

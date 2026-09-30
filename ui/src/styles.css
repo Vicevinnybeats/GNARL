@@ -195,15 +195,13 @@ body {
   font-size: 13px;
 }
 
-.meter {
-  display: grid;
-  gap: 4px;
-  width: 80px;
+/* The live waveform beside MASTER. */
+.scope {
+  cursor: pointer;
+  touch-action: none;
 }
-.meter__bar {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--chip-on) var(--level), rgba(255, 255, 255, 0.12) var(--level));
+.scope:active {
+  border-color: var(--cyan-dim);
 }
 
 /* ------------------------------------------------------------------- panel */
@@ -587,7 +585,7 @@ body {
 /* ------------------------------------------------------------------- toast */
 
 .toast {
-  position: absolute;
+  position: fixed;
   left: 50%;
   bottom: 18px;
   transform: translate(-50%, 12px);
@@ -610,4 +608,267 @@ body {
   * {
     transition-duration: 0ms !important;
   }
+}
+
+/* ----------------------------------------------------------------- modes */
+
+.m {
+  display: none;
+}
+body[data-mode='phone'] .stage {
+  display: none;
+}
+body[data-mode='phone'] {
+  display: block;
+  /* The page itself never scrolls; the section list inside it does. */
+  background:
+    radial-gradient(120% 60% at 10% -10%, rgba(178, 106, 255, 0.45) 0%, transparent 60%),
+    radial-gradient(90% 50% at 100% 0%, rgba(70, 220, 255, 0.18) 0%, transparent 58%),
+    linear-gradient(180deg, #241553 0%, #12092a 70%);
+}
+body[data-mode='phone'] .m {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: env(safe-area-inset-top, 0px) 12px env(safe-area-inset-bottom, 0px);
+  gap: 10px;
+}
+
+/* ------------------------------------------------------------------ phone */
+
+/* Upright, the two columns dissolve into one stack so the keyboard can sit
+   at the bottom, under the thumbs, and the sections scroll between. */
+body[data-orient='portrait'] .m__side,
+body[data-orient='portrait'] .m__main {
+  display: contents;
+}
+body[data-orient='portrait'] .keys {
+  order: 10;
+  margin-bottom: 8px;
+}
+.m .display canvas {
+  max-width: 100%;
+}
+
+.m__side,
+.m__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.m__main {
+  flex: 1;
+}
+
+.m__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+.m__top .brand__word {
+  font-size: 18px;
+}
+.m__logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+.m__preset {
+  display: flex;
+  gap: 8px;
+}
+.m__preset .preset {
+  flex: 1;
+  width: auto;
+  margin: 0;
+  height: 40px;
+}
+.m__preset .ai {
+  height: 40px;
+  padding: 0 14px;
+}
+
+.m .scope {
+  flex: none;
+  height: 64px !important;
+}
+
+.m__tabs {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.m__tabs .chip {
+  flex: 1;
+  height: 36px;
+  padding: 0;
+  font-size: 10.5px;
+}
+
+.m__pages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+.m__page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* An author display rule beats the browser's [hidden]; restate it. */
+.m__page[hidden] {
+  display: none;
+}
+
+/* Finger-sized controls: 44 px is the smallest target a thumb hits reliably. */
+.m .knob__dial {
+  width: 46px;
+  height: 46px;
+}
+.m .knob {
+  min-width: 52px;
+}
+.m .knob__label {
+  font-size: 10px;
+}
+.m .knob__readout {
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+.m .knobs {
+  flex-wrap: wrap;
+  justify-content: space-around;
+  row-gap: 10px;
+}
+.m .chip {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 10.5px;
+}
+.m .chips--tabs .chip {
+  height: 26px;
+}
+.m .panel__head {
+  height: 36px;
+}
+.m .panel__dot {
+  width: 12px;
+  height: 12px;
+}
+.m .wobble__grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.m .route {
+  grid-template-columns: 90px 1fr 70px;
+}
+.m .route .chip {
+  height: 32px;
+}
+.m .route__add {
+  height: 36px;
+}
+.m .fx__row {
+  padding-top: 4px;
+}
+.m .display {
+  width: 100%;
+}
+
+/* The keyboard: two octaves, C1 to C3. */
+.keys {
+  position: relative;
+  flex: none;
+  height: 96px;
+  touch-action: none;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.keys__whites {
+  display: flex;
+  height: 100%;
+}
+.key--white {
+  position: relative;
+  flex: 1;
+  background: linear-gradient(180deg, #e9e4f7 0%, #cfc6ea 100%);
+  border-right: 1px solid #8f7fc0;
+}
+.key--white:last-child {
+  border-right: 0;
+}
+.key__label {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  color: #4a3a7a;
+  pointer-events: none;
+}
+.keys__blacks {
+  position: absolute;
+  inset: 0 0 38% 0;
+  pointer-events: none;
+}
+.key--black {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #1c1238 0%, #0d0820 100%);
+  border-radius: 0 0 3px 3px;
+  pointer-events: auto;
+}
+.key[data-on='true'] {
+  background: var(--cyan);
+  box-shadow: 0 0 14px var(--cyan);
+}
+
+/* Sideways: scope and keys on the left, the section on the right. */
+body[data-mode='phone'][data-orient='landscape'] .m {
+  flex-direction: row;
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+}
+body[data-orient='landscape'] .m__side {
+  width: 38%;
+  max-width: 330px;
+  flex: none;
+  padding-bottom: 8px;
+}
+body[data-orient='landscape'] .m__main {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+body[data-orient='landscape'] .m__top {
+  padding-top: 8px;
+}
+body[data-orient='landscape'] .m .scope {
+  height: 52px !important;
+}
+body[data-orient='landscape'] .keys {
+  flex: 1;
+  min-height: 70px;
+  height: auto;
+}
+/* Two sections side by side where there is room. */
+body[data-orient='landscape'] .m__page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-items: start;
+}
+body[data-mode='phone'] .toast {
+  position: fixed;
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 32px);
+  text-align: center;
 }

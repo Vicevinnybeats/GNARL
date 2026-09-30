@@ -28,6 +28,26 @@
   osc 1 picture and the vowel curve at the preview tempo (140 BPM), so the
   routing is visible before any audio.
 
+## Scope and phone layout (second pass)
+
+- **Scope beside MASTER**: a moving waveform of the output. Hold it (or use
+  the keys A–K, or the touch keyboard) to play a note; it shows the note's
+  name, and pitch shows as how many cycles fit a fixed 30 ms window. In the
+  browser it draws a MODEL of the patch (oscillators, sub, the wobble on
+  the cutoff, the FX that are on) shaped by the amp envelope
+  (`ui/src/voice.ts`). It is not the engine's sound; inside the plugin it
+  will read the real output.
+- **Phone layout** (`phone()` in `ui/src/main.ts`), chosen when the window
+  is under 760 px wide, or under 500 px tall and under 1000 px wide:
+  - Upright: logo, master, preset and AI button, scope, five section tabs
+    (OSC, FILTER, WOBBLE, MOD, FX), the section scrolling, and a two-octave
+    keyboard (C1–C3) at the bottom under the thumbs.
+  - Sideways: scope and keys on the left, sections on the right, two
+    panels side by side where they fit.
+  - Knobs are 46 px and buttons 32–40 px: finger size.
+  - The same panels and the same state as the desktop, so a change on one
+    layout shows on the other.
+
 ## Binding to the engine
 
 `ui/src/params.ts` lists every control with the engine parameter it will
