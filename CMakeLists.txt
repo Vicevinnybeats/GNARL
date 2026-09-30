@@ -230,13 +230,22 @@ juce_add_binary_data(gnarl_binary_data
 # (and when package-lock.json changes), the build whenever ui/ changes.
 
 find_program(GNARL_NPM npm REQUIRED)
+# On Windows npm is npm.cmd, and MSBuild runs a custom command's steps as ONE
+# batch file. A batch file that runs another without CALL never returns: in
+# windows-juce8, `npm ci` ran and the stamp and the page copy after it
+# silently did not, and the build failed later on a missing BinaryData1.cpp.
+if(WIN32)
+  set(GNARL_NPM_RUN call ${GNARL_NPM})
+else()
+  set(GNARL_NPM_RUN ${GNARL_NPM})
+endif()
 set(GNARL_UI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 set(GNARL_UI_HTML ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-ui.html)
 file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp
-  COMMAND ${GNARL_NPM} ci --no-audit --no-fund
+  COMMAND ${GNARL_NPM_RUN} ci --no-audit --no-fund
   COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp
   DEPENDS ${GNARL_UI_DIR}/package-lock.json
   WORKING_DIRECTORY ${GNARL_UI_DIR}
@@ -244,7 +253,7 @@ add_custom_command(
 
 add_custom_command(
   OUTPUT ${GNARL_UI_HTML}
-  COMMAND ${GNARL_NPM} run build
+  COMMAND ${GNARL_NPM_RUN} run build
   COMMAND ${CMAKE_COMMAND} -E copy ${GNARL_UI_DIR}/dist/gnarl-ui.html ${GNARL_UI_HTML}
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp ${GNARL_UI_SOURCES}
           ${GNARL_UI_DIR}/index.html ${GNARL_UI_DIR}/vite.config.ts ${GNARL_UI_DIR}/scripts/inline.mjs
