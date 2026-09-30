@@ -16,6 +16,9 @@ is the only reason for each one to exist:
   - logo bytes in BinaryData drifting from the SVG they came from
   - an Xcode project damaged by a regex (`name = ;`), invisible to an XML
     parser and fatal to xcodebuild
+  - the renderer reporting version 99999.9.9 while the plugin is 1.0.6: the
+    loader REFUSES a patch newer than itself, so every patch the renderer
+    saved would have opened in the plugin as the init patch
 
 Exit status is the number of failures.
 """
@@ -118,6 +121,27 @@ for p in files('*.jucer'):
     for ref in re.findall(r'file="\.\./icons/([^"]+)"', text(p)):
         if not (ROOT / 'icons' / ref).exists():
             fail(f'{p.relative_to(ROOT)} references icons/{ref}, which does not exist')
+
+# 7. one version everywhere. jsonToState refuses a patch whose synth_version
+#    is newer than the program loading it - silently, in upstream's renderer -
+#    so a build stamped with a different version than the plugin writes
+#    patches the plugin will not open, or cannot open the plugin's own.
+plugin_version = re.search(r'<JUCERPROJECT [^>]*version="([^"]+)"', text(ROOT / 'plugin' / 'gnarl.jucer')).group(1)
+for p in files('*.jucer'):
+    m = re.search(r'<JUCERPROJECT [^>]*version="([^"]+)"', text(p))
+    if m and m.group(1) != plugin_version:
+        fail(f'{p.relative_to(ROOT)} is version {m.group(1)}, the plugin is {plugin_version}')
+for p in sorted(ROOT.glob('*/JuceLibraryCode/JuceHeader.h')):
+    m = re.search(r'versionString\s*=\s*"([^"]+)"', text(p))
+    if m and m.group(1) != plugin_version:
+        fail(f'{p.relative_to(ROOT)} says {m.group(1)}, the plugin is {plugin_version}')
+m = re.search(r'project\(GNARL VERSION ([0-9.]+)', text(ROOT / 'CMakeLists.txt'))
+if not m or m.group(1) != plugin_version:
+    fail(f'CMakeLists.txt project version is {m and m.group(1)}, the plugin is {plugin_version}')
+for p in sorted((ROOT / 'tests').rglob('*.vital')):
+    m = re.search(r'"synth_version"\s*:\s*"([^"]+)"', text(p))
+    if not m or m.group(1) != plugin_version:
+        fail(f'{p.relative_to(ROOT)} is stamped {m and m.group(1)}, the plugin is {plugin_version}: the plugin would refuse it if newer')
 
 print(f'check_fork: {len(fails)} failure(s)')
 sys.exit(min(len(fails), 100))

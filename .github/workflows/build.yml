@@ -81,6 +81,19 @@ jobs:
           sudo apt-get install -y -qq python3-numpy
           python3 tests/test_wobble.py
 
+      #  The JUCE 8 / CMake renderer (docs/design/phase2-03-juce8.md) must be
+      #  sample-for-sample identical to the Projucer / JUCE 6 one: the engine
+      #  did not change, so its output may not. Then the wobble tests again,
+      #  on the new build.
+      - name: JUCE 8 renderer matches JUCE 6
+        run: |
+          sudo apt-get install -y -qq ninja-build
+          cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-cmake --target gnarl_render
+          python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
+            build-cmake/gnarl_render_artefacts/Release/gnarl-render
+          python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+
       - uses: actions/upload-artifact@v4
         with:
           name: GNARL-linux-vst3

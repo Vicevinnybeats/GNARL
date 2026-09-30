@@ -118,3 +118,17 @@ the merge commit forward: `git log 7651809..`.
   plugin. See `docs/design/phase2-02-ui.md`.
 - `ui/`: a scope beside MASTER that draws a moving waveform when a note is
   held, a touch keyboard, and a phone layout for upright and sideways use.
+
+## 2026-09-30 - Renderer version fix; CMake + JUCE 8 renderer
+
+- The headless renderer is named GNARL and versioned 1.0.6 like the plugin.
+  It was "Vital" 99999.9.9, and the loader refuses patches newer than
+  itself, so its saved patches would have opened in the plugin as init.
+  `tests/patches/*.vital` re-stamped 1.0.6 (renders unchanged, checked).
+- The renderer exits with an error when a named patch is missing or cannot
+  be loaded (`src/headless/main.cpp`).
+- `check_fork.py`: one version across every project, CMakeLists.txt and the
+  committed test patches.
+- `CMakeLists.txt`: the renderer builds with CMake on JUCE 8.0.9, fetched
+  at a pinned tag. `tools/compare_renders.py` proves it bit-identical to the
+  JUCE 6 build; CI runs the comparison. See docs/design/phase2-03-juce8.md.

@@ -78,7 +78,17 @@ g++ -std=c++17 -I third_party/VST_SDK/VST3_SDK tools/vst3_probe.cpp -o /tmp/prob
 headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140 patch.vital
 
 python3 tests/test_wobble.py          # renders + measures the wobble macro
+
+# The CMake + JUCE 8 renderer (stage 1 of docs/design/phase2-03-juce8.md),
+# and the gate it must pass: bit-identical to the JUCE 6 build
+cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-cmake --target gnarl_render
+python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
+  build-cmake/gnarl_render_artefacts/Release/gnarl-render
 ```
+
+**The renderer exits with an error if a named patch cannot be loaded.**
+Upstream's ignored the failure and rendered the init patch with exit code 0.
 
 **The renderer is deterministic**: rebuilt from clean and run again, the WAV
 is byte-identical. That is what makes a comparison between two renders a
@@ -240,6 +250,12 @@ codebase:
 - Old presets are migrated in `LoadSave::updateFromOldVersion`, keyed on the
   `synth_version` string. A change in a parameter's *meaning* needs a
   migration there.
+- **Every build carries the plugin's version** (`plugin/gnarl.jucer`,
+  1.0.6). `jsonToState` REFUSES a patch whose `synth_version` is newer than
+  the program loading it. The renderer used to say 99999.9.9, so every patch
+  it saved would have opened in the plugin as the init patch.
+  `check_fork.py` enforces one version across every project, `CMakeLists.txt`
+  and every committed test patch. Bump them together.
 - **Host order is sorted by `(version_added, name)`** (`compareValueDetails`),
   not by position in the list. A new parameter must carry a `version_added`
   newer than every existing one (upstream's highest is `0x000803`; GNARL's
@@ -313,7 +329,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`) |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts) built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`); JUCE 8 move: stage 1 (renderer) done and bit-identical (`docs/design/phase2-03-juce8.md`) |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
