@@ -15,6 +15,7 @@ import { engine, engineViews } from './engine';
 import { CHOICES, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
 import { apply, get, onGesture, refresh, subscribe } from './store';
 import { setNoteSink } from './voice';
+import vowelMap from './vowels.json';
 
 interface JuceBackend {
   emitEvent(id: string, payload: unknown): void;
@@ -49,6 +50,8 @@ interface Binding {
   fromHost(host: number): number;
   /** The engine's readout replaces the page's own under this control. */
   text: boolean;
+  /** Only while filter 1 is (true) or is not (false) in the formant model. */
+  formant?: boolean;
 }
 
 // Controls that are the page's own business, not an engine parameter:
@@ -56,11 +59,32 @@ interface Binding {
 // turns into a LineGenerator shape and three route depths.
 const PAGE_ONLY = new Set(['env.page', 'wobble.shape', 'wobble.on', 'sub.mono']);
 
+/* --------------------------------------------------------------- filter 1 */
+
+// Vital's filter_1_model index of the formant filter, and its model names.
+const FORMANT_MODEL = 5;
+const MODEL_NAMES = ['ANALOG', 'DIRTY', 'LADDER', 'DIGITAL', 'DIODE', 'FORMANT', 'COMB', 'PHASER'];
+// Formant style labels as MEASURED (tests/test_vowel.py): Vital's own labels
+// for these two are swapped.
+const FORMANT_STYLE_NAMES = ['AIUO', 'AOIE', 'MOUTH'];
+// Where each vowel button puts the formant filter, and the names that
+// setting lives in.
+interface VowelPosition { style: number; x: number; y: number }
+const VOWELS: Readonly<Record<string, VowelPosition>> = Object.fromEntries(
+  Object.entries(vowelMap).filter(([k]) => k.length === 1) as [string, VowelPosition][],
+);
+const FILTER_NAMES = ['filter_1_model', 'filter_1_style', 'filter_1_formant_x', 'filter_1_formant_y'];
+const FILTER_IDS = ['vowel.cutoff', 'vowel.res', 'vowel.morph', 'vowel.drive'];
+// The engine's last host value and text per name, for the binding a model
+// switch makes active, and for the vowel buttons.
+const lastEntry = new Map<string, Entry>();
+let filterModel = -1;
+
 const WOBBLE_NAMES: readonly string[] = WOBBLE_DESTINATIONS.flatMap((d) => (d.vital ? [d.vital] : []));
 
 let backend: JuceBackend | null = null;
 let steps: Record<string, number> = {};
-const bindings = new Map<string, Binding>(); // by page id
+const bindings = new Map<string, Binding[]>(); // by page id; two for filter 1's knobs
 const byName = new Map<string, Binding>(); // by engine name
 const wobbleAmounts = new Map<string, number>(); // engine value, -1..1
 
@@ -82,18 +106,24 @@ function call(name: string, ...params: unknown[]): Promise<unknown> {
 function buildBindings(): void {
   const clamp = (v: number): number => Math.min(1, Math.max(0, v));
   for (const p of PARAMS) {
-    if (!p.vital) continue;
     const span = p.max - p.min;
-    add({
+    const knob = (name: string, formant?: boolean): Binding => ({
       id: p.id,
-      name: p.vital,
+      name,
       toHost: (v) => clamp((v - p.min) / span),
       fromHost: (h) => {
         const v = p.min + h * span;
         return p.step ? Math.round(v / p.step) * p.step : v;
       },
       text: true,
+      formant,
     });
+    if (p.formant === undefined) {
+      if (p.vital) add(knob(p.vital));
+      continue;
+    }
+    if (p.vital) add(knob(p.vital, false));
+    if (p.formant) add(knob(p.formant, true));
   }
   for (const c of CHOICES) {
     if (!c.vital || !c.values) continue;
@@ -121,8 +151,83 @@ function buildBindings(): void {
 }
 
 function add(b: Binding): void {
-  bindings.set(b.id, b);
+  bindings.set(b.id, [...(bindings.get(b.id) ?? []), b]);
   byName.set(b.name, b);
+}
+
+function isActive(b: Binding): boolean {
+  return b.formant === undefined || b.formant === (filterModel === FORMANT_MODEL);
+}
+
+/** The binding a control sends through now: filter 1's depend on its model. */
+function activeBinding(id: string): Binding | undefined {
+  return bindings.get(id)?.find(isActive);
+}
+
+/** Engine value of an indexed parameter (all start at 0), from its host value. */
+function indexOf(name: string): number {
+  const entry = lastEntry.get(name);
+  const last = Math.max(1, (steps[name] ?? 2) - 1);
+  return entry ? Math.round(entry[0] * last) : -1;
+}
+
+function hostOfIndex(name: string, index: number): number {
+  return index / Math.max(1, (steps[name] ?? 2) - 1);
+}
+
+/** The vowel button lit by filter 1's current setting, or -1 for none. */
+function currentVowel(options: readonly string[]): number {
+  if (filterModel !== FORMANT_MODEL) return -1;
+  const style = indexOf('filter_1_style');
+  const x = lastEntry.get('filter_1_formant_x')?.[0] ?? -1;
+  const y = lastEntry.get('filter_1_formant_y')?.[0] ?? -1;
+  return options.findIndex((v) => {
+    const at = VOWELS[v];
+    return at !== undefined && at.style === style && Math.abs(at.x - x) < 1e-3 && Math.abs(at.y - y) < 1e-3;
+  });
+}
+
+function sendVowel(vowel: string): void {
+  const at = VOWELS[vowel];
+  if (!at) return;
+  // Pressing a vowel means hearing it: the section switches on too.
+  send('gnarlSet', { name: 'filter_1_on', value: 1 });
+  send('gnarlSet', { name: 'filter_1_model', value: hostOfIndex('filter_1_model', FORMANT_MODEL) });
+  send('gnarlSet', { name: 'filter_1_style', value: hostOfIndex('filter_1_style', at.style) });
+  send('gnarlSet', { name: 'filter_1_formant_x', value: at.x });
+  send('gnarlSet', { name: 'filter_1_formant_y', value: at.y });
+}
+
+/**
+ * Filter 1's model changed (or arrived): name it in the panel's corner, move
+ * each knob to the engine name that model reads, and dim what it lacks.
+ */
+function applyFilterModel(bound: ReadonlySet<string>): void {
+  const style = indexOf('filter_1_style');
+  const label = MODEL_NAMES[filterModel] ?? '';
+  const aside = filterModel === FORMANT_MODEL ? `${label} ${FORMANT_STYLE_NAMES[style] ?? ''}`.trim() : label;
+  for (const node of document.querySelectorAll<HTMLElement>('[data-filter-model]')) node.textContent = aside;
+
+  for (const id of FILTER_IDS) {
+    const b = activeBinding(id);
+    const entry = b ? lastEntry.get(b.name) : undefined;
+    for (const node of document.querySelectorAll<HTMLElement>(`[data-param="${id}"]`)) {
+      if (b && bound.has(b.name)) {
+        delete node.dataset.unbound;
+        node.title = '';
+      } else {
+        node.dataset.unbound = 'true';
+        node.title = `Not in the ${label.toLowerCase()} filter`;
+      }
+    }
+    if (b && entry) {
+      engine.text.set(id, tidyText(entry[1]));
+      apply(id, b.fromHost(entry[0]));
+      refresh(id);
+    }
+  }
+  const vowels = CHOICES.find((c) => c.id === 'vowel.vowel');
+  if (vowels) apply('vowel.vowel', currentVowel(vowels.options));
 }
 
 /* ------------------------------------------------------------ the wobble */
@@ -164,16 +269,24 @@ function sendWobbleShape(): void {
 
 /* ---------------------------------------------------------- engine -> page */
 
+let boundNames: ReadonlySet<string> = new Set();
+
 function receiveValues(values: Record<string, Entry>): void {
   let wobble = false;
+  let filter = false;
   for (const [name, [host, text]] of Object.entries(values)) {
+    lastEntry.set(name, [host, text]);
+    if (FILTER_NAMES.includes(name)) {
+      filter = true;
+      if (name === 'filter_1_model') filterModel = indexOf(name);
+    }
     if (WOBBLE_NAMES.includes(name)) {
       wobbleAmounts.set(name, host * 2 - 1);
       wobble = true;
       continue;
     }
     const b = byName.get(name);
-    if (!b) continue;
+    if (!b || !isActive(b)) continue;
     if (b.text) engine.text.set(b.id, tidyText(text));
     const before = get(b.id);
     apply(b.id, b.fromHost(host));
@@ -181,6 +294,7 @@ function receiveValues(values: Record<string, Entry>): void {
     if (b.text && get(b.id) === before) refresh(b.id);
   }
   if (wobble) applyWobbleRoutes();
+  if (filter) applyFilterModel(boundNames);
 }
 
 /**
@@ -222,7 +336,8 @@ function receiveFrame(frame: Frame): void {
 
 /** Dim what the engine does not have yet, and say so on hover. */
 function markUnbound(bound: ReadonlySet<string>): void {
-  const idle = (id: string): boolean => !PAGE_ONLY.has(id) && !bound.has(id) && !WOBBLE_BOUND.has(id);
+  const idle = (id: string): boolean =>
+    !PAGE_ONLY.has(id) && !bound.has(id) && !WOBBLE_BOUND.has(id) && !FILTER_IDS.includes(id) && id !== 'vowel.vowel';
   for (const node of document.querySelectorAll<HTMLElement>('[data-param]')) {
     const id = node.dataset.param ?? '';
     if (idle(id)) unbound(node);
@@ -263,7 +378,7 @@ export async function connect(): Promise<void> {
   });
 
   buildBindings();
-  const names = [...byName.keys(), ...WOBBLE_NAMES];
+  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
   engine.connected = true;
@@ -271,7 +386,8 @@ export async function connect(): Promise<void> {
 
   // A name the engine did not answer for is as unbound as a null one.
   const bound = new Set<string>();
-  for (const b of bindings.values()) if (b.name in result.values) bound.add(b.id);
+  for (const list of bindings.values()) for (const b of list) if (b.name in result.values) bound.add(b.id);
+  boundNames = new Set(Object.keys(result.values));
   markUnbound(bound);
   // The sub is mono by construction, so MONO is a statement, not a switch.
   for (const node of document.querySelectorAll<HTMLButtonElement>('button[data-param="sub.mono"]')) {
@@ -288,13 +404,15 @@ export async function connect(): Promise<void> {
     if (fromEngine) return;
     if (id === 'wobble.shape') sendWobbleShape();
     else if (WOBBLE_BOUND.has(id) || id === 'wobble.on') sendWobbleRoutes();
-    const b = bindings.get(id);
-    if (!b || !bound.has(id)) return;
+    else if (id === 'vowel.vowel') sendVowel(CHOICES.find((c) => c.id === id)?.options[value] ?? '');
+    const b = activeBinding(id);
+    if (!b || !boundNames.has(b.name)) return;
     const host = b.toHost(value);
     if (host !== null) send('gnarlSet', { name: b.name, value: host });
   });
   onGesture((id, begin) => {
-    const names = id === 'wobble.depth' ? WOBBLE_NAMES : bound.has(id) ? [bindings.get(id)?.name ?? ''] : [];
+    const active = activeBinding(id);
+    const names = id === 'wobble.depth' ? WOBBLE_NAMES : active && boundNames.has(active.name) ? [active.name] : [];
     for (const name of names) send('gnarlGesture', { name, begin });
   });
   drawnListeners.add(() => get('wobble.shape') === 2 && sendWobbleShape());

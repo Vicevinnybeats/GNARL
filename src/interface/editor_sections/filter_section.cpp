@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: formant style labels corrected.
  */
 
 #include "filter_section.h"
@@ -68,10 +70,15 @@ namespace {
       case vital::constants::kFormant:
         if (style == vital::FormantFilter::kVocalTract)
           return "The Mouth";
+        // GNARL: the labels were swapped. Measured through the renderer
+        // (tests/test_vowel.py): style kAOIE puts A, I, U, O on the corners
+        // and style kAIUO puts A, O, I, E - formant_filter.cpp maps style 0
+        // to its A-I-U-O table. The display now names what is heard; the
+        // stored index is unchanged, so no preset changes sound.
         else if (style == vital::FormantFilter::kAIUO)
-          return "AIUO";
-        else
           return "AOIE";
+        else
+          return "AIUO";
       case vital::constants::kComb:
         return strings::kCombStyleNames[style];
       case vital::constants::kPhase:

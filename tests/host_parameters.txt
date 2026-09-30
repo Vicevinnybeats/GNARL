@@ -779,3 +779,4 @@
 778	54616	Mono Sub Level
 779	54617	Mono Sub Octave
 780	54639	Mono Sub On
+781	54640	Wobble Vowel Depth

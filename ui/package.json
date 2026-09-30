@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/inline.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/bridge.test.mjs"
   },
   "devDependencies": {
     "@fontsource/archivo": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
+    "playwright": "1.56.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   }

@@ -1,0 +1,8 @@
+{
+  "_comment": "Where each vowel button puts filter 1's formant filter: Vital's formant style and X/Y corner. MEASURED, not read off Vital's labels, which are swapped (docs/design/phase2-06-vowel-filter.md). tests/test_vowel.py renders each entry and checks the vowel it produces.",
+  "A": { "style": 1, "x": 0, "y": 0 },
+  "E": { "style": 1, "x": 1, "y": 1 },
+  "I": { "style": 1, "x": 0, "y": 1 },
+  "O": { "style": 1, "x": 1, "y": 0 },
+  "U": { "style": 0, "x": 0, "y": 1 }
+}

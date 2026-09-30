@@ -48,9 +48,20 @@ export function apply(id: string, value: number): void {
   }
 }
 
-/** Redraw a control whose value is unchanged but whose readout is not. */
+/**
+ * Redraw a control whose value is unchanged but whose readout is not. It is
+ * the engine's news, so listeners are told fromEngine: a refresh that looked
+ * like a user's change was sent back to the engine, echoed, refreshed and
+ * sent again - forever, and it overwrote a vowel with a stale X on the way
+ * (ui/tests/bridge.test.mjs).
+ */
 export function refresh(id: string): void {
-  emit(id);
+  applying = true;
+  try {
+    emit(id);
+  } finally {
+    applying = false;
+  }
 }
 
 /**

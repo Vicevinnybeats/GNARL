@@ -144,10 +144,17 @@ function subPanel(): HTMLElement {
   );
 }
 
+/** Filter 1's model, which the bridge writes in once it knows (bridge.ts). */
+function filterModelAside(): HTMLElement {
+  const aside = el('span', 'panel__aside', 'FORMANT');
+  aside.dataset.filterModel = 'true';
+  return aside;
+}
+
 function vowelPanel(): HTMLElement {
   const d = display(360, 110);
   return panel(
-    { title: 'VOWEL FILTER', aside: 'FORMANT ×3', power: 'vowel.on' },
+    { title: 'VOWEL FILTER', aside: filterModelAside(), power: 'vowel.on' },
     addDisplay(d, (t) => drawVowel(d, t)),
     choiceRow('vowel.vowel', { cls: 'chips--vowels' }),
     knobs(knob('vowel.cutoff'), knob('vowel.res'), knob('vowel.morph'), knob('vowel.drive')),

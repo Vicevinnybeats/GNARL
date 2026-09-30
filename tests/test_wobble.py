@@ -24,6 +24,12 @@ called. Exit status is the number of failures.
    before measuring, and Vital's LFO itself measures about -64 dB here - the
    engine interpolates control values across each block, so no modulated
    patch is block-size exact. The wobble is held to the engine's own figure.
+7. The vowel route (wobble_amount_formant, phase2-06-vowel-filter.md) is
+   EXACTLY a matrix connection to filter_1_formant_x, with filter 1 in
+   Vital's formant model, at blocks 32 and 128.
+8. And it does something: the render differs from depth 0 by more than
+   -20 dB, where check 7 alone would pass for a route that moved nothing
+   in both renders.
 
 Oscillator random phase is switched off in every patch, so two renders
 differ only by what the test changes.
@@ -176,6 +182,23 @@ def main():
                 modulation=('lfo_1', 'filter_1_cutoff', 0.6), **wobble)
     w_db, l_db = block_db(route, 'bw'), block_db(lfo, 'bl')
     check(w_db <= l_db + 1.0, f'block 32 vs 128: wobble {w_db:.1f} dB, Vital LFO {l_db:.1f} dB (wobble may not be worse)')
+
+    # 7. the vowel route is exactly a matrix connection. Formant model (5),
+    # with a saw rich enough in harmonics for the formants to shape.
+    vowel = dict(wobble, filter_1_model=5, filter_1_formant_x=0.3)
+    route = patch(base, 'vroute', wobble_amount_formant=0.6, wobble_rate=2, **vowel)
+    matrix = patch(base, 'vmatrix', wobble_rate=2, modulation=('wobble', 'filter_1_formant_x', 0.6), **vowel)
+    for block in (32, 128):
+        x, _ = render(route, os.path.join(TMP, f'vroute{block}.wav'), 3, block=block)
+        y, _ = render(matrix, os.path.join(TMP, f'vmatrix{block}.wav'), 3, block=block)
+        check(np.array_equal(x, y), f'block {block}: vowel depth 0.6 is bit-identical to a 0.6 matrix connection')
+
+    # 8. ... and moves the sound.
+    still, _ = render(patch(base, 'vstill', wobble_rate=2, **vowel), os.path.join(TMP, 'vstill.wav'), 3)
+    moved, _ = render(route, os.path.join(TMP, 'vmoved.wav'), 3)
+    n = min(len(still), len(moved))
+    change = 20 * np.log10(np.sqrt(np.mean((moved[:n] - still[:n]) ** 2)) / np.sqrt(np.mean(still[:n] ** 2)))
+    check(change > -20, f'vowel depth 0.6 changes the sound by {change:.1f} dB against depth 0')
 
     print(f'\n{len(FAILS)} failure(s)')
     return len(FAILS)

@@ -53,16 +53,17 @@ text to three significant figures (`tidyText`).
 | wobble DEPTH × destination toggles × section dot | `wobble_amount_wave_frame` / `_cutoff` / `_fm` = DEPTH when both are on, else 0 |
 | wobble SHAPE | the wobble's LineGenerator: sine, rounded square, or the 16 drawn steps |
 | SUB dot, LEVEL, DRIVE, -1 OCT | `mono_sub_on`, `_level`, `_drive`, `_octave` (docs/design/phase2-05-mono-sub.md); MONO is fixed on, since the sub is mono by construction |
+| VOWEL FILTER knobs, A E I O U | follow filter 1's model; see docs/design/phase2-06-vowel-filter.md |
+| wobble VOWEL destination | `wobble_amount_formant` |
 | scope press, keys | MIDI note on/off through the plugin's keyboard state |
 
 Anything with no engine parameter behind it yet is **dimmed**, and struck
 through on a button, with "Not in the engine yet" on hover:
 
 - FM amount
-- the vowel buttons
 - FOLD and CRUSH
 - TUBE, 2-BAND and the FOLD warp mode
-- the wobble's VOWEL route, SMOOTH and PHASE
+- the wobble's SMOOTH and PHASE
 - the mod matrix
 
 These are the Phase 2 list. The preset arrows are disabled, since there is
@@ -104,6 +105,10 @@ and `inline.mjs` fails the build if anything non-ASCII survives.
 wider, and the grid overflowed the window by a third. The fonts are now
 bundled (`ui/src/fonts.css`, woff2, Latin only, SIL OFL 1.1), and the page
 makes no requests.
+
+**6. The page sent every engine echo back, forever** (~12,000 values a
+second idle) until 2026-09-30's fix; see phase2-06-vowel-filter.md.
+`ui/tests/bridge.test.mjs` now guards it in CI.
 
 **5. Vital's editor showed stale values after the panel changed them.**
 `valueChangedInternal` deliberately does not redraw Vital's editor, because

@@ -85,12 +85,14 @@ jobs:
           sudo apt-get install -y -qq python3-numpy
           python3 tests/test_wobble.py
 
+      #  The vowel buttons produce their vowels (phase2-06-vowel-filter.md).
       #  The clean mono sub (docs/design/phase2-05-mono-sub.md): off changes
       #  nothing, pitch, purity (also under full distortion + OTT), mono,
       #  level, drive, block size - and, through the VST3, a phase reset on
       #  the note's own sample mid-block, which the renderer cannot reach.
-      - name: Mono sub tests
+      - name: Mono sub and vowel tests
         run: |
+          python3 tests/test_vowel.py
           python3 tests/test_sub.py --plugin ./vst3_probe \
             "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 
@@ -110,8 +112,19 @@ jobs:
           python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
             build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+          python3 tests/test_vowel.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_sub.py build-cmake/gnarl_render_artefacts/Release/gnarl-render --plugin ./vst3_probe \
             "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
+
+      #  The web panel's bridge against a fake plugin in Chromium: vowel
+      #  buttons, filter-model rebinding, and that an idle page sends the
+      #  engine nothing (an echo loop once sent 12,000 values a second).
+      #  ui/dist and ui/node_modules come from the CMake build above.
+      - name: Panel bridge test
+        run: |
+          cd ui
+          npx playwright install --with-deps chromium
+          npm test
 
       #  The JUCE 8 plugin against the JUCE 6 one, as a host sees them: same
       #  identity and class IDs, the same host parameters in the same order,

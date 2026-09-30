@@ -380,6 +380,12 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Mono Sub Octave", strings::kMonoSubOctaveNames },
     { "mono_sub_drive", 0x010008, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Mono Sub Drive", nullptr },
+
+    // GNARL: the wobble's vowel route, to filter 1's formant X
+    // (docs/design/phase2-06-vowel-filter.md). 0x010009 sorts after the sub.
+    // Default 0: an existing patch renders exactly as before.
+    { "wobble_amount_formant", 0x010009, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Wobble Vowel Depth", nullptr },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {

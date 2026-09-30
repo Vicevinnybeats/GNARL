@@ -111,7 +111,7 @@ namespace vital {
       processor->enable(false);
     }
 
-    // GNARL: the wobble's four fixed routes. Each is a
+    // GNARL: the wobble's fixed routes (four, and the vowel route since 2026-09-30). Each is a
     // ModulationConnectionProcessor - the SAME class a matrix connection uses
     // - so a wobble depth of 0.6 moves its destination exactly as a 0.6
     // matrix connection from the wobble would. They are built here, at the
@@ -125,7 +125,8 @@ namespace vital {
     addIdleProcessor(wobble_power);
 
     const char* wobble_amount_names[kNumWobbleRoutes] = {
-      "wobble_amount_wave_frame", "wobble_amount_wave_frame", "wobble_amount_cutoff", "wobble_amount_fm"
+      "wobble_amount_wave_frame", "wobble_amount_wave_frame", "wobble_amount_cutoff", "wobble_amount_fm",
+      "wobble_amount_formant"
     };
     std::map<std::string, Output*> wobble_amounts;
     for (const char* name : wobble_amount_names) {
@@ -467,7 +468,10 @@ namespace vital {
   // cutoff cannot silence the wobble.
   void SynthVoiceHandler::connectWobbleRoutes() {
     const char* destinations[kNumWobbleRoutes] = {
-      "osc_1_wave_frame", "osc_2_wave_frame", "filter_1_cutoff", "osc_1_distortion_amount"
+      "osc_1_wave_frame", "osc_2_wave_frame", "filter_1_cutoff", "osc_1_distortion_amount",
+      // The vowel wobble: filter 1's formant X, which Vital's formant model
+      // reads in place of the cutoff (docs/design/phase2-06-vowel-filter.md).
+      "filter_1_formant_x"
     };
     const Output* source = wobble_->output(WobbleModule::kValue);
     for (int i = 0; i < kNumWobbleRoutes; ++i) {

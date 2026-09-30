@@ -26,6 +26,12 @@ export interface Param {
   /** Integer steps (unison voices, bit depth). */
   readonly step?: number;
   readonly vital: string | null;
+  /**
+   * The engine name while filter 1 is in Vital's FORMANT model, which reads
+   * its own controls instead of cutoff and resonance; null when that model
+   * has nothing for the control. Absent: the same name in every model.
+   */
+  readonly formant?: string | null;
 }
 
 const P = (
@@ -36,7 +42,7 @@ const P = (
   unit: Unit = '%',
   min = 0,
   max = 1,
-  extra: Partial<Pick<Param, 'bipolar' | 'step'>> = {},
+  extra: Partial<Pick<Param, 'bipolar' | 'step' | 'formant'>> = {},
 ): Param => ({ id, label, min, max, def, unit, vital, ...extra });
 
 const osc = (n: 1 | 2, wt: number, warp: number, fm: number): Param[] => [
@@ -59,10 +65,14 @@ export const PARAMS: readonly Param[] = [
   P('sub.level', 'LEVEL', 0.71, 'mono_sub_level'),
   P('sub.drive', 'DRIVE', 0, 'mono_sub_drive'),
 
-  P('vowel.cutoff', 'CUTOFF', 0.5, 'filter_1_cutoff', 'hz'),
-  P('vowel.res', 'RES', 0.38, 'filter_1_resonance'),
-  P('vowel.morph', 'MORPH', 0.62, 'filter_1_formant_x'),
-  P('vowel.drive', 'DRIVE', 0.3, 'filter_1_drive'),
+  // Filter 1 (docs/design/phase2-06-vowel-filter.md). In the formant model
+  // CUTOFF shifts the formants, RES is their resonance, MORPH slides between
+  // the vowels on X, and there is no drive. In every other model MORPH is
+  // Vital's blend: low pass -> band pass -> high pass.
+  P('vowel.cutoff', 'CUTOFF', 0.5, 'filter_1_cutoff', 'hz', 0, 1, { formant: 'filter_1_formant_transpose' }),
+  P('vowel.res', 'RES', 0.38, 'filter_1_resonance', '%', 0, 1, { formant: 'filter_1_formant_resonance' }),
+  P('vowel.morph', 'MORPH', 0.62, 'filter_1_blend', '%', 0, 1, { formant: 'filter_1_formant_x' }),
+  P('vowel.drive', 'DRIVE', 0.3, 'filter_1_drive', '%', 0, 1, { formant: null }),
 
   P('wobble.depth', 'DEPTH', 0.7, null),
   P('wobble.smooth', 'SMOOTH', 0.35, null),
@@ -127,7 +137,7 @@ export const WOBBLE_DESTINATIONS = [
   { id: 'wobble.to.wtpos', label: 'WT POS', vital: 'wobble_amount_wave_frame', def: true },
   { id: 'wobble.to.cutoff', label: 'CUTOFF', vital: 'wobble_amount_cutoff', def: true },
   { id: 'wobble.to.fm', label: 'FM', vital: 'wobble_amount_fm', def: true },
-  { id: 'wobble.to.vowel', label: 'VOWEL', vital: null, def: false },
+  { id: 'wobble.to.vowel', label: 'VOWEL', vital: 'wobble_amount_formant', def: false },
 ] as const;
 
 /** Section switches (the dot in a panel's header) and the engine's on/off. */

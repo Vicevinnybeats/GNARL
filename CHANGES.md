@@ -189,3 +189,23 @@ the merge commit forward: `git log 7651809..`.
   the sub.
 - The panel's SUB section is bound to the new parameters.
 
+## 2026-09-30 - Phase 2: the vowel filter and the vowel wobble
+
+- The wobble's fifth route: `wobble_amount_formant` (appended, 0x010009,
+  default 0) modulates filter 1's formant X, built as the other four in
+  `SynthVoiceHandler::connectWobbleRoutes`.
+- `filter_section.cpp`: Vital's two formant style labels were swapped
+  (measured: style 0 sounds A-I-U-O, style 1 A-O-I-E); the display now
+  names what is heard. Stored values unchanged.
+- Panel: the VOWEL FILTER follows filter 1's model (formant knobs in the
+  formant model, cutoff/resonance/blend/drive otherwise); A E I O U set
+  filter 1 to the measured formant position (`ui/src/vowels.json`) and
+  switch it on; the VOWEL wobble destination is bound.
+- **Fix (panel):** `store.refresh()` notified listeners as a user change, so
+  the page sent every engine echo back - about 12,000 values a second while
+  idle, each a host parameter change. In the panel since 7e53d2a.
+- Tests: `tests/test_vowel.py` (new), `tests/test_wobble.py` checks 7-8,
+  `ui/tests/bridge.test.mjs` (new; Chromium, fake plugin; in CI).
+  `tests/host_parameters.txt`: 781 unchanged, 1 appended.
+- See docs/design/phase2-06-vowel-filter.md.
+
