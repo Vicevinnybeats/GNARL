@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: WobbleSection added (see lfo_section.h).
  */
 
 #include "lfo_section.h"
@@ -449,3 +451,101 @@ void LfoSection::loadFile(const File& file) {
   editor_->resetPositions();
   lfo_smooth_->setToggleState(editor_->getModel()->smooth(), dontSendNotification);
 }
+
+// GNARL ------------------------------------------------------------------
+
+WobbleSection::WobbleSection(LineGenerator* wobble_source,
+                             const vital::output_map& mono_modulations,
+                             const vital::output_map& poly_modulations) : SynthSection("WOBBLE") {
+  // Eight columns: at 1/4 each is a 32nd note, at 1/8T each is a sixth of a
+  // triplet eighth - fine enough to draw a riddim gate on the grid without
+  // switching it off.
+  static constexpr int kDefaultGridSizeX = 8;
+  static constexpr int kDefaultGridSizeY = 1;
+
+  rate_ = std::make_unique<TextSelector>("wobble_rate");
+  addSlider(rate_.get());
+  rate_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  rate_->setLookAndFeel(TextLookAndFeel::instance());
+  rate_->setLongStringLookup(strings::kWobbleRateNames);
+
+  polarity_ = std::make_unique<TextSelector>("wobble_bipolar");
+  addSlider(polarity_.get());
+  polarity_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+  polarity_->setLookAndFeel(TextLookAndFeel::instance());
+  polarity_->setLongStringLookup(strings::kUnipolarBipolarNames);
+
+  auto make_depth = [this](const char* name) {
+    std::unique_ptr<SynthSlider> knob = std::make_unique<SynthSlider>(name);
+    addSlider(knob.get());
+    knob->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
+    knob->setPopupPlacement(BubbleComponent::below);
+    // A depth is signed: negative sweeps the destination DOWN from the knob.
+    knob->setBipolar(true);
+    knob->snapToValue(true, 0.0);
+    return knob;
+  };
+  wave_frame_ = make_depth("wobble_amount_wave_frame");
+  cutoff_ = make_depth("wobble_amount_cutoff");
+  fm_ = make_depth("wobble_amount_fm");
+
+  editor_ = std::make_unique<LfoEditor>(wobble_source, "wobble", mono_modulations, poly_modulations);
+  editor_->setGridSizeX(kDefaultGridSizeX);
+  editor_->setGridSizeY(kDefaultGridSizeY);
+  addOpenGlComponent(editor_.get());
+  addOpenGlComponent(editor_->getTextEditorComponent());
+
+  setSkinOverride(Skin::kLfo);
+}
+
+WobbleSection::~WobbleSection() = default;
+
+void WobbleSection::paintBackground(Graphics& g) {
+  if (getWidth() <= 0)
+    return;
+
+  drawTextComponentBackground(g, rate_->getBounds(), true);
+  drawTextComponentBackground(g, polarity_->getBounds(), true);
+
+  setLabelFont(g);
+  drawLabel(g, TRANS("RATE"), rate_->getBounds(), true);
+  drawLabel(g, TRANS("POLARITY"), polarity_->getBounds(), true);
+  drawLabelForComponent(g, TRANS("WT"), wave_frame_.get());
+  drawLabelForComponent(g, TRANS("CUTOFF"), cutoff_.get());
+  drawLabelForComponent(g, TRANS("FM/WARP"), fm_.get());
+
+  paintKnobShadows(g);
+  paintChildrenBackgrounds(g);
+}
+
+void WobbleSection::resized() {
+  int title_width = getTitleWidth();
+  int knob_section_height = getKnobSectionHeight();
+  int widget_margin = findValue(Skin::kWidgetMargin);
+
+  // Same geometry as LfoSection, minus its phase bar: the wobble has no
+  // phase control, so the shape editor takes that height instead.
+  int wave_height = getHeight() - widget_margin - title_width - knob_section_height;
+  editor_->setBounds(widget_margin, title_width, getWidth() - 2 * widget_margin, wave_height);
+
+  int knobs_width = 4 * (int)findValue(Skin::kModulationButtonWidth) + widget_margin + findValue(Skin::kPadding);
+  int style_width = getWidth() - knobs_width;
+  int knob_y = getHeight() - knob_section_height;
+  int text_height = knob_section_height - 2 * widget_margin;
+  int text_width = style_width / 2 - widget_margin;
+
+  rate_->setBounds(widget_margin, knob_y + widget_margin, text_width, text_height);
+  int polarity_x = rate_->getRight() + widget_margin;
+  polarity_->setBounds(polarity_x, knob_y + widget_margin, style_width - polarity_x - widget_margin, text_height);
+
+  placeKnobsInArea(Rectangle<int>(style_width, knob_y, knobs_width, knob_section_height),
+                   { wave_frame_.get(), cutoff_.get(), fm_.get() });
+
+  SynthSection::resized();
+}
+
+void WobbleSection::reset() {
+  SynthSection::reset();
+  editor_->resetPositions();
+}
+

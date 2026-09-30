@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: WobbleSection added.
  */
 
 #pragma once
@@ -137,5 +139,34 @@ class LfoSection : public SynthSection, public PresetSelector::Listener, public 
     int current_preset_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LfoSection)
+};
+
+// GNARL: the wobble macro's panel - docs/design/phase2-01-wobble.md. Built
+// from LfoSection's own parts so it looks and behaves like the eight LFOs
+// beside it: the same shape editor (with a live playhead, from the
+// "wobble_phase" status output), the same selectors and knobs. What it leaves
+// out is deliberate: a wobble is transport-locked, so it has no frequency,
+// phase, fade, delay or stereo controls - just the rate, the polarity, and
+// three depths that route it without touching the matrix.
+class WobbleSection : public SynthSection {
+  public:
+    WobbleSection(LineGenerator* wobble_source,
+                  const vital::output_map& mono_modulations,
+                  const vital::output_map& poly_modulations);
+    ~WobbleSection();
+
+    void paintBackground(Graphics& g) override;
+    void resized() override;
+    void reset() override;
+
+  private:
+    std::unique_ptr<LfoEditor> editor_;
+    std::unique_ptr<TextSelector> rate_;
+    std::unique_ptr<TextSelector> polarity_;
+    std::unique_ptr<SynthSlider> wave_frame_;
+    std::unique_ptr<SynthSlider> cutoff_;
+    std::unique_ptr<SynthSlider> fm_;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(WobbleSection)
 };
 

@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the WOBBLE tab (tab 0 of the LFO strip).
  */
 
 #include "modulation_interface.h"
@@ -63,15 +65,27 @@ ModulationInterface::ModulationInterface(SynthGuiData* synth_data) : SynthSectio
     lfos_[i] = std::make_unique<LfoSection>("LFO " + string_num, prefix, synth_data->synth->getLfoSource(i),
                                             synth_data->mono_modulations, synth_data->poly_modulations);
     addSubSection(lfos_[i].get());
-    lfos_[i]->setVisible(i == 0);
+    lfos_[i]->setVisible(false);
   }
 
-  lfo_tab_selector_ = std::make_unique<ModulationTabSelector>("lfo", vital::kNumLfos);
+  // GNARL: the wobble opens first - it is the feature this synth is for.
+  wobble_ = std::make_unique<WobbleSection>(synth_data->synth->getWobbleSource(),
+                                            synth_data->mono_modulations, synth_data->poly_modulations);
+  addSubSection(wobble_.get());
+  wobble_->setVisible(true);
+
+  // Button names are MODULATION SOURCE names, so the WOBBLE tab can be dragged
+  // onto any destination exactly like an LFO tab.
+  static const char* kLfoTabSources[vital::kNumLfos + 1] = {
+    "wobble", "lfo_1", "lfo_2", "lfo_3", "lfo_4", "lfo_5", "lfo_6", "lfo_7", "lfo_8"
+  };
+  lfo_tab_selector_ = std::make_unique<ModulationTabSelector>("lfo", vital::kNumLfos + 1, kLfoTabSources);
   addSubSection(lfo_tab_selector_.get());
   lfo_tab_selector_->addListener(this);
   lfo_tab_selector_->registerModulationButtons(this);
   lfo_tab_selector_->enableSelections();
-  lfo_tab_selector_->setMinModulationsShown(kMinLfoModulationsToShow);
+  lfo_tab_selector_->getButton(kWobbleTabIndex)->overrideText("WOBBLE");
+  lfo_tab_selector_->setMinModulationsShown(kMinLfoTabsShown);
   lfo_tab_selector_->connectRight(true);
   lfo_tab_selector_->drawBorders(true);
 
@@ -166,6 +180,7 @@ void ModulationInterface::resized() {
   Rectangle<int> lfo_bounds(mod_width, lfo_y, active_width - mod_width, lfo_height);
   for (int i = 0; i < vital::kNumLfos; ++i)
     lfos_[i]->setBounds(lfo_bounds);
+  wobble_->setBounds(lfo_bounds);
 
   int keyboard_width = mod_width * 4;
   int keyboard_x = getWidth() - keyboard_width;
@@ -208,6 +223,8 @@ void ModulationInterface::reset() {
     if (lfos_[i]->isVisible())
       lfos_[i]->reset();
   }
+  if (wobble_->isVisible())
+    wobble_->reset();
   for (int i = 0; i < vital::kNumRandomLfos; ++i) {
     if (random_lfos_[i]->isVisible())
       random_lfos_[i]->reset();
@@ -233,10 +250,15 @@ void ModulationInterface::modulationSelected(ModulationTabSelector* selector, in
     envelopes_[index]->reset();
   }
   else if (selector == lfo_tab_selector_.get()) {
+    // GNARL: tab 0 is WOBBLE; LFO n is tab n.
+    bool wobble = index == kWobbleTabIndex;
+    wobble_->setVisible(wobble);
     for (int i = 0; i < vital::kNumLfos; ++i)
-      lfos_[i]->setVisible(i == index);
-    lfos_[index]->paintOpenGlChildrenBackgrounds(g);
-    lfos_[index]->reset();
+      lfos_[i]->setVisible(!wobble && i == index - 1);
+
+    SynthSection* shown = wobble ? static_cast<SynthSection*>(wobble_.get()) : lfos_[index - 1].get();
+    shown->paintOpenGlChildrenBackgrounds(g);
+    shown->reset();
   }
   else if (selector == random_tab_selector_.get()) {
     for (int i = 0; i < vital::kNumRandomLfos; ++i)

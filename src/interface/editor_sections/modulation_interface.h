@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the WOBBLE tab.
  */
 
 #pragma once
@@ -25,12 +27,19 @@ class EnvelopeSection;
 class RandomSection;
 class LineGenerator;
 class LfoSection;
+class WobbleSection;
 struct SynthGuiData;
 
 class ModulationInterface  : public SynthSection, public ModulationTabSelector::Listener {
   public:
     static constexpr int kMinEnvelopeModulationsToShow = 3;
     static constexpr int kMinLfoModulationsToShow = 4;
+    // GNARL: WOBBLE is tab 0 of the LFO strip, and the strip only shows its
+    // minimum until later tabs are used - so the minimum rises by one and
+    // LFO 1-4 stay visible exactly as before. The HEIGHT budget still uses
+    // kMinLfoModulationsToShow, so the layout does not move.
+    static constexpr int kWobbleTabIndex = 0;
+    static constexpr int kMinLfoTabsShown = kMinLfoModulationsToShow + 1;
     static constexpr int kMinRandomModulationsToShow = 2;
     static constexpr int kMinTotalModulations =
         kMinEnvelopeModulationsToShow + kMinLfoModulationsToShow + kMinRandomModulationsToShow;
@@ -53,6 +62,7 @@ class ModulationInterface  : public SynthSection, public ModulationTabSelector::
     std::unique_ptr<ModulationTabSelector> envelope_tab_selector_;
 
     std::unique_ptr<LfoSection> lfos_[vital::kNumLfos];
+    std::unique_ptr<WobbleSection> wobble_;
     std::unique_ptr<ModulationTabSelector> lfo_tab_selector_;
 
     std::unique_ptr<RandomSection> random_lfos_[vital::kNumRandomLfos];
