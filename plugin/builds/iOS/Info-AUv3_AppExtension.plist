@@ -10,11 +10,11 @@
     <key>CFBundleExecutable</key>
     <string>${EXECUTABLE_NAME}</string>
     <key>CFBundleIdentifier</key>
-    <string>audio.vial.synth.synthAUv3</string>
+    <string>audio.gnarl.synth.synthAUv3</string>
     <key>CFBundleName</key>
-    <string>Vial</string>
+    <string>GNARL</string>
     <key>CFBundleDisplayName</key>
-    <string>Vial</string>
+    <string>GNARL</string>
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
     <key>CFBundleSignature</key>
@@ -30,7 +30,7 @@
     <key>NSExtension</key>
     <dict>
       <key>NSExtensionPrincipalClass</key>
-      <string>vialFactoryAUv3</string>
+      <string>gnarlFactoryAUv3</string>
       <key>NSExtensionPointIdentifier</key>
       <string>com.apple.AudioUnit-UI</string>
       <key>NSExtensionAttributes</key>
@@ -39,17 +39,17 @@
         <array>
           <dict>
             <key>name</key>
-            <string>Vial Audio: Vial</string>
+            <string>Gnarl Audio: GNARL</string>
             <key>description</key>
             <string></string>
             <key>factoryFunction</key>
-            <string>vialFactoryAUv3</string>
+            <string>gnarlFactoryAUv3</string>
             <key>manufacturer</key>
-            <string>Open</string>
+            <string>Gnrl</string>
             <key>type</key>
             <string>aumu</string>
             <key>subtype</key>
-            <string>Vial</string>
+            <string>Gnr2</string>
             <key>version</key>
             <integer>65542</integer>
             <key>sandboxSafe</key>

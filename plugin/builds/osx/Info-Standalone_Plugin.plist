@@ -23,11 +23,11 @@
     <key>CFBundleIconFile</key>
     <string></string>
     <key>CFBundleIdentifier</key>
-    <string>audio.vial.synth</string>
+    <string>audio.gnarl.synth</string>
     <key>CFBundleName</key>
-    <string>Vial</string>
+    <string>GNARL</string>
     <key>CFBundleDisplayName</key>
-    <string>Vial</string>
+    <string>GNARL</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>

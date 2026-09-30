@@ -112,8 +112,8 @@ class LoadingWheel : public OpenGlQuad {
 class AppLogo : public OpenGlImageComponent {
   public:
     AppLogo(String name) : OpenGlImageComponent(std::move(name)) {
-      logo_letter_ = Paths::vitalV();
-      logo_ring_ = Paths::vitalRing();
+      logo_letter_ = Paths::gnarlMark();
+      logo_ring_ = Paths::gnarlRing();
     }
 
     void paint(Graphics& g) override {
@@ -125,10 +125,17 @@ class AppLogo : public OpenGlImageComponent {
       shadow.drawForPath(g, logo_letter_);
       shadow.drawForPath(g, logo_ring_);
 
-      Colour letter_top_color = findColour(Skin::kWidgetSecondary1, true);
-      Colour letter_bottom_color = findColour(Skin::kWidgetSecondary2, true);
-      Colour ring_top_color = findColour(Skin::kWidgetPrimary1, true);
-      Colour ring_bottom_color = findColour(Skin::kWidgetPrimary2, true);
+      //  THE LOGO IS THE BRAND, NOT A WIDGET. Upstream painted it with the
+      //  skin's widget gradients, so the mark changed colour with every skin
+      //  somebody loaded. GNARL's mark is the website's: the same stroke-font
+      //  glyphs (tools/make_logo.py reads them from site/src/loader.ts) in the
+      //  site's accent, #64e6ff. Pinned here so a skin cannot recolour it.
+      static constexpr uint32 kBrandBlue = 0xff64e6ff;       // site --accent
+      static constexpr uint32 kBrandBlueDeep = 0xff2fa8e0;   // same hue, lower, for the gradient's foot
+      Colour letter_top_color = Colour(kBrandBlue);
+      Colour letter_bottom_color = Colour(kBrandBlueDeep);
+      Colour ring_top_color = Colour(kBrandBlue);
+      Colour ring_bottom_color = Colour(kBrandBlueDeep);
       ColourGradient letter_gradient(letter_top_color, 0.0f, 12.0f, letter_bottom_color, 0.0f, 96.0f, false);
       ColourGradient ring_gradient(ring_top_color, 0.0f, 12.0f, ring_bottom_color, 0.0f, 96.0f, false);
       g.setGradientFill(letter_gradient);

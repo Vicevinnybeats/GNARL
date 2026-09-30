@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <Project DefaultTargets="Build"
-         ToolsVersion="16.0"
+         ToolsVersion="15.0"
          xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -14,25 +14,25 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7863C457-C663-B9F0-1CA5-F8198DF659DE}</ProjectGuid>
+    <ProjectGuid>{9F34C515-A6D0-6B34-28E8-3F6256757BE8}</ProjectGuid>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"
                  Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <WholeProgramOptimization>false</WholeProgramOptimization>
-    <PlatformToolset>v142</PlatformToolset>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <PlatformToolset>v141</PlatformToolset>
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == ''">$([Microsoft.Build.Utilities.ToolLocationHelper]::GetLatestSDKTargetPlatformVersion('Windows', '10.0'))</WindowsTargetPlatformVersion>
     <UseIntelIPP>Sequential</UseIntelIPP>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"
                  Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v142</PlatformToolset>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <PlatformToolset>v141</PlatformToolset>
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == ''">$([Microsoft.Build.Utilities.ToolLocationHelper]::GetLatestSDKTargetPlatformVersion('Windows', '10.0'))</WindowsTargetPlatformVersion>
     <UseIntelIPP>Sequential</UseIntelIPP>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
@@ -44,17 +44,15 @@
   </ImportGroup>
   <PropertyGroup>
     <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
-    <TargetExt>.exe</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\App\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\App\</IntDir>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vial</TargetName>
+    <TargetExt>.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\Shared Code\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\Shared Code\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GNARL</TargetName>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
-    <LibraryPath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(LibraryPath)</LibraryPath>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\App\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\App\</IntDir>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vial</TargetName>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\Shared Code\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\Shared Code\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GNARL</TargetName>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
-    <LibraryPath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -67,8 +65,8 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>..\..\JuceLibraryCode;..\..\..\third_party\JUCE\modules;../../../src/common;../../../src/common/wavetable;../../../src/interface/editor_components;../../../src/interface/editor_sections;../../../src/interface/look_and_feel;../../../src/interface/wavetable;../../../src/interface/wavetable/editors;../../../src/interface/wavetable/overlays;../../../src/standalone;../../../src/synthesis/synth_engine;../../../src/synthesis/effects;../../../src/synthesis/filters;../../../src/synthesis/framework;../../../src/synthesis/lookups;../../../src/synthesis/modulators;../../../src/synthesis/modules;../../../src/synthesis/producers;../../../src/synthesis/utilities;../../../third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;DEBUG;_DEBUG;JUCE_OPENGL3=1;INTEL_IPP=1;WINVER=0x0601;_WIN32_WINNT=0x0601;_ENABLE_EXTENDED_ALIGNED_STORAGE;__SSE2__=1;JUCER_VS2019_B927B5AF=1;JUCE_APP_VERSION=1.0.6;JUCE_APP_VERSION_HEX=0x10006;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=0;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_RTAS=0;JucePlugin_Build_AAX=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\third_party\JUCE\modules\juce_audio_processors\format_types\VST3_SDK;..\..\..\third_party\VST_SDK\VST2_SDK;..\..\JuceLibraryCode;..\..\..\third_party\JUCE\modules;../../../src/common;../../../src/common/wavetable;../../../src/interface/editor_components;../../../src/interface/editor_sections;../../../src/interface/look_and_feel;../../../src/interface/wavetable;../../../src/interface/wavetable/editors;../../../src/interface/wavetable/overlays;../../../src/plugin;../../../src/synthesis/synth_engine;../../../src/synthesis/effects;../../../src/synthesis/filters;../../../src/synthesis/framework;../../../src/synthesis/lookups;../../../src/synthesis/modulators;../../../src/synthesis/modules;../../../src/synthesis/producers;../../../src/synthesis/utilities;../../../third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;DEBUG;_DEBUG;JUCE_OPENGL3=1;WINVER=0x0601;_WIN32_WINNT=0x0601;_ENABLE_EXTENDED_ALIGNED_STORAGE;INTEL_IPP=1;__SSE2__=1;JUCER_VS2017_B927B5AD=1;JUCE_APP_VERSION=1.0.6;JUCE_APP_VERSION_HEX=0x10006;JucePlugin_Build_VST=1;JucePlugin_Build_VST3=1;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_RTAS=0;JucePlugin_Build_AAX=0;JucePlugin_Build_Standalone=1;JucePlugin_Build_Unity=0;JUCE_SHARED_CODE=1;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -85,24 +83,18 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <OutputFile>$(OutDir)\Vial.exe</OutputFile>
+      <OutputFile>$(OutDir)\GNARL.lib</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>libcmt.lib; msvcrt.lib;;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(IntDir)\Vial.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(IntDir)\GNARL.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(IntDir)\Vial.bsc</OutputFile>
+      <OutputFile>$(IntDir)\GNARL.bsc</OutputFile>
     </Bscmake>
-    <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -114,8 +106,8 @@
     </Midl>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
-      <AdditionalIncludeDirectories>..\..\JuceLibraryCode;..\..\..\third_party\JUCE\modules;../../../src/common;../../../src/common/wavetable;../../../src/interface/editor_components;../../../src/interface/editor_sections;../../../src/interface/look_and_feel;../../../src/interface/wavetable;../../../src/interface/wavetable/editors;../../../src/interface/wavetable/overlays;../../../src/standalone;../../../src/synthesis/synth_engine;../../../src/synthesis/effects;../../../src/synthesis/filters;../../../src/synthesis/framework;../../../src/synthesis/lookups;../../../src/synthesis/modulators;../../../src/synthesis/modules;../../../src/synthesis/producers;../../../src/synthesis/utilities;../../../third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;NDEBUG;JUCE_OPENGL3=1;INTEL_IPP=1;WINVER=0x0601;_WIN32_WINNT=0x0601;_ENABLE_EXTENDED_ALIGNED_STORAGE;__SSE2__=1;JUCER_VS2019_B927B5AF=1;JUCE_APP_VERSION=1.0.6;JUCE_APP_VERSION_HEX=0x10006;JucePlugin_Build_VST=0;JucePlugin_Build_VST3=0;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_RTAS=0;JucePlugin_Build_AAX=0;JucePlugin_Build_Standalone=0;JucePlugin_Build_Unity=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\third_party\JUCE\modules\juce_audio_processors\format_types\VST3_SDK;..\..\..\third_party\VST_SDK\VST2_SDK;..\..\JuceLibraryCode;..\..\..\third_party\JUCE\modules;../../../src/common;../../../src/common/wavetable;../../../src/interface/editor_components;../../../src/interface/editor_sections;../../../src/interface/look_and_feel;../../../src/interface/wavetable;../../../src/interface/wavetable/editors;../../../src/interface/wavetable/overlays;../../../src/plugin;../../../src/synthesis/synth_engine;../../../src/synthesis/effects;../../../src/synthesis/filters;../../../src/synthesis/framework;../../../src/synthesis/lookups;../../../src/synthesis/modulators;../../../src/synthesis/modules;../../../src/synthesis/producers;../../../src/synthesis/utilities;../../../third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;NDEBUG;JUCE_OPENGL3=1;WINVER=0x0601;_WIN32_WINNT=0x0601;_ENABLE_EXTENDED_ALIGNED_STORAGE;INTEL_IPP=1;__SSE2__=1;JUCER_VS2017_B927B5AD=1;JUCE_APP_VERSION=1.0.6;JUCE_APP_VERSION_HEX=0x10006;JucePlugin_Build_VST=1;JucePlugin_Build_VST3=1;JucePlugin_Build_AU=0;JucePlugin_Build_AUv3=0;JucePlugin_Build_RTAS=0;JucePlugin_Build_AAX=0;JucePlugin_Build_Standalone=1;JucePlugin_Build_Unity=0;JUCE_SHARED_CODE=1;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -132,27 +124,21 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <OutputFile>$(OutDir)\Vial.exe</OutputFile>
+      <OutputFile>$(OutDir)\GNARL.lib</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(IntDir)\Vial.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(IntDir)\GNARL.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(IntDir)\Vial.bsc</OutputFile>
+      <OutputFile>$(IntDir)\GNARL.bsc</OutputFile>
     </Bscmake>
-    <Lib>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\common\wavetable\file_source.cpp">
@@ -530,13 +516,10 @@
     <ClCompile Include="..\..\..\src\interface\wavetable\wavetable_playhead_info.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\standalone\main.cpp">
+    <ClCompile Include="..\..\..\src\plugin\synth_editor.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\standalone\synth_computer_keyboard.cpp">
-      <ExcludedFromBuild>true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\standalone\synth_editor.cpp">
+    <ClCompile Include="..\..\..\src\plugin\synth_plugin.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\..\src\synthesis\effects\compressor.cpp">
@@ -743,7 +726,7 @@
     <ClCompile Include="..\..\..\src\unity_build\interface_editor_sections2.cpp"/>
     <ClCompile Include="..\..\..\src\unity_build\interface_look_and_feel.cpp"/>
     <ClCompile Include="..\..\..\src\unity_build\interface_wavetable.cpp"/>
-    <ClCompile Include="..\..\..\src\unity_build\standalone.cpp"/>
+    <ClCompile Include="..\..\..\src\unity_build\plugin.cpp"/>
     <ClCompile Include="..\..\..\src\unity_build\synthesis.cpp"/>
     <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_basics\buffers\juce_AudioChannelSet.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
@@ -1232,6 +1215,15 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_formats\juce_audio_formats.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\juce_LV2_Wrapper.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_PluginUtilities.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client_utils.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\..\third_party\JUCE\modules\juce_audio_processors\format\juce_AudioPluginFormat.cpp">
@@ -2756,6 +2748,7 @@
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_basics.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_devices.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_formats.cpp"/>
+    <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_plugin_client_utils.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_processors.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_audio_utils.cpp"/>
     <ClCompile Include="..\..\JuceLibraryCode\include_juce_core.cpp"/>
@@ -2901,8 +2894,9 @@
     <ClInclude Include="..\..\..\src\interface\wavetable\wavetable_overlay_factory.h"/>
     <ClInclude Include="..\..\..\src\interface\wavetable\wavetable_playhead.h"/>
     <ClInclude Include="..\..\..\src\interface\wavetable\wavetable_playhead_info.h"/>
-    <ClInclude Include="..\..\..\src\standalone\synth_computer_keyboard.h"/>
-    <ClInclude Include="..\..\..\src\standalone\synth_editor.h"/>
+    <ClInclude Include="..\..\..\src\plugin\synth_editor.h"/>
+    <ClInclude Include="..\..\..\src\plugin\synth_plugin.h"/>
+    <ClInclude Include="..\..\..\src\plugin\value_bridge.h"/>
     <ClInclude Include="..\..\..\src\synthesis\effects\compressor.h"/>
     <ClInclude Include="..\..\..\src\synthesis\effects\delay.h"/>
     <ClInclude Include="..\..\..\src\synthesis\effects\distortion.h"/>
@@ -3193,6 +3187,31 @@
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_formats\format\juce_MemoryMappedAudioFormatReader.h"/>
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_formats\sampler\juce_Sampler.h"/>
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_formats\juce_audio_formats.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\atom-util.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\atom.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\buf-size.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\instance-access.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\lv2.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\lv2_external_ui.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\lv2_programs.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\midi.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\options.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\port-props.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\presets.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\state.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\time.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\ui.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\units.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\LV2\includes\urid.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_CarbonVisibility.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_CheckSettingMacros.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_CreatePluginFilter.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_FakeMouseMoveGenerator.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_IncludeModuleHeaders.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_IncludeSystemHeaders.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_PluginHostType.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\utility\juce_WindowsHooks.h"/>
+    <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_plugin_client\juce_audio_plugin_client.h"/>
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_processors\format\juce_AudioPluginFormat.h"/>
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_processors\format\juce_AudioPluginFormatManager.h"/>
     <ClInclude Include="..\..\..\third_party\JUCE\modules\juce_audio_processors\format_types\VST3_SDK\base\source\classfactoryhelpers.h"/>
@@ -3777,6 +3796,7 @@
     <ClInclude Include="..\..\JuceLibraryCode\AppConfig.h"/>
     <ClInclude Include="..\..\JuceLibraryCode\BinaryData.h"/>
     <ClInclude Include="..\..\JuceLibraryCode\JuceHeader.h"/>
+    <ClInclude Include="..\..\JuceLibraryCode\JucePluginDefines.h"/>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\tunings\5 Limit.scl"/>
@@ -3806,17 +3826,6 @@
     <None Include="..\..\..\icons\vital_v.svg"/>
     <None Include="..\..\..\icons\vital_word.svg"/>
     <None Include="..\..\..\icons\vital_word_ring.svg"/>
-    <None Include="..\..\..\images\vital.xpm"/>
-    <None Include="..\..\..\images\vital_icon_16.png"/>
-    <None Include="..\..\..\images\vital_icon_22.png"/>
-    <None Include="..\..\..\images\vital_icon_24.png"/>
-    <None Include="..\..\..\images\vital_icon_32.png"/>
-    <None Include="..\..\..\images\vital_icon_48.png"/>
-    <None Include="..\..\..\images\vital_icon_64.png"/>
-    <None Include="..\..\..\images\vital_icon_128.png"/>
-    <None Include="..\..\..\images\vital_icon_256.png"/>
-    <None Include="..\..\..\images\vital_icon_512.png"/>
-    <None Include="..\..\..\images\vital_icon_1024.png"/>
     <None Include="..\..\..\third_party\JUCE\modules\juce_audio_devices\native\oboe\CMakeLists.txt"/>
     <None Include="..\..\..\third_party\JUCE\modules\juce_audio_devices\native\oboe\readme.md"/>
     <None Include="..\..\..\third_party\JUCE\modules\juce_audio_formats\codecs\flac\Flac Licence.txt"/>
@@ -3833,9 +3842,6 @@
     <None Include="..\..\..\third_party\JUCE\modules\juce_core\native\java\README.txt"/>
     <None Include="..\..\..\third_party\JUCE\modules\juce_graphics\image_formats\jpglib\changes to libjpeg for JUCE.txt"/>
     <None Include="..\..\..\third_party\JUCE\modules\juce_graphics\image_formats\pnglib\libpng_readme.txt"/>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include=".\resources.rc"/>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
   <ImportGroup Label="ExtensionTargets"/>

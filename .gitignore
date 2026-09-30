@@ -2,7 +2,7 @@
 #
 #  ONE RULE WAS DELIBERATELY DROPPED: GNARL ignored `*.xcodeproj/`, which
 #  was right when the build was CMake-generated and is WRONG now - Vital
-#  ships plugin/builds/osx/Vial.xcodeproj as source, and that rule would
+#  ships plugin/builds/osx/GNARL.xcodeproj as source, and that rule would
 #  quietly stop git seeing any Xcode project file added from here on.
 #  Generated Xcode user state is excluded below instead.
 

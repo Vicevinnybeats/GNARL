@@ -47,12 +47,12 @@
     <TargetExt>.dll</TargetExt>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\VST\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\VST\</IntDir>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vial</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">GNARL</TargetName>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
     <LibraryPath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(LibraryPath);$(SolutionDir)$(Platform)\$(Configuration)\Shared Code</LibraryPath>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\VST\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\VST\</IntDir>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vial</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">GNARL</TargetName>
     <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
     <LibraryPath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(LibraryPath);$(SolutionDir)$(Platform)\$(Configuration)\Shared Code</LibraryPath>
   </PropertyGroup>
@@ -85,22 +85,22 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <OutputFile>$(OutDir)\Vial.dll</OutputFile>
+      <OutputFile>$(OutDir)\GNARL.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>libcmt.lib; msvcrt.lib;;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(IntDir)\Vial.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(IntDir)\GNARL.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
-      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;Vial.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;GNARL.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(IntDir)\Vial.bsc</OutputFile>
+      <OutputFile>$(IntDir)\GNARL.bsc</OutputFile>
     </Bscmake>
     <Lib>
-      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;Vial.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;GNARL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>
@@ -135,25 +135,25 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
     <Link>
-      <OutputFile>$(OutDir)\Vial.dll</OutputFile>
+      <OutputFile>$(OutDir)\GNARL.dll</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <ProgramDatabaseFile>$(IntDir)\Vial.pdb</ProgramDatabaseFile>
+      <ProgramDatabaseFile>$(IntDir)\GNARL.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LargeAddressAware>true</LargeAddressAware>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
-      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;Vial.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;GNARL.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <OutputFile>$(IntDir)\Vial.bsc</OutputFile>
+      <OutputFile>$(IntDir)\GNARL.bsc</OutputFile>
     </Bscmake>
     <Lib>
-      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;Vial.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>flatbuffers.lib;libcurl.lib;Wldap32.lib;crypt32.lib;GNARL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>

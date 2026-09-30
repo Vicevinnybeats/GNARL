@@ -77,17 +77,17 @@ namespace BinaryData
     extern const char*   shuffle_svg;
     const int            shuffle_svgSize = 382;
 
-    extern const char*   vital_ring_svg;
-    const int            vital_ring_svgSize = 2658;
+    extern const char*   gnarl_ring_svg;
+    const int            gnarl_ring_svgSize = 264;
 
-    extern const char*   vital_v_svg;
-    const int            vital_v_svgSize = 2658;
+    extern const char*   gnarl_mark_svg;
+    const int            gnarl_mark_svgSize = 1740;
 
-    extern const char*   vital_word_svg;
-    const int            vital_word_svgSize = 3979;
+    extern const char*   gnarl_word_svg;
+    const int            gnarl_word_svgSize = 5255;
 
-    extern const char*   vital_word_ring_svg;
-    const int            vital_word_ring_svgSize = 1888;
+    extern const char*   gnarl_word_ring_svg;
+    const int            gnarl_word_ring_svgSize = 5503;
 
     // Number of elements in the namedResourceList and originalFileNames arrays.
     const int namedResourceListSize = 27;

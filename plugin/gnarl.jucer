@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="C9WuMW" name="Vial" projectType="audioplug" version="1.0.6"
-              bundleIdentifier="audio.vial.synth" includeBinaryInAppConfig="1"
+<JUCERPROJECT id="C9WuMW" name="GNARL" projectType="audioplug" version="1.0.6"
+              bundleIdentifier="audio.gnarl.synth" includeBinaryInAppConfig="1"
               buildVST="1" buildVST3="1" buildAU="1" buildRTAS="0" buildAAX="0"
-              pluginName="Vial" pluginDesc="" pluginManufacturer="Vial Audio"
-              pluginManufacturerCode="Open" pluginCode="Vial" pluginChannelConfigs="{0, 2}"
+              pluginName="GNARL" pluginDesc="" pluginManufacturer="Gnarl Audio"
+              pluginManufacturerCode="Gnrl" pluginCode="Gnr2" pluginChannelConfigs="{0, 2}"
               pluginIsSynth="1" pluginWantsMidiIn="1" pluginProducesMidiOut="0"
               pluginSilenceInIsSilenceOut="0" pluginEditorRequiresKeys="1"
-              pluginAUExportPrefix="vial" pluginRTASCategory="" aaxIdentifier="audio.vial.synth"
-              pluginAAXCategory="2048" companyName="Vial Audio" companyEmail="matthewtytel@gmail.com"
-              companyWebsite="vial.audio" pluginIsMidiEffectPlugin="0" buildAUv3="1"
+              pluginAUExportPrefix="gnarl" pluginRTASCategory="" aaxIdentifier="audio.gnarl.synth"
+              pluginAAXCategory="2048" companyName="Gnarl Audio" companyEmail=""
+              companyWebsite="gnarl.vercel.app" pluginIsMidiEffectPlugin="0" buildAUv3="1"
               displaySplashScreen="0" reportAppUsage="0" splashScreenColour="Dark"
-              buildStandalone="1" enableIAA="1" cppLanguageStandard="14" companyCopyright="Matt Tytel"
+              buildStandalone="1" enableIAA="1" cppLanguageStandard="14" companyCopyright="Gnarl Audio; engine derived from Vital, (C) Matt Tytel, GPLv3"
               pluginFormats="buildVST,buildVST3,buildAU,buildAUv3,buildStandalone,enableIAA"
               pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn,pluginEditorRequiresKeys"
               jucerFormatVersion="1" projectLineFeed="">
-  <MAINGROUP id="OwcEM5" name="Vial">
+  <MAINGROUP id="OwcEM5" name="GNARL">
     <GROUP id="{AF7411EF-B0D3-B422-B9E8-D2F76B1C5398}" name="tunings">
       <FILE id="B1gbRx" name="5 Limit.scl" compile="0" resource="1" file="../tunings/5 Limit.scl"/>
       <FILE id="MdpA9z" name="7 Limit.scl" compile="0" resource="1" file="../tunings/7 Limit.scl"/>
@@ -53,11 +53,11 @@
       <FILE id="GOOCrx" name="phaser.svg" compile="0" resource="1" file="../icons/phaser.svg"/>
       <FILE id="Ntm9vs" name="reverb.svg" compile="0" resource="1" file="../icons/reverb.svg"/>
       <FILE id="SZ9gXr" name="shuffle.svg" compile="0" resource="1" file="../icons/shuffle.svg"/>
-      <FILE id="EcXAla" name="vital_ring.svg" compile="0" resource="1" file="../icons/vital_ring.svg"/>
-      <FILE id="Y3VTdk" name="vital_v.svg" compile="0" resource="1" file="../icons/vital_v.svg"/>
-      <FILE id="HGtvEn" name="vital_word.svg" compile="0" resource="1" file="../icons/vital_word.svg"/>
-      <FILE id="g1q6nc" name="vital_word_ring.svg" compile="0" resource="1"
-            file="../icons/vital_word_ring.svg"/>
+      <FILE id="EcXAla" name="gnarl_ring.svg" compile="0" resource="1" file="../icons/gnarl_ring.svg"/>
+      <FILE id="Y3VTdk" name="gnarl_mark.svg" compile="0" resource="1" file="../icons/gnarl_mark.svg"/>
+      <FILE id="HGtvEn" name="gnarl_word.svg" compile="0" resource="1" file="../icons/gnarl_word.svg"/>
+      <FILE id="g1q6nc" name="gnarl_word_ring.svg" compile="0" resource="1"
+            file="../icons/gnarl_word_ring.svg"/>
     </GROUP>
     <GROUP id="{BC980CC4-A19E-8E56-3DF1-64F880CCB688}" name="src">
       <GROUP id="{271AD04F-B604-D013-43F7-068157B28CDC}" name="common">
@@ -818,10 +818,10 @@
                 vstLegacyFolder="../third_party/VST_SDK/VST2_SDK">
       <CONFIGURATIONS>
         <CONFIGURATION name="Debug" libraryPath="/usr/X11R6/lib/"
-                       isDebug="1" optimisation="1" targetName="Vial" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
+                       isDebug="1" optimisation="1" targetName="GNARL" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
                        linuxArchitecture="" defines="JUCE_VST3_CAN_REPLACE_VST2=0;NO_AUTH=1"/>
         <CONFIGURATION name="Release" libraryPath="/usr/X11R6/lib/"
-                       isDebug="0" optimisation="6" targetName="Vial" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
+                       isDebug="0" optimisation="6" targetName="GNARL" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
                        linuxArchitecture="" defines="" linkTimeOptimisation="1"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
@@ -852,10 +852,10 @@
                xcodeValidArchs="arm64,arm64e,x86_64">
       <CONFIGURATIONS>
         <CONFIGURATION name="Debug" osxCompatibility="10.12 SDK" osxArchitecture="64BitIntel"
-                       isDebug="1" optimisation="1" targetName="Vial" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
+                       isDebug="1" optimisation="1" targetName="GNARL" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
                        linkTimeOptimisation="0" fastMath="1" cppLibType="libc++" enablePluginBinaryCopyStep="1"/>
         <CONFIGURATION name="Release" osxCompatibility="10.12 SDK" osxArchitecture="64BitIntel"
-                       isDebug="0" optimisation="6" targetName="Vial" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
+                       isDebug="0" optimisation="6" targetName="GNARL" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
                        fastMath="1" linkTimeOptimisation="1" cppLibType="libc++" enablePluginBinaryCopyStep="1"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
@@ -880,9 +880,9 @@
                   iosDeviceFamily="2" extraCompilerFlags="-mtune=cortex-a53" extraLinkerFlags="-mtune=cortex-a53">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
-                       targetName="Vial"/>
+                       targetName="GNARL"/>
         <CONFIGURATION isDebug="0" name="Release" optimisation="6" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
-                       targetName="Vial"/>
+                       targetName="GNARL"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_opengl" path="../third_party/JUCE/modules"/>
@@ -910,12 +910,12 @@
                        enablePluginBinaryCopyStep="1" winWarningLevel="2" winArchitecture="x64"
                        vstBinaryLocation="D:\Program Files\Steinberg\Vstplugins" fastMath="1"
                        libraryPath=""
-                       targetName="Vial"/>
+                       targetName="GNARL"/>
         <CONFIGURATION isDebug="0" name="Release" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"
                        enablePluginBinaryCopyStep="1" fastMath="1" optimisation="4"
                        winWarningLevel="2" winArchitecture="x64" alwaysGenerateDebugSymbols="0"
                        libraryPath=""
-                       targetName="Vial"/>
+                       targetName="GNARL"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_opengl" path="../third_party/JUCE/modules"/>

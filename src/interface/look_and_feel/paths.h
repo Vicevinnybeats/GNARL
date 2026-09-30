@@ -30,26 +30,26 @@ class Paths {
       return drawable->getOutlineAsPath();
     }
 
-    static Path vitalRing() {
-      Path path = fromSvgData((const void*)BinaryData::vital_ring_svg, BinaryData::vital_ring_svgSize);
+    static Path gnarlRing() {
+      Path path = fromSvgData((const void*)BinaryData::gnarl_ring_svg, BinaryData::gnarl_ring_svgSize);
       path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
       path.addLineSegment(Line<float>(kLogoWidth, kLogoWidth, kLogoWidth, kLogoWidth), 0.2f);
       return path;
     }
 
-    static Path vitalV() {
-      Path path = fromSvgData((const void*)BinaryData::vital_v_svg, BinaryData::vital_ring_svgSize);
+    static Path gnarlMark() {
+      Path path = fromSvgData((const void*)BinaryData::gnarl_mark_svg, BinaryData::gnarl_mark_svgSize);
       path.addLineSegment(Line<float>(0.0f, 0.0f, 0.0f, 0.0f), 0.2f);
       path.addLineSegment(Line<float>(kLogoWidth, kLogoWidth, kLogoWidth, kLogoWidth), 0.2f);
       return path;
     }
 
-    static Path vitalWord() {
-      return fromSvgData((const void*)BinaryData::vital_word_svg, BinaryData::vital_word_svgSize);
+    static Path gnarlWord() {
+      return fromSvgData((const void*)BinaryData::gnarl_word_svg, BinaryData::gnarl_word_svgSize);
     }
 
-    static Path vitalWordRing() {
-      return fromSvgData((const void*)BinaryData::vital_word_ring_svg, BinaryData::vital_word_ring_svgSize);
+    static Path gnarlWordRing() {
+      return fromSvgData((const void*)BinaryData::gnarl_word_ring_svg, BinaryData::gnarl_word_ring_svgSize);
     }
 
     static Path chorus() {
