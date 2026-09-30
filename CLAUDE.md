@@ -286,8 +286,8 @@ GNARL's own licence check (Phase 7, `backend/`):
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
-| 1 | Fork, rebrand, CI, this file | **done** — Windows/macOS pending first green CI |
-| 2 | Riddim features, one at a time, design first | not started |
+| 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
+| 2 | Riddim features, one at a time, design first | wobble macro **proposed** (`docs/design/phase2-01-wobble.md`), awaiting approval |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
