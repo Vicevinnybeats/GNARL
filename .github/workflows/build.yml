@@ -1,0 +1,142 @@
+#  Builds the GNARL VST3 on Windows, macOS and Linux.
+#
+#  THE GUARD RUNS FIRST AND GATES EVERYTHING. It takes seconds, and every
+#  check in it is a regression that actually happened during the fork - a
+#  platform build that fails twenty minutes in on something the guard would
+#  have named in five seconds is twenty minutes nobody gets back.
+#
+#  WINDOWS AND MACOS ARE ONLY EVER BUILT HERE. The development container is
+#  Linux, so these two jobs are the first and only place their project files
+#  are exercised. A green Linux job says nothing about them.
+
+name: build
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/check_fork.py
+
+  linux:
+    needs: guard
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      #  debian/control's list is incomplete: libcurl4-openssl-dev and
+      #  libsecret-1-dev are missing from it, and the second one only fails
+      #  at LINK time, after a full compile.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mesa-common-dev libasound2-dev libfreetype6-dev \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
+            freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev libsecret-1-dev
+
+      - name: Build VST3
+        run: make vst3 CONFIG=Release -j"$(nproc)"
+
+      - name: Build headless renderer
+        run: make headless_server CONFIG=Release -j"$(nproc)"
+
+      #  Compiling is not loading. This does what a DAW's scanner does -
+      #  dlopen, ModuleEntry, GetPluginFactory - and fails unless the plugin
+      #  answers as GNARL, from Gnarl Audio, with our class IDs.
+      - name: Load the VST3 like a host
+        run: |
+          g++ -std=c++17 -I third_party/VST_SDK/VST3_SDK tools/vst3_probe.cpp -o vst3_probe -ldl
+          ./vst3_probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so" | tee probe.txt
+          grep -q "vendor : Gnarl Audio" probe.txt
+          grep -q "476E726C476E7232" probe.txt
+
+      - name: Render the init patch
+        run: |
+          headless/builds/linux/build/gnarl-render --headless -o init.wav -l 2 -m C3 -b 140
+          test -s init.wav
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-linux-vst3
+          path: plugin/builds/linux_vst/build/GNARL.vst3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gnarl-render-linux
+          path: |
+            headless/builds/linux/build/gnarl-render
+            init.wav
+
+  windows:
+    needs: guard
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+
+      #  The projects were generated for Visual Studio 2017 (toolset v141),
+      #  which this runner does not have; v143 is VS2022's. Only the VST3
+      #  target is built: the VST2 target needs an SDK Steinberg no longer
+      #  distributes.
+      - name: Build VST3
+        shell: pwsh
+        run: >
+          msbuild plugin/builds/vs17/GNARL.sln
+          /t:"GNARL_-_VST3"
+          /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
+          /m /nologo /verbosity:minimal
+
+      - name: Locate the bundle
+        id: find
+        shell: pwsh
+        run: |
+          $b = Get-ChildItem -Recurse -Directory -Filter GNARL.vst3 plugin/builds/vs17 | Select-Object -First 1
+          if (-not $b) { throw "GNARL.vst3 was not produced" }
+          "path=$($b.FullName)" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-windows-vst3
+          path: ${{ steps.find.outputs.path }}
+
+  macos:
+    needs: guard
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      #  ARCHS is overridden: the project asks for arm64e as well, which is
+      #  Apple's pointer-authentication ABI and is not supported for
+      #  third-party code - hosts do not load it. arm64 + x86_64 is the
+      #  universal binary that actually runs everywhere.
+      #  Unsigned: signing and notarisation need an Apple Developer account.
+      - name: Build VST3
+        run: |
+          xcodebuild -project plugin/builds/osx/GNARL.xcodeproj \
+            -target "GNARL - VST3" -configuration Release \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            | tail -40
+          exit "${PIPESTATUS[0]}"
+
+      - name: Locate the bundle
+        id: find
+        run: |
+          b=$(find plugin/builds/osx -type d -name GNARL.vst3 | head -1)
+          test -n "$b" || { echo "GNARL.vst3 was not produced"; exit 1; }
+          lipo -info "$b/Contents/MacOS/GNARL"
+          echo "path=$b" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-macos-vst3
+          path: ${{ steps.find.outputs.path }}
