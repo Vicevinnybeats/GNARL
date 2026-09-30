@@ -14,10 +14,15 @@ is the only reason for each one to exist:
   - libraries that only existed inside the deleted Firebase SDK, still
     listed as link dependencies
   - logo bytes in BinaryData drifting from the SVG they came from
+  - an Xcode project damaged by a regex (`name = ;`), invisible to an XML
+    parser and fatal to xcodebuild
 
 Exit status is the number of failures.
 """
 import pathlib, re, sys, xml.dom.minidom
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import pbxproj
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 BUILD_DIRS = ['plugin', 'standalone', 'headless', 'tests']
@@ -37,6 +42,16 @@ for p in files('*.vcxproj', '*.filters', '*.jucer', '*.plist'):
     if '/build/' in str(p): continue
     try: xml.dom.minidom.parse(str(p))
     except Exception as e: fail(f'{p.relative_to(ROOT)} is not well-formed XML: {e}')
+
+# 1b. every Xcode project parses. Xcode's format is NOT XML, so check 1
+#     cannot see it: a regex left `name = ;` in two of these, and the guard
+#     passed while xcodebuild refused the project with exit 74.
+for p in files('project.pbxproj'):
+    s = text(p)
+    try: pbxproj.parse(s)
+    except Exception as e: fail(f'{p.relative_to(ROOT)} is not a valid Xcode project: {e}')
+    if re.search(r'^\s*"",', s, re.M):
+        fail(f'{p.relative_to(ROOT)} has an empty "" list entry (a removed define left behind)')
 
 # 2. identity: FourCC codes are four characters, and never upstream's
 for p in files('*.jucer'):

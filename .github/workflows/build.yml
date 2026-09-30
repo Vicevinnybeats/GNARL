@@ -84,22 +84,33 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
 
       #  The projects were generated for Visual Studio 2017 (toolset v141),
-      #  which this runner does not have; v143 is VS2022's. Only the VST3
-      #  target is built: the VST2 target needs an SDK Steinberg no longer
-      #  distributes.
+      #  which this runner does not have; v143 is VS2022's.
+      #
+      #  Built as two PROJECTS, not as a solution target. The first attempt
+      #  asked the solution for /t:"GNARL_-_VST3", guessing how MSBuild
+      #  mangles "GNARL - VST3" into a target name, and got MSB4057. Both
+      #  projects locate each other through $(SolutionDir) - the VST3 links
+      #  GNARL.lib out of $(SolutionDir)x64\Release\Shared Code - so passing
+      #  it explicitly is all the solution was contributing.
+      #  The VST2 target is never built: its SDK is no longer distributed.
       - name: Build VST3
         shell: pwsh
-        run: >
-          msbuild plugin/builds/vs17/GNARL.sln
-          /t:"GNARL_-_VST3"
-          /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143
-          /m /nologo /verbosity:minimal
+        run: |
+          $sd = "$PWD\plugin\builds\vs17\"
+          foreach ($proj in 'GNARL_SharedCode', 'GNARL_VST3') {
+            msbuild "plugin/builds/vs17/$proj.vcxproj" `
+              /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 `
+              "/p:SolutionDir=$sd" /m /nologo /verbosity:minimal
+            if ($LASTEXITCODE -ne 0) { throw "$proj failed" }
+          }
 
-      - name: Locate the bundle
+      #  JUCE 6.0 writes the Windows VST3 as a single DLL named GNARL.vst3,
+      #  not a bundle folder, so this accepts either.
+      - name: Locate the plugin
         id: find
         shell: pwsh
         run: |
-          $b = Get-ChildItem -Recurse -Directory -Filter GNARL.vst3 plugin/builds/vs17 | Select-Object -First 1
+          $b = Get-ChildItem -Recurse -Filter GNARL.vst3 plugin/builds/vs17 | Select-Object -First 1
           if (-not $b) { throw "GNARL.vst3 was not produced" }
           "path=$($b.FullName)" >> $env:GITHUB_OUTPUT
 
@@ -119,14 +130,16 @@ jobs:
       #  third-party code - hosts do not load it. arm64 + x86_64 is the
       #  universal binary that actually runs everywhere.
       #  Unsigned: signing and notarisation need an Apple Developer account.
+      #  stderr is merged into the tail. The first run exited 74 with
+      #  NOTHING in the log, because xcodebuild reports a damaged project on
+      #  stderr and only stdout was being piped.
       - name: Build VST3
         run: |
+          set -o pipefail
           xcodebuild -project plugin/builds/osx/GNARL.xcodeproj \
             -target "GNARL - VST3" -configuration Release \
             ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
-            | tail -40
-          exit "${PIPESTATUS[0]}"
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" 2>&1 | tail -60
 
       - name: Locate the bundle
         id: find
