@@ -902,8 +902,8 @@
       </MODULEPATHS>
     </XCODE_IPHONE>
     <VS2017 targetFolder="builds/vs17" vst3Folder="../third_party/VST3_SDK"
-            extraDefs="JUCE_OPENGL3=1&#10;WINVER=0x0601&#10;_WIN32_WINNT=0x0601&#10;_ENABLE_EXTENDED_ALIGNED_STORAGE &#10;INTEL_IPP=1&#10;__SSE2__=1"
-            IPPLibrary="Sequential" externalLibraries="Wldap32.lib&#10;crypt32.lib"
+            extraDefs="JUCE_OPENGL3=1&#10;WINVER=0x0601&#10;_WIN32_WINNT=0x0601&#10;_ENABLE_EXTENDED_ALIGNED_STORAGE &#10;__SSE2__=1"
+            IPPLibrary="" externalLibraries="Wldap32.lib&#10;crypt32.lib"
             vstLegacyFolder="../third_party/VST_SDK/VST2_SDK">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug" headerPath="../../../src/common&#10;../../../src/common/wavetable&#10;../../../src/interface/editor_components&#10;../../../src/interface/editor_sections&#10;../../../src/interface/look_and_feel&#10;../../../src/interface/wavetable&#10;../../../src/interface/wavetable/editors&#10;../../../src/interface/wavetable/overlays&#10;../../../src/plugin&#10;../../../src/synthesis/synth_engine&#10;../../../src/synthesis/effects&#10;../../../src/synthesis/filters&#10;../../../src/synthesis/framework&#10;../../../src/synthesis/lookups&#10;../../../src/synthesis/modulators&#10;../../../src/synthesis/modules&#10;../../../src/synthesis/producers&#10;../../../src/synthesis/utilities&#10;../../../third_party"

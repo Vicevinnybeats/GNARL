@@ -72,13 +72,24 @@ for p in files('Info-*.plist'):
 banned = {'firebase': 'Firebase', 'matthewtytel': "upstream's personal email",
           'vital.audio': "upstream's domain", 'Vial': 'the old product name',
           'flatbuffers.lib': 'a library the deleted SDK shipped',
-          'libcurl.lib': 'a library the deleted SDK shipped'}
+          'libcurl.lib': 'a library the deleted SDK shipped',
+          #  Intel IPP is proprietary. Upstream may link it into Vital as the
+          #  copyright holder; a GPLv3 binary WE distribute may not, and the
+          #  runners do not have it either (C1083: ipps.h). Without it the FFT
+          #  falls through to juce_dsp - the same path the Linux build takes.
+          'INTEL_IPP': 'Intel IPP (proprietary; cannot be linked into our GPLv3 binary)',
+          'UseIntelIPP': 'Intel IPP (proprietary; cannot be linked into our GPLv3 binary)',
+          'IPPLibrary="Sequential"': 'Intel IPP (proprietary; cannot be linked into our GPLv3 binary)'}
 allowed = {'src/common/authentication.h', 'src/interface/editor_sections/authentication_section.cpp'}
 for p in list(files('*.vcxproj', '*.jucer', '*.pbxproj', 'Makefile*', '*.plist', '*.h', '*.rc')) + \
          [q for q in (ROOT / 'src').rglob('*') if q.suffix in ('.h', '.cpp')]:
     if '/build/' in str(p) or str(p.relative_to(ROOT)) in allowed: continue
     s = text(p)
+    is_source = str(p.relative_to(ROOT)).startswith('src/')
     for word, why in banned.items():
+        #  IPP is banned where a BUILD FILE switches it on. The source keeps
+        #  its `#if INTEL_IPP` branch: that is the backend switch itself.
+        if is_source and 'IPP' in word: continue
         if word in s: fail(f'{p.relative_to(ROOT)} mentions {why} ("{word}")')
 
 # 4. the account system is compiled out everywhere

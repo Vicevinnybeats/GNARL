@@ -20,6 +20,13 @@ the merge commit forward: `git log 7651809..`.
   read.
 - Vital's logo artwork (`icons/vital_*.svg`) and its embedded copies in
   `BinaryData`.
+- **Intel IPP** (`INTEL_IPP=1`, `UseIntelIPP`) from every Windows project.
+  IPP is proprietary: upstream links it as the copyright holder, but a GPLv3
+  binary distributed by anyone else may not include it. The FFT in
+  `src/common/fourier_transform.h` falls through to JUCE's `juce_dsp` FFT,
+  the same backend the Linux build already used. Render output is
+  deterministic per platform; bit-identity *across* platforms is not
+  claimed.
 
 **Renamed**
 - Product `Vial` → `GNARL` in every build project, bundle identifier and
