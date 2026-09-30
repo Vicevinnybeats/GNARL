@@ -1,6 +1,7 @@
 import { getNativeFunction } from '../juce/index.js';
 import {
-  applyPatch, capturePatch, readStored, writeStored, type StoredPatch,
+  applyFactory, applyPatch, capturePatch, readStored, writeStored,
+  FACTORY_PRESETS, type StoredPatch,
 } from './patchSnapshot';
 import { getPluginInfo } from './pluginInfo';
 
@@ -218,7 +219,18 @@ export async function loadPreset(index: number): Promise<boolean> {
         name, which is at least honest. */
     const stored = readStored().find((p) => p.name === row.name);
 
-    if (stored) applyPatch(stored.values);
+    if (stored) {
+      applyPatch(stored.values);
+    } else {
+      /*  A FACTORY PRESET NOW LOADS ITS SOUND TOO. It used to set the status
+          line and nothing else, so every factory preset in a browser was
+          identical - reported as "every preset sounds the same when I change
+          it", which was exactly right. The bank is dumped from the C++ at
+          build time and matched by name. */
+      const preset = FACTORY_PRESETS.find((p) => p.name === row.name);
+
+      if (preset) applyFactory(preset);
+    }
 
     mockStatus = {
       name: row.name,

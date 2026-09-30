@@ -1,5 +1,6 @@
 import { getSliderState } from '../juce/index.js';
 import defaults from './parameterDefaults.json';
+import factory from './factoryPresets.json';
 
 const IDS = Object.keys(defaults as Record<string, unknown>);
 
@@ -118,4 +119,62 @@ export function importText(text: string): StoredPatch | null {
   } catch {
     return null;
   }
+}
+
+/*  THE FACTORY BANK, dumped from the C++ at build time
+    (`GnarlRenderDemo --ui-presets`). In the plugin a factory preset is a
+    ValueTree the engine applies; in a browser there is no engine, so loading
+    one changed the status line and nothing else and every factory preset
+    sounded identical - which is exactly what was reported.
+
+    Stored as the DIFFERENCE from the defaults, which is why `applyFactory`
+    resets first: a sparse patch applied on top of the previous one would
+    leave the previous one's values wherever it says nothing. */
+export interface FactoryPreset {
+  name: string;
+  category: string;
+  values: PatchSnapshot;
+}
+
+/*  Through `unknown`, because TypeScript infers a UNION of 160 literal
+    object types from the JSON - one per preset, each with its own exact key
+    set and `undefined` for the keys it lacks - and no member of that union
+    is assignable to a Record<string, number>. The shape is guaranteed by the
+    dumper, not by the inference. */
+export const FACTORY_PRESETS = factory as unknown as FactoryPreset[];
+
+/*  The defaults as normalised values, read once. parameterDefaults.json
+    carries each parameter's real-world default and its range, so the
+    normalised form is derived rather than stored a second time. */
+function defaultSnapshot(): PatchSnapshot {
+  const hints = defaults as Record<
+    string,
+    { default?: number; min?: number; max?: number; skew?: number }
+  >;
+  const out: PatchSnapshot = {};
+
+  for (const [id, hint] of Object.entries(hints)) {
+    const { default: value, min, max, skew } = hint;
+
+    if (value === undefined || min === undefined || max === undefined) continue;
+    if (max <= min) continue;
+
+    const linear = (value - min) / (max - min);
+
+    //  The same skew the engine applies, inverted: a skewed range stores its
+    //  normalised position as position^(1/skew).
+    out[id] = skew && skew !== 1 ? Math.pow(linear, 1 / skew) : linear;
+  }
+
+  return out;
+}
+
+let cachedDefaults: PatchSnapshot | null = null;
+
+/** Applies a factory preset: defaults, then the preset's own differences. */
+export function applyFactory(preset: FactoryPreset): void {
+  cachedDefaults ??= defaultSnapshot();
+
+  applyPatch(cachedDefaults);
+  applyPatch(preset.values);
 }

@@ -21,6 +21,7 @@
 #include <juce_events/juce_events.h>
 
 #include <cmath>
+#include <map>
 #include <functional>
 
 using namespace gnarl;
@@ -365,6 +366,100 @@ void renderBankAudition (const juce::File& outputDirectory)
     index prefix makes a collision impossible, and it also makes the bank's
     own order visible, which is the order a preset's stored INDEX refers to
     (CLAUDE.md section 3: generated presets are appended, never interleaved). */
+/*  THE FACTORY BANK AS DATA THE BROWSER CAN LOAD.
+ *
+ *  In the plugin a factory preset is a ValueTree the engine applies. In a
+ *  browser there is no engine, so loading one changed the name in the status
+ *  bar and NOTHING ELSE - every factory preset sounded identical, because
+ *  none of them was doing anything. Reported as "every preset sounds the
+ *  same when I change it", which was exactly right.
+ *
+ *  A user's own patch already round-trips, because the browser captures the
+ *  live parameters when it saves. The factory bank cannot work that way: it
+ *  is built by C++ that does not run there. So it is dumped here, at build
+ *  time, from the same FactoryBank::build the plugin uses - one source, no
+ *  second list to drift (section 4's argument for the generated ID files).
+ *
+ *  NORMALISED values, which is what crosses the relay and what the UI's own
+ *  snapshot format stores. Converting to real units here would duplicate
+ *  every range and skew a third time.
+ */
+void writeUiPresets (const juce::File& outputDirectory)
+{
+    GnarlProcessor builder;
+    builder.setPlayConfigDetails (0, 2, kSampleRate, kBlockSize);
+    builder.prepareToPlay (kSampleRate, kBlockSize);
+
+    auto& apvts = builder.getValueTreeState();
+    const auto bank = preset::FactoryBank::build (apvts, apvts.copyState());
+
+    /*  THE DEFAULTS FIRST, so each preset can be stored as the DIFFERENCE
+        from them. Written in full, every preset is 430 numbers and the bank
+        is 1.7 MB - shipped in a bundle that is otherwise about 2 MB, to say
+        four hundred times over that a parameter is where it already was.
+
+        Most presets touch a couple of dozen controls. Storing the delta cuts
+        it by an order of magnitude, and the loader applies defaults before
+        the delta, so loading B after A cannot leave A's values behind - which
+        a sparse patch WOULD do without that reset. */
+    std::map<juce::String, float> defaults;
+
+    for (auto* parameter : builder.getParameters())
+        if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter))
+            defaults[withId->paramID] = withId->getValue();
+
+    juce::StringArray entries;
+
+    for (const auto& tree : bank)
+    {
+        const auto metadata = preset::readMetadata (tree);
+
+        /*  `getPresets().apply`, NOT `apvts.replaceState`. The first draft
+            called replaceState directly - the same call applyPresetState
+            makes - and every one of the 160 presets came out IDENTICAL:
+            190 identical pairs among the first twenty, and zero parameters
+            differing between Triplet Growl and Sixteenth Wobble. It was
+            reading the default state a hundred and sixty times.
+
+            The preset manager's apply is the path the renderer uses and the
+            one that demonstrably produces different audio per preset, so it
+            is the one to trust. Checked rather than assumed, which is the
+            only reason this was caught before shipping a bank of clones. */
+        builder.getPresets().apply (tree);
+
+        juce::StringArray pairs;
+
+        for (auto* parameter : builder.getParameters())
+        {
+            auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter);
+
+            if (withId == nullptr)
+                continue;
+
+            const auto value = withId->getValue();
+            const auto found = defaults.find (withId->paramID);
+
+            //  1e-6: these are normalised 0..1 and written to six places, so
+            //  anything smaller is the serialisation rather than the patch.
+            if (found != defaults.end() && std::abs (found->second - value) < 1.0e-6f)
+                continue;
+
+            pairs.add ("\"" + withId->paramID + "\":" + juce::String (value, 6));
+        }
+
+        entries.add ("  {\"name\": " + metadata.name.quoted()
+                     + ", \"category\": " + metadata.category.quoted()
+                     + ", \"values\": {" + pairs.joinIntoString (",") + "}}");
+    }
+
+    const auto file = outputDirectory.getChildFile ("factoryPresets.json");
+    file.replaceWithText ("[\n" + entries.joinIntoString (",\n") + "\n]\n");
+
+    std::printf ("wrote %d presets -> %s\n",
+                 static_cast<int> (entries.size()),
+                 file.getFullPathName().toRawUTF8());
+}
+
 void writePresetLibrary (const juce::File& outputDirectory)
 {
     GnarlProcessor builder;
@@ -664,6 +759,9 @@ int main (int argc, char* argv[])
     auto presetsOnly = false;
     /*  --measure prints the band balance, crest and wobble rate of the bank
         in the same columns the reference tracks were measured in. */
+    /*  --ui-presets writes the bank as JSON for the browser build, so a
+        factory preset there loads its SOUND rather than only its name. */
+    auto uiPresetsOnly = false;
     auto measureOnly = false;
     auto measureStride = 7;
     juce::File outputDirectory = juce::File::getCurrentWorkingDirectory();
@@ -678,6 +776,8 @@ int main (int argc, char* argv[])
             auditionOnly = true;
         else if (argument == "--presets")
             presetsOnly = true;
+        else if (argument == "--ui-presets")
+            uiPresetsOnly = true;
         else if (argument == "--measure")
             measureOnly = true;
         else if (argument.startsWith ("--stride="))
@@ -691,6 +791,13 @@ int main (int argc, char* argv[])
     if (measureOnly)
     {
         measureBank (outputDirectory, measureStride);
+        return 0;
+    }
+
+    if (uiPresetsOnly)
+    {
+        writeUiPresets (outputDirectory);
+        std::printf ("Done.\n");
         return 0;
     }
 
