@@ -44,7 +44,8 @@ that apply when changing audio code.
 make vst3 CONFIG=Release
 
 # Linux (headless renderer - preset in, WAV out)
-make headless CONFIG=Release
+make headless_server CONFIG=Release
+headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140 patch.vital
 ```
 
 Windows and macOS build from the generated projects in `plugin/builds/vs17`
