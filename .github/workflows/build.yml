@@ -36,13 +36,17 @@ jobs:
 
       #  debian/control's list is incomplete: libcurl4-openssl-dev and
       #  libsecret-1-dev are missing from it, and the second one only fails
-      #  at LINK time, after a full compile.
+      #  at LINK time, after a full compile. libfontconfig1-dev is JUCE 8's:
+      #  it asks pkg-config for freetype2 AND fontconfig in one query, so
+      #  without fontconfig it loses FreeType's include path too
+      #  ("ft2build.h: No such file" while building juceaide).
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq mesa-common-dev libasound2-dev libfreetype6-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
-            freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev libsecret-1-dev
+            freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev libsecret-1-dev \
+            libfontconfig1-dev
 
       - name: Build VST3
         run: make vst3 CONFIG=Release -j"$(nproc)"

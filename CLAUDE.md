@@ -62,7 +62,7 @@ about their project files.
 sudo apt-get install -y mesa-common-dev libasound2-dev libfreetype6-dev \
   libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
   freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev \
-  libsecret-1-dev
+  libsecret-1-dev libfontconfig1-dev ninja-build   # the last two: JUCE 8 / CMake
 
 make vst3 CONFIG=Release              # -> plugin/builds/linux_vst/build/GNARL.vst3
 make headless_server CONFIG=Release   # -> headless/builds/linux/build/gnarl-render
