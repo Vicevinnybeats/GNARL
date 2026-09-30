@@ -83,7 +83,12 @@ class SynthBase : public MidiManager::Listener {
     void loadTuningFile(const File& file);
     void loadInitPreset();
     bool loadFromFile(File preset, std::string& error);
-    void renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images);
+    // GNARL: bits_per_sample and block_size added (defaults match upstream).
+    // 32 bits writes IEEE float, so tests can measure below 16-bit's -96 dB
+    // floor; block_size lets a test render the same note in different
+    // chunkings and assert the output does not depend on them.
+    void renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images,
+                           int bits_per_sample = 16, int block_size = 64);
     void renderAudioForResynthesis(float* data, int samples, int note);
     bool saveToFile(File preset);
     bool saveToActiveFile();

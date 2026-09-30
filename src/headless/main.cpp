@@ -41,7 +41,9 @@ bool hasFlag(int argc, const char* argv[], const String& flag, const String& ful
 
 float getRenderLength(int argc, const char* argv[]) {
   static constexpr float kDefaultRenderLength = 5.0f;
-  static constexpr float kMaxRenderLength = 15.0f;
+  // GNARL: 60, up from 15 - comparing against a reference drop needs more
+  // than one 16-bar phrase at riddim tempo.
+  static constexpr float kMaxRenderLength = 60.0f;
   
   String string_length = getArgumentValue(argc, argv, "-l", "--length");
   float length = kDefaultRenderLength;
@@ -111,7 +113,36 @@ void doRenderToFile(HeadlessSynth& headless_synth, int argc, const char* argv[])
   float bpm = getRenderBpm(argc, argv);
   std::vector<int> midi_notes = getRenderMidiNotes(argc, argv);
   
-  headless_synth.renderAudioToFile(output_file, length, bpm, midi_notes, render_images);
+  // GNARL: --bits 32 writes float (tests measure below 16-bit's floor);
+  // --block N renders in N-sample blocks (1..kMaxBufferSize), so a test can
+  // assert the output does not depend on how it was chunked.
+  int bits = 16;
+  String string_bits = getArgumentValue(argc, argv, "--bits", "--bits");
+  if (string_bits == "24" || string_bits == "32")
+    bits = string_bits.getIntValue();
+
+  int block_size = 64;
+  String string_block = getArgumentValue(argc, argv, "--block", "--block");
+  if (string_block.isNotEmpty())
+    block_size = string_block.getIntValue();
+
+  headless_synth.renderAudioToFile(output_file, length, bpm, midi_notes, render_images, bits, block_size);
+}
+
+// GNARL: --save FILE writes the loaded (or init) patch back out as a complete
+// preset, through the engine's own save path. Test patches start from one of
+// these and change only what the test needs, so they can never be missing a
+// section the loader expects.
+void doSaveToFile(HeadlessSynth& headless_synth, int argc, const char* argv[]) {
+  String string_save_file = getArgumentValue(argc, argv, "--save", "--save");
+  if (string_save_file.isEmpty())
+    return;
+
+  if (!string_save_file.startsWith("/"))
+    string_save_file = "./" + string_save_file;
+
+  if (!headless_synth.saveToFile(File(string_save_file)))
+    std::cout << "Error: could not save preset." << newLine;
 }
 
 bool loadFromCommandLine(HeadlessSynth& synth, const String& command_line) {
@@ -139,5 +170,6 @@ int main(int argc, const char* argv[]) {
     last_arg_was_option = arg[0] == '-' && arg != "--headless";
   }
   
+  doSaveToFile(headless_synth, argc, argv);
   doRenderToFile(headless_synth, argc, argv);
 }

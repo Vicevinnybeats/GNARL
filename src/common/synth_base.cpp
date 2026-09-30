@@ -380,11 +380,12 @@ bool SynthBase::loadFromFile(File preset, std::string& error) {
   return true;
 }
 
-void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images) {
+void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vector<int> notes, bool render_images,
+                                  int bits_per_sample, int block_size) {
   static constexpr int kSampleRate = 44100;
   static constexpr int kPreProcessSamples = 44100;
   static constexpr int kFadeSamples = 200;
-  static constexpr int kBufferSize = 64;
+  const int kBufferSize = vital::utils::iclamp(block_size, 1, vital::kMaxBufferSize);
   static constexpr int kVideoRate = 30;
   static constexpr int kImageNumberPlaces = 3;
   static constexpr int kImageWidth = 500;
@@ -393,6 +394,10 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   static constexpr float kFadeRatio = 0.3f;
 
   ScopedLock lock(getCriticalSection());
+  // GNARL: the offline render runs the engine directly rather than through
+  // processBlock, so it needs its own denormal flush - or renders would be
+  // measured under different floating-point rules than the plugin runs.
+  ScopedNoDenormals no_denormals;
 
   processModulationChanges();
   engine_->setSampleRate(kSampleRate);
@@ -402,10 +407,15 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   double sample_time = 1.0 / getSampleRate();
   double current_time = -kPreProcessSamples * sample_time;
 
-  for (int samples = 0; samples < kPreProcessSamples; samples += kBufferSize) {
+  // GNARL: exact sample counts, not whole blocks. Upstream rounded the
+  // pre-roll up to a multiple of the block size, so the transport time at
+  // note-on - and every tempo-synced phase - depended on the block size.
+  for (int samples = 0; samples < kPreProcessSamples;) {
+    int num_samples = std::min(kBufferSize, kPreProcessSamples - samples);
     engine_->correctToTime(current_time);
-    current_time += kBufferSize * sample_time;
-    engine_->process(kBufferSize);
+    current_time += num_samples * sample_time;
+    engine_->process(num_samples);
+    samples += num_samples;
   }
 
   for (int note : notes)
@@ -414,7 +424,7 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   file.deleteFile();
   std::unique_ptr<FileOutputStream> file_stream = file.createOutputStream();
   WavAudioFormat wav_format;
-  std::unique_ptr<AudioFormatWriter> writer(wav_format.createWriterFor(file_stream.get(), kSampleRate, 2, 16, {}, 0));
+  std::unique_ptr<AudioFormatWriter> writer(wav_format.createWriterFor(file_stream.get(), kSampleRate, 2, bits_per_sample, {}, 0));
 
   int on_samples = seconds * kSampleRate;
   int total_samples = on_samples + seconds * kSampleRate * kFadeRatio;
@@ -432,25 +442,39 @@ void SynthBase::renderAudioToFile(File file, float seconds, float bpm, std::vect
   const vital::poly_float* memory = getOscilloscopeMemory();
 #endif
 
-  for (int samples = 0; samples < total_samples; samples += kBufferSize) {
+  // GNARL: the render must not depend on its own block size, or a test that
+  // compares two block sizes measures the renderer instead of the engine.
+  // Upstream had three such dependencies, all removed here:
+  //  - note-off was applied AFTER the block containing it, so it landed on a
+  //    block boundary: up to one block late, by an amount set by the size.
+  //    Blocks now split exactly at the note-off sample.
+  //  - the final block was always full, overshooting total_samples.
+  //  - the end fade was computed once per block from the block's first
+  //    sample, so it stepped in block-sized stairs. It is per sample now.
+  for (int samples = 0; samples < total_samples;) {
+    int num_samples = std::min(kBufferSize, total_samples - samples);
+    if (samples < on_samples)
+      num_samples = std::min(num_samples, on_samples - samples);
+
     engine_->correctToTime(current_time);
-    current_time += kBufferSize * sample_time;
-    engine_->process(kBufferSize);
-    updateMemoryOutput(kBufferSize, engine_->output(0)->buffer);
+    current_time += num_samples * sample_time;
+    engine_->process(num_samples);
+    updateMemoryOutput(num_samples, engine_->output(0)->buffer);
 
-    if (on_samples > samples && on_samples <= samples + kBufferSize) {
-      for (int note : notes)
-        engine_->noteOff(note, 0.5f, 0, 0);
-    }
-
-    for (int i = 0; i < kBufferSize; ++i) {
-      vital::mono_float t = (total_samples - samples) / (1.0f * kFadeSamples);
+    for (int i = 0; i < num_samples; ++i) {
+      vital::mono_float t = (total_samples - (samples + i)) / (1.0f * kFadeSamples);
       t = vital::utils::min(t, 1.0f);
       left_buffer[i] = t * engine_output[vital::poly_float::kSize * i];
       right_buffer[i] = t * engine_output[vital::poly_float::kSize * i + 1];
     }
 
-    writer->writeFromFloatArrays(buffers, 2, kBufferSize);
+    writer->writeFromFloatArrays(buffers, 2, num_samples);
+
+    samples += num_samples;
+    if (samples == on_samples) {
+      for (int note : notes)
+        engine_->noteOff(note, 0.5f, 0, 0);
+    }
 
   #if JUCE_MODULE_AVAILABLE_juce_graphics
     int image_index = (samples * kVideoRate) / kSampleRate;
