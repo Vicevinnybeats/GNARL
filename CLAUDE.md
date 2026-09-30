@@ -91,6 +91,11 @@ with `DSTROOT = /`, and Xcode 15 then treats the filesystem root as a build
 directory containing its own output: "Cycle inside a single target". Copy
 the bundle from `plugin/builds/osx/build/Release/` by hand.
 
+**On Windows the project installs itself**: a post-build step copies
+`GNARL.vst3` into `C:\Program Files\Common Files\VST3\`, which is where FL
+Studio and Ableton scan. CI skips it (`/p:PostBuildEventUseInBuild=false`)
+because that folder does not exist on a runner.
+
 ### Project files: two copies of everything
 
 There is **no Projucer here** — the vendored JUCE is `modules/` only. So a

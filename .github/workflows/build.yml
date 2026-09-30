@@ -93,6 +93,13 @@ jobs:
       #  GNARL.lib out of $(SolutionDir)x64\Release\Shared Code - so passing
       #  it explicitly is all the solution was contributing.
       #  The VST2 target is never built: its SDK is no longer distributed.
+      #
+      #  PostBuildEventUseInBuild=false: upstream's post-build step copies
+      #  the plugin into %CommonProgramW6432%\VST3, which does not exist on a
+      #  runner, and `copy` does not create folders - MSB3073 after a
+      #  successful compile AND link. On a producer's machine that folder
+      #  exists and the copy is exactly where FL Studio scans, so the project
+      #  keeps it; only CI skips it. Same family as macOS's DSTROOT = /.
       - name: Build VST3
         shell: pwsh
         run: |
@@ -100,7 +107,8 @@ jobs:
           foreach ($proj in 'GNARL_SharedCode', 'GNARL_VST3') {
             msbuild "plugin/builds/vs17/$proj.vcxproj" `
               /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 `
-              "/p:SolutionDir=$sd" /m /nologo /verbosity:minimal
+              "/p:SolutionDir=$sd" /p:PostBuildEventUseInBuild=false `
+              /m /nologo /verbosity:minimal
             if ($LASTEXITCODE -ne 0) { throw "$proj failed" }
           }
 
