@@ -152,11 +152,11 @@
      the other branch - so this single define compiles the whole thing out
      and is the supported way to do it.
 
-     It is also a licence requirement rather than a preference. Vital's
-     README forbids builds from this source connecting to vital.audio,
-     account.vital.audio or store.vital.audio, which is exactly what that
-     code does. GNARL's own licensing lives in backend/ and is reached
-     over its own endpoint. */
+     It is also a licence requirement rather than a preference: upstream
+     forbids builds from this source connecting to its account and store
+     servers, which is exactly what that code does (LICENSING.md, under
+     "Trademarks and services"). GNARL's own licensing lives in backend/
+     and is reached over its own endpoint. */
  #define NO_AUTH 1
 #endif
 
