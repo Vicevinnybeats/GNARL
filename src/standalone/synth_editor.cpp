@@ -93,6 +93,9 @@ void SynthEditor::prepareToPlay(int buffer_size, double sample_rate) {
 }
 
 void SynthEditor::getNextAudioBlock(const AudioSourceChannelInfo& buffer) {
+  // GNARL: see SynthPlugin::processBlock.
+  ScopedNoDenormals no_denormals;
+
   ScopedLock lock(getCriticalSection());
 
   int num_samples = buffer.buffer->getNumSamples();

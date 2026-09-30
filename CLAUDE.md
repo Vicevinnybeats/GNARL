@@ -151,14 +151,17 @@ UI calls are not audio-thread code — but check which thread before assuming.
 — fine, it happens on the UI thread. Dequeuing on the audio thread does not.
 New UI→engine paths use the same mechanism.
 
-**KNOWN GAP — no denormal protection.** Upstream's `processBlock` has no
-`juce::ScopedNoDenormals`, and nothing in `src/` sets flush-to-zero. Do not
-count on the compiler either: the Linux build uses `-Ofast -ffast-math`,
-which on older GCC linked `crtfastmath.o` and set FTZ at load, but GCC 13
-does not do that for `-shared` - checked, the built `GNARL.so` contains no
-`set_fast_math` - and MSVC and Clang never did. So denormals are unprotected
-on every platform. Adding `ScopedNoDenormals` to `processBlock` is the first
-Phase 2 hardening item.
+**Denormals are flushed** by `ScopedNoDenormals` at the top of
+`SynthPlugin::processBlock`, `SynthEditor::getNextAudioBlock` and
+`SynthBase::renderAudioToFile`. Upstream had none, and the compiler does not
+add it: GCC 13 no longer links `crtfastmath.o` into a `-shared` library (the
+built `GNARL.so` has no `set_fast_math`), and MSVC and Clang never did. Any
+new entry point that runs the engine needs the same line.
+
+A decaying tail does NOT decay to zero, so it cannot be detected by waiting
+for silence: `tests/patches/fast_tail.vital` falls to about −695 dBFS and
+then sits at **−693.5 dBFS indefinitely** — a rounding fixed point, and a
+*normal* float, not a denormal.
 
 **Always:**
 
@@ -301,7 +304,7 @@ Phase 2 candidates, with what already exists in upstream:
 | OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |
 | Clean mono sub under the growl | no dedicated sub path |
 | Riddim preset pack | nothing; upstream ships no presets |
-| Hardening: denormals | `processBlock` has none — see §3 |
+| Hardening: denormals | **done** — see §3 |
 
 ## 10. The marketing site
 

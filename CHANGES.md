@@ -58,3 +58,18 @@ the merge commit forward: `git log 7651809..`.
 - Internal identifiers containing "vital" (namespaces, class names). Not
   user-visible, and renaming them would make every future upstream
   comparison harder for no gain.
+
+## 2026-09-30 - Phase 2 groundwork
+
+**Renderer** (`src/headless/main.cpp`, `SynthBase::renderAudioToFile`)
+- `--bits 24|32` (32 = IEEE float), `--block N`, `--save FILE`; length cap
+  15 s → 60 s. Defaults unchanged.
+- The render no longer depends on its own block size: exact pre-roll and
+  final-block lengths, note-off split to the exact sample instead of the
+  next block boundary, and a per-sample rather than per-block end fade.
+
+**Real-time safety**
+- `ScopedNoDenormals` at the top of `SynthPlugin::processBlock`,
+  `SynthEditor::getNextAudioBlock` and the offline render. Upstream had no
+  denormal protection on any platform.
+

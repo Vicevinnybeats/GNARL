@@ -136,6 +136,13 @@ void SynthPlugin::releaseResources() {
 }
 
 void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messages) {
+  // GNARL: flush denormals to zero for the whole block. Upstream had no
+  // protection at all, and GCC 13 no longer adds it through -ffast-math for
+  // a shared library. A decaying effect tail otherwise sits in the
+  // denormal range for as long as the plugin idles on a track. RAII:
+  // restores the host's floating-point mode on return.
+  ScopedNoDenormals no_denormals;
+
   static constexpr double kSecondsPerMinute = 60.0f;
 
   if (bypass_parameter_->getValue()) {
