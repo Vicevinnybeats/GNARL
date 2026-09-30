@@ -95,6 +95,15 @@ function(gnarl_engine_options target)
       $<$<CONFIG:Release>:-flto -ffast-math -ftree-vectorize -ftree-slp-vectorize>
       $<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-msse2>)
   elseif(MSVC)
+    # plugin/builds/vs17's PreprocessorDefinitions. MSVC never defines
+    # __SSE2__, and poly_values.h selects its SIMD path on it (C1017
+    # without it, windows-juce8, run 137).
+    target_compile_definitions(${target} PRIVATE
+      __SSE2__=1
+      _ENABLE_EXTENDED_ALIGNED_STORAGE
+      _CRT_SECURE_NO_WARNINGS
+      WINVER=0x0601
+      _WIN32_WINNT=0x0601)
     # plugin/builds/vs17: Optimization MaxSpeed, FloatingPointModel Fast,
     # WholeProgramOptimization true.
     target_compile_options(${target} PRIVATE $<$<CONFIG:Release>:/O2 /fp:fast /GL>)
