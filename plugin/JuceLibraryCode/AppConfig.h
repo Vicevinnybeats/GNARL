@@ -145,7 +145,19 @@
 // juce_audio_plugin_client flags:
 
 #ifndef    JUCE_VST3_CAN_REPLACE_VST2
- //#define JUCE_VST3_CAN_REPLACE_VST2 1
+ /*  MUST be 0, and this is not a preference.
+
+     JUCE's VST3 wrapper includes <pluginterfaces/vst2.x/vstfxstore.h> when
+     this is on, so that a VST3 can load an old VST2's saved chunks. Steinberg
+     REMOVED the VST2 SDK, and third_party/VST_SDK here holds VST3_SDK only,
+     so leaving it at JUCE's default of 1 fails the build outright:
+
+       fatal error: pluginterfaces/vst2.x/vstfxstore.h: No such file or directory
+
+     Nothing is lost by turning it off. The feature exists to let a VST3
+     replace a VST2 of the same plugin already in somebody's projects, and
+     GNARL has never shipped a VST2 for it to replace. */
+ #define JUCE_VST3_CAN_REPLACE_VST2 0
 #endif
 
 #ifndef    JUCE_FORCE_USE_LEGACY_PARAM_IDS
