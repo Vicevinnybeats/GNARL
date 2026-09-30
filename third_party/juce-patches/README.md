@@ -46,6 +46,17 @@ Each hunk is marked `GNARL` in the source.
   pixel scaling above and came out at 1/scale, which drew the frame into one
   corner at scale 2.
 
+**New for the web panel** (docs/design/phase2-04-web-panel.md): two bugs in
+the pipe between the Linux `WebBrowserComponent` and its forked WebKit
+process, which killed the child with `std::bad_alloc` on any message over
+the pipe's buffer (the panel's page is ~170 KB):
+
+- `CommandReceiver::sendCommand` wrote `String::length()` - characters - as
+  the byte count of a UTF-8 message.
+- `CommandReceiver::tryNextRead` read non-blocking and threw away a
+  partially received message. It now reads the rest of a message it has
+  started in blocking mode.
+
 **Not ported**, because JUCE 8 already does it or GNARL doesn't need it:
 
 - the VST3 controller null check (JUCE 8 checks where it dereferences);

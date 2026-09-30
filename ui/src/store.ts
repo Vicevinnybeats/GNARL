@@ -1,18 +1,22 @@
 /*
  * The panel's state. One flat map of values plus change listeners.
  *
- * In the plugin, `set` is where a value is handed to the engine (the same
- * path Vital's own UI uses: a control_change enqueued on SynthBase), and
- * `apply` is how the engine's side - automation, a preset load - comes back.
- * Here, in the browser, it only redraws.
+ * In the plugin, `set` is where a value is handed to the engine (bridge.ts
+ * subscribes and sends it), and `apply` is how the engine's side -
+ * automation, a preset load - comes back without being sent again. Here, in
+ * the browser, both only redraw.
  */
 
 import { CHOICES, PARAMS, WOBBLE_DESTINATIONS } from './params';
 
-type Listener = (id: string, value: number) => void;
+/** `fromEngine` is true for a value the engine sent: never send it back. */
+type Listener = (id: string, value: number, fromEngine: boolean) => void;
+type GestureListener = (id: string, begin: boolean) => void;
 
 const values = new Map<string, number>();
 const listeners = new Set<Listener>();
+const gestureListeners = new Set<GestureListener>();
+let applying = false;
 
 export function resetAll(): void {
   for (const p of PARAMS) values.set(p.id, p.def);
@@ -34,6 +38,33 @@ export function set(id: string, value: number): void {
   emit(id);
 }
 
+/** A value from the engine: shown, not sent back. */
+export function apply(id: string, value: number): void {
+  applying = true;
+  try {
+    set(id, value);
+  } finally {
+    applying = false;
+  }
+}
+
+/** Redraw a control whose value is unchanged but whose readout is not. */
+export function refresh(id: string): void {
+  emit(id);
+}
+
+/**
+ * A knob grabbed (begin) or let go. A DAW records automation between the
+ * two, and treats everything in between as one undo step.
+ */
+export function gesture(id: string, begin: boolean): void {
+  for (const l of gestureListeners) l(id, begin);
+}
+
+export function onGesture(listener: GestureListener): void {
+  gestureListeners.add(listener);
+}
+
 export function subscribe(listener: Listener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -41,7 +72,7 @@ export function subscribe(listener: Listener): () => void {
 
 function emit(id: string): void {
   const v = values.get(id) ?? 0;
-  for (const l of listeners) l(id, v);
+  for (const l of listeners) l(id, v, applying);
 }
 
 resetAll();

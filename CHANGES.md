@@ -150,3 +150,26 @@ the merge commit forward: `git log 7651809..`.
   would, optionally after host parameter changes; `tools/compare_plugins.py`
   compares two builds with it. CI builds the JUCE 8 VST3 on all three
   platforms and requires it identical to the JUCE 6 one on Linux.
+
+## 2026-09-30 - GNARL's panel inside the plugin (JUCE 8 build)
+
+- `src/plugin/web_panel.{h,cpp}` (new): the JUCE 8 plugin opens on GNARL's
+  own panel (`ui/`), a web page in JUCE's `WebBrowserComponent`, bound to
+  the host parameters. `ui/src/bridge.ts` and `ui/src/engine.ts` (new) are
+  the page's side. ADVANCED shows Vital's editor; its logo comes back. See
+  docs/design/phase2-04-web-panel.md.
+- `synth_editor.{h,cpp}`, `synth_gui_interface.h`, `full_interface.cpp`,
+  `synth_plugin.h`: the switch between the two views, and a parameter
+  lookup for the panel. Compiled only where `GNARL_WEB_UI` is defined (the
+  CMake build); the Projucer builds are unchanged.
+- **Fix, both builds:** `SynthVoiceHandler::disableModSource` never disables
+  the wobble. Vital's editor disabled any source without a matrix
+  connection whenever the source's button was inactive or destroyed, which
+  silenced the wobble macro when the editor was opened or closed.
+- JUCE patch: two fixes to JUCE 8's Linux web view pipe (a page over 64 KB
+  killed its WebKit process).
+- `ui/`: fonts bundled rather than fetched from Google (`fonts.css`, SIL OFL
+  1.1); ASCII-only output, checked by `inline.mjs`.
+- CI: Node for the JUCE 8 jobs, WebKitGTK on Linux, a pinned WebView2 SDK on
+  Windows.
+

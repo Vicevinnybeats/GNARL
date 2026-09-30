@@ -35,8 +35,9 @@ third_party/       JUCE 6.0.5 (modules ONLY, Vital-modified), VST3 SDK,
                    kissfft, json, concurrentqueue; juce-patches/ (JUCE 8)
 icons/  fonts/     UI glyphs, GNARL's marks, fonts
 
-ui/                GNARL's own panel (TypeScript, one HTML file). Browser build;
-                   the plugin still shows Vital's editor. See docs/design/phase2-02-ui.md
+ui/                GNARL's own panel (TypeScript, one HTML file). Embedded in the
+                   JUCE 8 plugin (src/plugin/web_panel.cpp, docs/design/phase2-04-
+                   web-panel.md); the JUCE 6 plugin still shows Vital's editor
 tools/             check_fork.py (CI guard), vst3_probe.cpp (host-style
                    loader), make_logo.py + embed_logo.py, site tooling
 site/              the marketing site - separate program, NOT GPL
@@ -292,6 +293,16 @@ codebase:
   source and connection become audio rate. A re-implementation that skipped
   it matched the matrix to only −15 dB and stepped once per block. See
   `SynthVoiceHandler::connectWobbleRoutes`.
+- **A source Vital's matrix cannot see must be exempt from
+  `disableModSource`.** The editor's modulation buttons disable any source
+  with no *matrix* connection whenever the button is inactive or destroyed.
+  The wobble's fixed routes are not matrix connections, and the wobble went
+  silent whenever the editor opened or closed - invisible to every test,
+  because the renderer and the probe never create an editor.
+- **The web panel is message-thread code.** It sets values through
+  `valueChangedInternal` like a Vital knob, which does NOT redraw Vital's
+  editor: call `updateFullGui()` before showing it. The panel's page must be
+  ASCII (`inline.mjs` enforces it) and must fetch nothing - bundle fonts.
 - **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
   write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
@@ -348,7 +359,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts) built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 

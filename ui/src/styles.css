@@ -872,3 +872,22 @@ body[data-mode='phone'] .toast {
   max-width: calc(100% - 32px);
   text-align: center;
 }
+
+/* ------------------------------------------------------ inside the plugin */
+
+/* A control with no engine parameter behind it yet (bridge.ts). */
+[data-unbound='true'] {
+  opacity: 0.32;
+}
+.chip[data-unbound='true'] {
+  text-decoration: line-through;
+}
+
+.advanced[hidden] {
+  display: none;
+}
+
+.preset__step:disabled {
+  opacity: 0.25;
+  cursor: default;
+}

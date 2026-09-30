@@ -10,8 +10,11 @@
  * one section at a time, controls at finger size, keys always in reach.
  */
 
+import './fonts.css';
 import './styles.css';
+import { connect, isPlugin, showClassic } from './bridge';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
+import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
 import { MOD_DESTINATIONS, MOD_SOURCES, PRESET_NAMES, WOBBLE_DESTINATIONS } from './params';
 import { get, resetAll, subscribe } from './store';
@@ -38,8 +41,11 @@ const presetViews = new Set<() => void>();
 
 function presetPicker(): HTMLElement {
   const name = el('span', 'preset__name');
+  // In the plugin the name is the engine's loaded preset; there is no preset
+  // browser behind the arrows yet, so they are off rather than lying.
   const show = (): void => {
-    name.textContent = PRESET_NAMES[presetIndex] ?? '';
+    name.textContent = engine.connected ? (engine.preset ?? '') : (PRESET_NAMES[presetIndex] ?? '');
+    prev.disabled = next.disabled = engine.connected;
   };
   const step = (by: number): void => {
     presetIndex = (presetIndex + by + PRESET_NAMES.length) % PRESET_NAMES.length;
@@ -53,6 +59,7 @@ function presetPicker(): HTMLElement {
   prev.addEventListener('click', () => step(-1));
   next.addEventListener('click', () => step(1));
   presetViews.add(show);
+  engineViews.add(show);
   show();
   return el('div', 'preset', prev, name, next);
 }
@@ -91,6 +98,16 @@ function masterKnob(): HTMLElement {
   return master;
 }
 
+/** Inside the plugin: Vital's full editor, for everything this panel lacks. */
+function advancedButton(): HTMLButtonElement {
+  const b = chipButton('ADVANCED');
+  b.classList.add('advanced');
+  b.title = 'The full editor: every parameter, the modulation matrix, wavetables';
+  b.hidden = !isPlugin();
+  b.addEventListener('click', showClassic);
+  return b;
+}
+
 function header(): HTMLElement {
   return el(
     'header',
@@ -98,6 +115,7 @@ function header(): HTMLElement {
     el('div', 'brand', headerMark(), el('span', 'brand__word', 'GNARL')),
     presetPicker(),
     aiButton('AI PRESET'),
+    advancedButton(),
     el('div', 'top__spacer'),
     scope(250, 34),
     masterKnob(),
@@ -532,9 +550,14 @@ function start(): void {
 
   fit();
   window.addEventListener('resize', fit);
+  void connect().then(() => {
+    for (const v of presetViews) v();
+  });
 
   // Double-click the wordmark to reset the whole panel.
-  desktopApp.querySelector('.brand')?.addEventListener('dblclick', () => resetAll());
+  // Not in the plugin: the page's defaults are not a patch, and the engine
+  // would take every one of them.
+  desktopApp.querySelector('.brand')?.addEventListener('dblclick', () => !engine.connected && resetAll());
 
   window.addEventListener('keydown', (e) => {
     const i = COMPUTER_KEYS.indexOf(e.key.toLowerCase());

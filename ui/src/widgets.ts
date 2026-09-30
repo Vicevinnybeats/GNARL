@@ -5,7 +5,8 @@
  */
 
 import { CHOICES, PARAM_BY_ID, formatValue } from './params';
-import { get, set, subscribe } from './store';
+import { engine } from './engine';
+import { gesture, get, set, subscribe } from './store';
 
 export type Accent = 'blue' | 'violet';
 
@@ -45,6 +46,7 @@ export function panel(opts: PanelOptions, ...body: Node[]): HTMLElement {
 
   if (opts.power) {
     const id = opts.power;
+    dot.dataset.param = id;
     dot.title = 'Switch this section on or off';
     dot.setAttribute('aria-label', `${opts.title} on/off`);
     dot.addEventListener('click', () => set(id, get(id) ? 0 : 1));
@@ -116,6 +118,7 @@ export function knob(id: string, opts: { size?: number; accent?: Accent; label?:
   const readout = el('span', 'knob__readout');
   const root = el('div', 'knob', svg, el('span', 'knob__label', opts.label ?? p.label), readout);
   root.dataset.accent = opts.accent ?? 'blue';
+  root.dataset.param = id;
   root.tabIndex = 0;
   root.setAttribute('role', 'slider');
   root.setAttribute('aria-label', opts.label ?? p.label);
@@ -138,7 +141,7 @@ export function knob(id: string, opts: { size?: number; accent?: Accent; label?:
     pointer.setAttribute('y1', y0.toFixed(2));
     pointer.setAttribute('x2', x1.toFixed(2));
     pointer.setAttribute('y2', y1.toFixed(2));
-    readout.textContent = formatValue(p, v);
+    readout.textContent = engine.text.get(id) ?? formatValue(p, v);
     root.setAttribute('aria-valuetext', readout.textContent);
   };
 
@@ -153,6 +156,7 @@ export function knob(id: string, opts: { size?: number; accent?: Accent; label?:
     acc = norm(get(id));
     svg.setPointerCapture(e.pointerId);
     root.dataset.active = 'true';
+    gesture(id, true);
     e.preventDefault();
   });
   svg.addEventListener('pointermove', (e) => {
@@ -164,6 +168,7 @@ export function knob(id: string, opts: { size?: number; accent?: Accent; label?:
     set(id, denorm(acc));
   });
   const end = (): void => {
+    if (dragging) gesture(id, false);
     dragging = false;
     delete root.dataset.active;
   };
@@ -205,8 +210,10 @@ export function choiceRow(id: string, opts: { accent?: Accent; cls?: string } = 
   const choice = CHOICES.find((c) => c.id === id);
   if (!choice) throw new Error(`choiceRow: unknown choice ${id}`);
   const row = el('div', `chips ${opts.cls ?? ''}`);
+  row.dataset.param = id;
   const buttons = choice.options.map((label, i) => {
     const b = chipButton(label, opts.accent);
+    b.dataset.option = `${i}`;
     b.addEventListener('click', () => {
       // A single-option row is a toggle (MONO, -1 OCT).
       if (choice.options.length === 1) set(id, get(id) ? 0 : 1);
@@ -231,6 +238,7 @@ export function choiceRow(id: string, opts: { accent?: Accent; cls?: string } = 
 /** An on/off button bound to a 0/1 store value. */
 export function toggle(id: string, label: string, accent?: Accent): HTMLButtonElement {
   const b = chipButton(label, accent);
+  b.dataset.param = id;
   b.addEventListener('click', () => set(id, get(id) ? 0 : 1));
   const sync = (): void => {
     b.dataset.on = get(id) ? 'true' : 'false';

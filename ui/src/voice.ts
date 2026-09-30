@@ -2,9 +2,9 @@
  * The preview voice: which note is held and how loud its envelope is.
  *
  * In the browser there is no engine, so the scope draws a MODEL of the patch
- * (draw.ts: scopeSample) shaped by this envelope. In the plugin the scope
- * reads the engine's real output instead and this file goes away - it exists
- * so the panel can be judged, and played on a phone, before that bridge does.
+ * (draw.ts: scopeSample) shaped by this envelope. In the plugin the note is
+ * also played by the engine (bridge.ts sets `noteSink`) and the scope shows
+ * the engine's real output.
  */
 
 import { get } from './store';
@@ -33,13 +33,22 @@ function held(dt: number): number {
   return s + (1 - s) * Math.exp(((a - dt) * 3) / d);
 }
 
+/** Where notes go besides the preview: the engine, inside the plugin. */
+export let noteSink: ((midi: number, on: boolean) => void) | null = null;
+export function setNoteSink(sink: (midi: number, on: boolean) => void): void {
+  noteSink = sink;
+}
+
 export function noteOn(midi: number, now: number): void {
+  if (note !== null && note !== midi) noteSink?.(note, false);
+  noteSink?.(midi, true);
   note = midi;
   onAt = now;
 }
 
 export function noteOff(midi: number, now: number): void {
   if (note !== midi) return;
+  noteSink?.(midi, false);
   levelAtOff = held(now - onAt);
   offAt = now;
   note = null;

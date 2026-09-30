@@ -46,7 +46,7 @@ jobs:
           sudo apt-get install -y -qq mesa-common-dev libasound2-dev libfreetype6-dev \
             libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
             freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev libsecret-1-dev \
-            libfontconfig1-dev
+            libfontconfig1-dev libwebkit2gtk-4.1-dev libgtk-3-dev
 
       - name: Build VST3
         run: make vst3 CONFIG=Release -j"$(nproc)"
@@ -89,6 +89,11 @@ jobs:
       #  sample-for-sample identical to the Projucer / JUCE 6 one: the engine
       #  did not change, so its output may not. Then the wobble tests again,
       #  on the new build.
+      #  The JUCE 8 plugin embeds the web panel (ui/), built with npm by
+      #  CMake (docs/design/phase2-04-web-panel.md).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       - name: JUCE 8 renderer matches JUCE 6
         run: |
           sudo apt-get install -y -qq ninja-build
@@ -128,10 +133,23 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
+      #  The JUCE 8 plugin embeds the web panel (ui/), built with npm by
+      #  CMake (docs/design/phase2-04-web-panel.md).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      #  JUCE links WebView2's loader statically, from the NuGet package;
+      #  pinned, so a new SDK cannot change the build under us. Users need
+      #  the WebView2 RUNTIME, which Windows 11 and updated Windows 10 have.
+      - name: Fetch the WebView2 SDK
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Web.WebView2 -Version 1.0.2903.40 -OutputDirectory "$env:RUNNER_TEMP\nuget"
+          if ($LASTEXITCODE -ne 0) { throw "nuget failed" }
       - name: Build VST3 (CMake, JUCE 8)
         shell: pwsh
         run: |
-          cmake -B build-cmake -G "Visual Studio 17 2022" -A x64
+          cmake -B build-cmake -G "Visual Studio 17 2022" -A x64 "-DJUCE_WEBVIEW2_PACKAGE_LOCATION=$env:RUNNER_TEMP\nuget"
           if ($LASTEXITCODE -ne 0) { throw "configure failed" }
           cmake --build build-cmake --config Release --target gnarl_plugin_VST3 -- /m /nologo /verbosity:minimal
           if ($LASTEXITCODE -ne 0) { throw "build failed" }
@@ -145,6 +163,11 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      #  The JUCE 8 plugin embeds the web panel (ui/), built with npm by
+      #  CMake (docs/design/phase2-04-web-panel.md).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
       #  Unsigned, universal (arm64 + x86_64), as the Projucer job.
       - name: Build VST3 (CMake, JUCE 8)
         run: |

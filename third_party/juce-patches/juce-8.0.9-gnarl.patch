@@ -330,6 +330,47 @@ index cf7aee0..875e2e2 100644
  
      if (DragHelpers::isFileDrag (info))
          dynamic_cast<FileDragAndDropTarget*> (newTarget)->fileDragMove (info.files, pos.x, pos.y);
+diff --git a/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp b/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
+index f2e8a95..65b3c62 100644
+--- a/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
++++ b/modules/juce_gui_extra/native/juce_WebBrowserComponent_linux.cpp
+@@ -467,7 +467,22 @@ public:
+             char lengthBytes[sizeof (size_t)]{};
+             const auto numLengthBytes = readIntoBuffer (lengthBytes);
+ 
+-            if (numLengthBytes != std::size (lengthBytes))
++            if (numLengthBytes == 0)
++                break;
++
++            // GNARL: once a message has started arriving, read ALL of it. The
++            // channel is non-blocking, and a message larger than what is in the
++            // pipe (a web page served through a ResourceProvider is well over
++            // the 64 KB a pipe holds) used to be read in part and the part
++            // thrown away; the next read then took the middle of that message
++            // for a length and died in std::bad_alloc. The writer sends each
++            // message with one blocking write, so the rest is on its way.
++            setBlocking (inChannel, true);
++            const ScopeGuard nonBlockingAgain { [this] { setBlocking (inChannel, false); } };
++
++            if (numLengthBytes != std::size (lengthBytes)
++                && readIntoBuffer ({ lengthBytes + numLengthBytes, std::size (lengthBytes) - numLengthBytes })
++                       != std::size (lengthBytes) - numLengthBytes)
+                 break;
+ 
+             const auto numBytesExpected = readUnaligned<size_t> (lengthBytes);
+@@ -499,7 +514,11 @@ public:
+ 
+         auto json = JSON::toString (var (obj.get()));
+ 
+-        auto jsonLength = static_cast<size_t> (json.length());
++        // GNARL: the length of what is written - UTF-8 BYTES. json.length()
++        // counts characters, so any non-ASCII character (a value's unit, a
++        // preset name) left bytes in the pipe that the reader took for the next
++        // message's length: std::bad_alloc in the web view process.
++        auto jsonLength = static_cast<size_t> (json.getNumBytesAsUTF8());
+         auto len        = sizeof (size_t) + jsonLength;
+ 
+         HeapBlock<char> buffer (len);
 diff --git a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp b/modules/juce_opengl/opengl/juce_OpenGLContext.cpp
 index 27f8ace..bac39bb 100644
 --- a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp

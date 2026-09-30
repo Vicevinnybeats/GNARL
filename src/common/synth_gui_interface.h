@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: showGnarlPanel() for the web panel.
  */
 
 #pragma once
@@ -46,6 +48,9 @@ class SynthGuiInterface {
     virtual ~SynthGuiInterface();
 
     virtual AudioDeviceManager* getAudioDeviceManager() { return nullptr; }
+    // GNARL: asked when the logo is clicked. A host that has a GNARL panel
+    // shows it and returns true; otherwise the About box opens, as upstream.
+    virtual bool showGnarlPanel() { return false; }
     SynthBase* getSynth() { return synth_; }
     virtual void updateFullGui();
     virtual void updateGuiControl(const std::string& name, vital::mono_float value);

@@ -13,5 +13,10 @@ html = html
 if (html.includes('app.js') || html.includes('app.css')) {
   throw new Error('inline.mjs: an asset reference survived; the single file would be broken');
 }
+// See vite.config.ts: the page must survive being decoded as any charset.
+const nonAscii = [...html].findIndex((c) => c.charCodeAt(0) > 0x7e);
+if (nonAscii >= 0) {
+  throw new Error(`inline.mjs: non-ASCII text survived near "${html.slice(nonAscii - 40, nonAscii + 10)}"`);
+}
 writeFileSync(new URL('gnarl-ui.html', dist), html);
 console.log(`dist/gnarl-ui.html ${(html.length / 1024).toFixed(1)} kB`);

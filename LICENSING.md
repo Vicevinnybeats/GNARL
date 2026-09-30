@@ -29,6 +29,7 @@ Third-party code carries its own licence, each compatible with GPLv3 as used:
 | `third_party/concurrentqueue` | BSD / Boost (see `LICENSE.md`) |
 | `third_party/json` | see file header |
 | `fonts/` | `fonts/LICENSE` is Apache 2.0. Lato and Montserrat are normally distributed under the SIL Open Font License, so **confirm each font's licence before a release** rather than trusting the single file. |
+| `ui/` fonts (Archivo, JetBrains Mono) | SIL Open Font License 1.1, from the `@fontsource` npm packages; embedded in the JUCE 8 plugin's panel. OFL permits bundling with software under any licence; the fonts themselves stay OFL. |
 
 ## What is NOT GPLv3
 

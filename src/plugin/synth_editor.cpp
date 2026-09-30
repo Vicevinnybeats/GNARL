@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: hosts GNARL's web panel (JUCE 8 builds).
  */
 
 #include "synth_editor.h"
@@ -43,6 +45,13 @@ SynthEditor::SynthEditor(SynthPlugin& synth) :
   total_bounds.removeFromBottom(kHeightBuffer);
 
   addAndMakeVisible(gui_.get());
+
+#if GNARL_WEB_UI
+  web_panel_ = std::make_unique<WebPanel>(synth, [this] { showClassicEditor(); });
+  addAndMakeVisible(web_panel_.get());
+  gui_->setVisible(false);
+#endif
+
   float window_size = LoadSave::loadWindowSize();
   window_size = std::min(window_size, total_bounds.getWidth() / (1.0f * vital::kDefaultWindowWidth));
   window_size = std::min(window_size, total_bounds.getHeight() / (1.0f * vital::kDefaultWindowHeight));
@@ -55,7 +64,27 @@ SynthEditor::SynthEditor(SynthPlugin& synth) :
 void SynthEditor::resized() {
   AudioProcessorEditor::resized();
   gui_->setBounds(getLocalBounds());
+#if GNARL_WEB_UI
+  web_panel_->setBounds(getLocalBounds());
+#endif
 }
+
+#if GNARL_WEB_UI
+bool SynthEditor::showGnarlPanel() {
+  gui_->setVisible(false);
+  web_panel_->setVisible(true);
+  return true;
+}
+
+void SynthEditor::showClassicEditor() {
+  web_panel_->setVisible(false);
+  // The panel sets values the way Vital's own knobs do, which does not
+  // redraw Vital's knobs: bring the hidden editor up to date first.
+  updateFullGui();
+  gui_->setVisible(true);
+  gui_->redoBackground();
+}
+#endif
 
 void SynthEditor::setScaleFactor(float newScale) {
   AudioProcessorEditor::setScaleFactor(newScale);

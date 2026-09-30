@@ -180,6 +180,10 @@ juce_add_plugin(gnarl_plugin
   AU_EXPORT_PREFIX gnarl
   AAX_IDENTIFIER audio.gnarl.synth
   COPY_PLUGIN_AFTER_BUILD FALSE
+  # The web panel's view: WebKitGTK on Linux, WebView2 on Windows (linked
+  # statically, so no loader DLL ships beside the plugin), WebKit on macOS.
+  NEEDS_WEB_BROWSER TRUE
+  NEEDS_WEBVIEW2 ${WIN32}
   FORMATS ${GNARL_PLUGIN_FORMATS})
 
 juce_generate_juce_header(gnarl_plugin)
@@ -219,7 +223,41 @@ juce_add_binary_data(gnarl_binary_data
     icons/gnarl_word.svg
     icons/gnarl_word_ring.svg)
 
+# ----------------------------------------------------------------- web panel
+#
+# ui/ is built with npm into ONE html file (scripts/inline.mjs) and embedded;
+# src/plugin/web_panel.cpp serves it to the web view. npm install runs once
+# (and when package-lock.json changes), the build whenever ui/ changes.
+
+find_program(GNARL_NPM npm REQUIRED)
+set(GNARL_UI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ui)
+set(GNARL_UI_HTML ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-ui.html)
+file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp
+  COMMAND ${GNARL_NPM} ci --no-audit --no-fund
+  COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp
+  DEPENDS ${GNARL_UI_DIR}/package-lock.json
+  WORKING_DIRECTORY ${GNARL_UI_DIR}
+  COMMENT "Installing the web panel's build tools (npm ci)")
+
+add_custom_command(
+  OUTPUT ${GNARL_UI_HTML}
+  COMMAND ${GNARL_NPM} run build
+  COMMAND ${CMAKE_COMMAND} -E copy ${GNARL_UI_DIR}/dist/gnarl-ui.html ${GNARL_UI_HTML}
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp ${GNARL_UI_SOURCES}
+          ${GNARL_UI_DIR}/index.html ${GNARL_UI_DIR}/vite.config.ts ${GNARL_UI_DIR}/scripts/inline.mjs
+  WORKING_DIRECTORY ${GNARL_UI_DIR}
+  COMMENT "Building the web panel (ui/)")
+
+juce_add_binary_data(gnarl_ui_data
+  NAMESPACE GnarlUi
+  HEADER_NAME GnarlUiData.h
+  SOURCES ${GNARL_UI_HTML})
+
 target_sources(gnarl_plugin PRIVATE
+  src/plugin/web_panel.cpp
   src/unity_build/common.cpp
   src/unity_build/interface_editor_components.cpp
   src/unity_build/interface_editor_sections.cpp
@@ -237,7 +275,11 @@ target_compile_definitions(gnarl_plugin PUBLIC
   JUCE_OPENGL3=1
   JUCE_USE_XRANDR=0
   JUCE_USE_CURL=0
-  JUCE_WEB_BROWSER=0
+  # The web panel (src/plugin/web_panel.cpp). GNARL_WEB_UI keeps it out of the
+  # Projucer / JUCE 6 builds, which have no web view bridge.
+  GNARL_WEB_UI=1
+  JUCE_WEB_BROWSER=1
+  $<$<BOOL:${WIN32}>:JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1>
   # The editor opens file choosers and alert boxes synchronously. JUCE 6
   # allowed that by default; JUCE 7+ only with this. Same behaviour as today;
   # converting them to async is for the editor that replaces this one.
@@ -246,6 +288,7 @@ target_compile_definitions(gnarl_plugin PUBLIC
 target_link_libraries(gnarl_plugin
   PRIVATE
     gnarl_binary_data
+    gnarl_ui_data
     juce::juce_audio_basics
     juce::juce_audio_devices
     juce::juce_audio_formats

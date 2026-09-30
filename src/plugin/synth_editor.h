@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: hosts GNARL's web panel (JUCE 8 builds).
  */
 
 #pragma once
@@ -21,6 +23,10 @@
 #include "synth_plugin.h"
 #include "full_interface.h"
 #include "synth_gui_interface.h"
+
+#if GNARL_WEB_UI
+  #include "web_panel.h"
+#endif
 
 class SynthEditor : public AudioProcessorEditor, public SynthGuiInterface {
   public:
@@ -32,7 +38,17 @@ class SynthEditor : public AudioProcessorEditor, public SynthGuiInterface {
 
     void updateFullGui() override;
 
+  #if GNARL_WEB_UI
+    // GNARL: the web panel is the default view; Vital's editor is one click
+    // away (ADVANCED) and its G logo comes back here.
+    bool showGnarlPanel() override;
+    void showClassicEditor();
+  #endif
+
   private:
+  #if GNARL_WEB_UI
+    std::unique_ptr<WebPanel> web_panel_;
+  #endif
     SynthPlugin& synth_;
     bool was_animating_;
     BorderBoundsConstrainer constrainer_;

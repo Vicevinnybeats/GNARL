@@ -94,23 +94,29 @@ export interface Choice {
   readonly options: readonly string[];
   readonly def: number;
   readonly vital: string | null;
+  /** The engine value each option sets; null for an option the engine lacks. */
+  readonly values?: readonly (number | null)[];
 }
 
 export const CHOICES: readonly Choice[] = [
   // FORMANT / SYNC / BEND are Vital's warp modes 2 / 1 / 4. FOLD is not one.
-  { id: 'osc1.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 0, vital: 'osc_1_distortion_type' },
-  { id: 'osc2.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 1, vital: 'osc_2_distortion_type' },
+  { id: 'osc1.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 0, vital: 'osc_1_distortion_type', values: [2, 1, 4, null] },
+  { id: 'osc2.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 1, vital: 'osc_2_distortion_type', values: [2, 1, 4, null] },
   { id: 'sub.mono', options: ['MONO'], def: 1, vital: null },
   { id: 'sub.oct', options: ['-1 OCT'], def: 0, vital: null },
   { id: 'vowel.vowel', options: ['A', 'E', 'I', 'O', 'U'], def: 3, vital: null },
   // The one wobble parameter that already exists in the engine (Phase 2 #1).
-  { id: 'wobble.rate', options: ['1/4', '1/8', '1/8T', '1/16'], def: 1, vital: 'wobble_rate' },
+  { id: 'wobble.rate', options: ['1/4', '1/8', '1/8T', '1/16'], def: 1, vital: 'wobble_rate', values: [0, 1, 2, 3] },
   { id: 'wobble.shape', options: ['SINE', 'SOFT SQR', 'DRAW'], def: 1, vital: null },
   { id: 'env.page', options: ['AMP', 'FILTER'], def: 0, vital: null },
-  { id: 'dist.mode', options: ['TUBE', 'HARD', 'SOFT'], def: 0, vital: 'distortion_type' },
-  { id: 'fold.mode', options: ['SINE', 'LINEAR'], def: 0, vital: 'distortion_type' },
+  // Vital's distortion types: 0 Soft Clip, 1 Hard Clip. No tube model yet.
+  { id: 'dist.mode', options: ['TUBE', 'HARD', 'SOFT'], def: 0, vital: 'distortion_type', values: [null, 1, 0] },
+  // Folding is a Vital distortion TYPE, and the DIST tile owns that
+  // parameter: a separate FOLD stage is the Phase 2 distortion chain.
+  { id: 'fold.mode', options: ['SINE', 'LINEAR'], def: 0, vital: null },
   { id: 'crush.mode', options: ['HARD', 'SOFT'], def: 0, vital: null },
-  { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands' },
+  // compressor_enabled_bands: 0 Multiband (three bands). No two-band mode.
+  { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands', values: [0, null] },
 ];
 
 /** Wobble destinations are independent toggles, one engine depth each. */
@@ -120,6 +126,19 @@ export const WOBBLE_DESTINATIONS = [
   { id: 'wobble.to.fm', label: 'FM', vital: 'wobble_amount_fm', def: true },
   { id: 'wobble.to.vowel', label: 'VOWEL', vital: null, def: false },
 ] as const;
+
+/** Section switches (the dot in a panel's header) and the engine's on/off. */
+export const POWER: Readonly<Record<string, string | null>> = {
+  'osc1.on': 'osc_1_on',
+  'osc2.on': 'osc_2_on',
+  'vowel.on': 'filter_1_on',
+  'dist.on': 'distortion_on',
+  'ott.on': 'compressor_on',
+  'sub.on': null,
+  'fold.on': null,
+  'crush.on': null,
+  'wobble.on': null,
+};
 
 export const FX_SLOTS = ['dist', 'fold', 'crush', 'ott'] as const;
 

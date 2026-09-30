@@ -8,6 +8,7 @@
  */
 
 import type { Display } from './widgets';
+import { engine } from './engine';
 import { get } from './store';
 import { noteName, sounding } from './voice';
 
@@ -23,10 +24,18 @@ const CYCLES_PER_BEAT = [1, 2, 3, 4] as const;
 
 let drawnShape: number[] = [0.1, 0.9, 0.95, 0.6, 0.2, 0.05, 0.4, 0.85, 0.9, 0.3, 0.1, 0.7, 1, 0.5, 0.15, 0.05];
 
+/** Told when a drawn step changes: the bridge sends the shape to the engine. */
+export const drawnListeners = new Set<(shape: readonly number[]) => void>();
+
+export function drawnSteps(): readonly number[] {
+  return drawnShape;
+}
+
 export function setDrawnPoint(i: number, v: number): void {
   if (i >= 0 && i < drawnShape.length) {
     drawnShape = drawnShape.slice();
     drawnShape[i] = Math.min(1, Math.max(0, v));
+    for (const l of drawnListeners) l(drawnShape);
   }
 }
 export const DRAWN_STEPS = 16;
@@ -267,12 +276,23 @@ export function drawVowel(d: Display, t: number): void {
 
 /* ------------------------------------------------------------------ wobble */
 
+/** The engine's wobble at phase 0..1: its real shape, linear between points. */
+function engineShape(curve: readonly number[], phase: number): number {
+  const x = (((phase % 1) + 1) % 1) * curve.length;
+  const i = Math.floor(x);
+  const a = curve[i % curve.length] ?? 0;
+  const b = curve[(i + 1) % curve.length] ?? 0;
+  return a + (b - a) * (x - i);
+}
+
 export function drawWobble(d: Display, t: number): void {
   clear(d);
   const depth = 0.15 + get('wobble.depth') * 0.85;
   const cycles = 2;
   const on = get('wobble.on');
-  const fn = (x: number): number => 0.5 + (wobbleShape((x * cycles) % 1) - 0.5) * depth;
+  const curve = engine.connected ? engine.curve : null;
+  const shape = (ph: number): number => (curve ? engineShape(curve, ph) : wobbleShape(ph));
+  const fn = (x: number): number => 0.5 + (shape((x * cycles) % 1) - 0.5) * depth;
   trace(d, fn, on ? VIOLET : '#6b7aa8', { glow: !!on, width: 1.8, fill: true });
 
   if (get('wobble.shape') === 2) {
@@ -288,10 +308,12 @@ export function drawWobble(d: Display, t: number): void {
     }
   }
 
-  if (on) {
+  // In the plugin the playhead is the engine's, and only while a voice plays.
+  const enginePhase = engine.connected ? engine.wobblePhase : 0;
+  if (on && enginePhase >= 0) {
     // The playhead, where the wobble is on the grid right now.
     const { ctx, width, height } = d;
-    const ph = wobblePhase(t);
+    const ph = engine.connected ? enginePhase : wobblePhase(t);
     const x = (ph / cycles) * width;
     const y = 6 + (1 - fn(ph / cycles)) * (height - 12);
     ctx.save();
@@ -376,6 +398,35 @@ function scopeSample(ph: number, t: number): number {
   return Math.tanh(v * 0.9);
 }
 
+/** The engine's real output, as its oscilloscope captured it. */
+function drawEngineScope(d: Display, samples: Float32Array | null): void {
+  const { ctx } = d;
+  let peak = 0;
+  if (samples) for (const v of samples) peak = Math.max(peak, Math.abs(v));
+  if (!samples || peak < 1e-4) {
+    idleLabel(d);
+    return;
+  }
+  const n = samples.length;
+  trace(d, (x) => 0.5 + 0.46 * Math.max(-1, Math.min(1, samples[Math.min(n - 1, Math.round(x * (n - 1)))] ?? 0)), CYAN, {
+    glow: true,
+    width: 1.5,
+    pad: 2,
+  });
+  ctx.fillStyle = 'rgba(244, 240, 255, 0.8)';
+  ctx.font = '700 8.5px "JetBrains Mono", ui-monospace, monospace';
+  ctx.textBaseline = 'top';
+  ctx.fillText('OUT', 6, 4);
+}
+
+function idleLabel(d: Display): void {
+  const { ctx, height } = d;
+  ctx.fillStyle = 'rgba(184, 168, 220, 0.55)';
+  ctx.font = '500 8.5px "JetBrains Mono", ui-monospace, monospace';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('HOLD TO PLAY', 8, height / 2 - 0.5);
+}
+
 export function drawScope(d: Display, t: number, now: number): void {
   const { ctx, width, height } = d;
   ctx.clearRect(0, 0, width, height);
@@ -395,11 +446,13 @@ export function drawScope(d: Display, t: number, now: number): void {
   ctx.lineTo(width, height / 2 + 0.5);
   ctx.stroke();
 
+  if (engine.connected) {
+    drawEngineScope(d, engine.scope);
+    return;
+  }
+
   if (level <= 0) {
-    ctx.fillStyle = 'rgba(184, 168, 220, 0.55)';
-    ctx.font = '500 8.5px "JetBrains Mono", ui-monospace, monospace';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('HOLD TO PLAY', 8, height / 2 - 0.5);
+    idleLabel(d);
     return;
   }
 

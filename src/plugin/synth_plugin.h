@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: getBridge() for the web panel.
  */
 
 #pragma once
@@ -68,6 +70,14 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     AudioProcessorParameter* getBypassParameter() const override { return bypass_parameter_; }
 
     void parameterChanged(std::string name, vital::mono_float value) override;
+
+    // GNARL: the host-facing parameter for an engine control, or nullptr. The
+    // web panel (web_panel.cpp) converts and displays values through it, so
+    // it shows exactly what the DAW shows.
+    ValueBridge* getBridge(const std::string& name) {
+      auto found = bridge_lookup_.find(name);
+      return found == bridge_lookup_.end() ? nullptr : found->second;
+    }
 
   private:
     ValueBridge* bypass_parameter_;

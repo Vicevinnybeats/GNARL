@@ -12,6 +12,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the logo opens GNARL's web panel where the
+ * host has one.
  */
 
 #include "full_interface.h"
@@ -638,6 +641,11 @@ void FullInterface::openGLContextClosing() {
 }
 
 void FullInterface::showAboutSection() {
+  if (SynthGuiInterface* host = findParentComponentOfClass<SynthGuiInterface>()) {
+    if (host->showGnarlPanel())
+      return;
+  }
+
   ScopedLock lock(open_gl_critical_section_);
   about_section_->setVisible(true);
 }
