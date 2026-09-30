@@ -12,6 +12,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: --bits, --block, --start and --save; the
+ * renderer exits with an error when a named patch cannot be loaded.
  */
 
 #include "JuceHeader.h"
@@ -157,11 +160,26 @@ bool loadFromCommandLine(HeadlessSynth& synth, const String& command_line) {
   if (file_path[0] == '"' && file_path[file_path.length() - 1] == '"')
     file_path = command_line.substring(1, command_line.length() - 1);
   File file = File::getCurrentWorkingDirectory().getChildFile(file_path);
-  if (!file.exists())
+
+  // GNARL: a patch that is named but cannot be loaded is an ERROR, not a
+  // skip. Upstream ignored the failure and rendered whatever was already
+  // loaded (the init patch), so a patch stamped with a newer synth_version,
+  // which jsonToState refuses, rendered as init with exit code 0 - and every
+  // measurement taken from it measured the wrong sound.
+  if (!file.exists()) {
+    if (file.hasFileExtension(String(vital::kPresetExtension))) {
+      std::cerr << "Error: no such patch: " << file.getFullPathName() << std::endl;
+      std::exit(1);
+    }
     return false;
-  
+  }
+
   std::string error;
-  synth.loadFromFile(file, error);
+  if (!synth.loadFromFile(file, error)) {
+    std::cerr << "Error: could not load " << file.getFullPathName() << ": "
+              << (error.empty() ? "unknown error" : error) << std::endl;
+    std::exit(1);
+  }
   return true;
 }
 
