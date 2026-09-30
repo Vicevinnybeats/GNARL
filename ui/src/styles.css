@@ -1,0 +1,613 @@
+/*
+ * The retired UI's "Dream" look - a violet body lit from the corners, cyan
+ * controls, glow only on what is ACTIVE - carrying the mock-up's layout and
+ * its buttons unchanged: navy chips, a solid blue fill when on, violet for the
+ * wobble and modulation.
+ */
+:root {
+  --bg: #12092a;
+  --panel-top: rgba(58, 36, 114, 0.78);
+  --panel-bottom: rgba(28, 15, 61, 0.86);
+  --border: #4a2f87;
+  --border-strong: #6b45b8;
+  --edge: rgba(255, 255, 255, 0.07);
+
+  --cyan: #5fe3ff;
+  --cyan-dim: #2a8fae;
+  --violet: #b06bff;
+  --violet-soft: #c7a1ff;
+
+  /* The mock-up's buttons, as they are. */
+  --chip: #151f3d;
+  --chip-border: #2a3a68;
+  --chip-text: #93a6d4;
+  --chip-on: #3d8bff;
+  --chip-on-text: #ffffff;
+
+  --text: #f4f0ff;
+  --text-dim: #b8a8dc;
+  /* Knob readouts: #a591c2 measured 4.75:1 against the brightest corner of
+     this backdrop in the old UI; kept for the same reason. */
+  --text-faint: #a591c2;
+
+  --glow: 0 0 12px color-mix(in srgb, var(--cyan) 60%, transparent);
+  --glow-violet: 0 0 12px color-mix(in srgb, var(--violet) 60%, transparent);
+  --radius: 8px;
+  --radius-sm: 4px;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: #07040f;
+  color: var(--text);
+  font-family: var(--mono);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The stage holds the scaled panel's real on-screen size; a transform does
+   not shrink an element's layout box. */
+.stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.app {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 720px;
+  transform-origin: 0 0;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: 44px 266px 228px 128px;
+  gap: 10px;
+  /* Three stops: a violet bloom top-left and a cyan one top-right falling to
+     deep indigo reads as light in a room rather than a gradient. */
+  background:
+    radial-gradient(110% 85% at 14% -8%, rgba(178, 106, 255, 0.5) 0%, transparent 60%),
+    radial-gradient(100% 75% at 90% 8%, rgba(70, 220, 255, 0.22) 0%, transparent 58%),
+    radial-gradient(120% 90% at 50% 108%, rgba(120, 60, 220, 0.3) 0%, transparent 62%),
+    linear-gradient(180deg, #241553 0%, #12092a 72%);
+  border-top: 2px solid var(--chip-on);
+}
+
+.row {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+.row--1 {
+  grid-template-columns: 1fr 1fr 0.64fr 1.28fr;
+}
+.row--2 {
+  grid-template-columns: 1.55fr 1fr 1fr;
+}
+.row--3 {
+  grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 4px;
+}
+.top__spacer {
+  flex: 1;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+.brand__mark {
+  width: 26px;
+  height: 22px;
+  fill: none;
+  stroke: #64e6ff;
+  stroke-width: 0.26;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(100, 230, 255, 0.6));
+}
+.brand__word {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: 0.16em;
+  color: var(--text);
+}
+
+.preset {
+  display: flex;
+  align-items: center;
+  width: 330px;
+  height: 32px;
+  margin-left: 18px;
+  background: rgba(10, 6, 26, 0.55);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.preset__name {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+.preset__step {
+  width: 32px;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: 700 16px var(--mono);
+  cursor: pointer;
+}
+.preset__step:hover {
+  color: var(--cyan);
+}
+
+.ai {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--chip-on);
+  color: #fff;
+  font: 700 11px var(--mono);
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(61, 139, 255, 0.45);
+  transition: box-shadow 160ms var(--ease), filter 160ms var(--ease);
+}
+.ai:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 22px rgba(61, 139, 255, 0.7);
+}
+.ai__spark {
+  font-size: 13px;
+}
+
+.meter {
+  display: grid;
+  gap: 4px;
+  width: 80px;
+}
+.meter__bar {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--chip-on) var(--level), rgba(255, 255, 255, 0.12) var(--level));
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: linear-gradient(160deg, var(--panel-top) 0%, var(--panel-bottom) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 var(--edge);
+  transition: border-color 160ms var(--ease), opacity 160ms var(--ease);
+}
+.panel:hover {
+  border-color: var(--border-strong);
+}
+.panel[data-off='true'] .panel__body {
+  opacity: 0.4;
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 28px;
+  padding: 0 12px;
+  flex: none;
+}
+.panel__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--chip-on);
+  box-shadow: 0 0 6px var(--chip-on);
+  cursor: pointer;
+}
+.panel[data-accent='violet'] .panel__dot {
+  background: var(--violet);
+  box-shadow: 0 0 6px var(--violet);
+}
+.panel[data-off='true'] .panel__dot {
+  background: #3b3160;
+  box-shadow: none;
+}
+.panel__dot:disabled {
+  cursor: default;
+}
+.panel__title {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+}
+.panel__aside {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px;
+  transition: opacity 160ms var(--ease);
+}
+
+.field {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------- displays */
+
+.display {
+  position: relative;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(8, 4, 22, 0.8) 0%, rgba(14, 7, 34, 0.7) 100%);
+  border: 1px solid rgba(107, 69, 184, 0.45);
+  overflow: hidden;
+}
+.display__canvas {
+  display: block;
+}
+
+/* -------------------------------------------------------------------- knob */
+
+.knobs {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 40px;
+  outline: none;
+}
+.knob__dial {
+  display: block;
+  cursor: ns-resize;
+  touch-action: none;
+  border-radius: 50%;
+  transition: filter 90ms var(--ease);
+}
+.knob__body {
+  fill: #140a30;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+.knob__track {
+  fill: none;
+  stroke: rgba(160, 130, 255, 0.22);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.knob__value {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 2.5px var(--cyan));
+}
+.knob__pointer {
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.knob[data-accent='violet'] .knob__value {
+  stroke: var(--violet);
+  filter: drop-shadow(0 0 2.5px var(--violet));
+}
+.knob:hover .knob__dial,
+.knob[data-active='true'] .knob__dial {
+  filter: drop-shadow(0 0 5px rgba(95, 227, 255, 0.45));
+}
+.knob:focus-visible .knob__dial {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+.knob__label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+/* Always visible, dim at rest and lit while in use: you cannot compare two
+   knobs you have to hover one at a time. */
+.knob__readout {
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--text-faint);
+  white-space: nowrap;
+  transition: color 90ms var(--ease);
+}
+.knob:hover .knob__readout,
+.knob[data-active='true'] .knob__readout {
+  color: var(--cyan);
+}
+.knob[data-accent='violet']:hover .knob__readout,
+.knob[data-accent='violet'][data-active='true'] .knob__readout {
+  color: var(--violet-soft);
+}
+.knob--inline {
+  flex-direction: row;
+  gap: 8px;
+}
+.knob--inline .knob__label {
+  order: -1;
+}
+.knob--inline .knob__readout {
+  display: none;
+}
+
+/* ------------------------------------------------------------------- chips */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.chip {
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+  background: var(--chip);
+  color: var(--chip-text);
+  font: 500 9.5px var(--mono);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 90ms var(--ease), color 90ms var(--ease), box-shadow 160ms var(--ease);
+}
+.chip:hover {
+  color: var(--text);
+  border-color: #3d5190;
+}
+.chip[data-on='true'] {
+  background: var(--chip-on);
+  border-color: var(--chip-on);
+  color: var(--chip-on-text);
+  box-shadow: 0 0 10px rgba(61, 139, 255, 0.45);
+}
+.chip[data-accent='violet'][data-on='true'] {
+  background: var(--violet-soft);
+  border-color: var(--violet-soft);
+  color: #1a0b33;
+  box-shadow: var(--glow-violet);
+}
+.chips--vowels {
+  justify-content: space-between;
+}
+.chips--vowels .chip {
+  flex: 1;
+}
+.chips--tabs .chip {
+  height: 18px;
+  padding: 0 7px;
+  font-size: 8.5px;
+}
+.chips--tabs .chip:not([data-on='true']) {
+  background: none;
+  border-color: transparent;
+}
+/* The FX tiles' mode chip: one button that shows the current mode. */
+.chips--cycle .chip:not([data-on='true']) {
+  display: none;
+}
+.chips--cycle .chip[data-on='true'] {
+  background: var(--chip);
+  border-color: var(--chip-border);
+  color: var(--chip-text);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------ wobble */
+
+.wobble__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+.wobble__left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wobble__right {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.wobble__right .field:not(:first-child) {
+  margin-top: 3px;
+}
+.wobble .knobs {
+  justify-content: space-around;
+}
+
+/* ------------------------------------------------------------- mod matrix */
+
+.routes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.route {
+  display: grid;
+  grid-template-columns: 74px 1fr 70px;
+  align-items: center;
+  gap: 8px;
+}
+.route .chip {
+  width: 100%;
+  padding: 0;
+}
+.route__dest {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: var(--text);
+  font: 500 10px var(--mono);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.route__dest:hover {
+  color: var(--violet-soft);
+}
+.amount {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: ew-resize;
+  position: relative;
+  touch-action: none;
+}
+.amount::before {
+  /* A taller invisible hit area: a 4px bar is not a target. */
+  content: '';
+  position: absolute;
+  inset: -8px 0;
+}
+.amount__fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--violet-soft);
+  box-shadow: 0 0 8px rgba(176, 107, 255, 0.6);
+}
+.route__add {
+  height: 22px;
+  margin-top: 2px;
+  border: 1px dashed var(--chip-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--chip-text);
+  font: 500 9.5px var(--mono);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.route__add:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--violet);
+}
+.route__add:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------- fx */
+
+.fx__row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.fx__row .chips {
+  margin-left: auto;
+}
+
+/* The corner mark: small, turning, and made of light - no panel fill behind
+   it, so it sits on the backdrop the way the site's figures do. */
+.logo {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  align-items: center;
+  justify-content: center;
+}
+.logo:hover {
+  border-color: transparent;
+}
+.logo__canvas {
+  width: 92px;
+  height: 92px;
+}
+
+/* ------------------------------------------------------------------- toast */
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 12px);
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 6, 26, 0.92);
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms var(--ease), transform 160ms var(--ease);
+}
+.toast[data-show='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0ms !important;
+  }
+}

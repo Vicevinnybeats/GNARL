@@ -110,3 +110,9 @@ the merge commit forward: `git log 7651809..`.
   the WT / CUTOFF / FM depth knobs.
 - It is the first tab (WOBBLE) of the LFO area in `ModulationInterface`;
   LFO 1-8 follow it.
+
+## 2026-09-30 - GNARL's own panel (browser build)
+
+- `ui/`: a new one-page interface (the producer's layout, the retired UI's
+  styling, a turning line-art logo). Runs in a browser; not yet in the
+  plugin. See `docs/design/phase2-02-ui.md`.

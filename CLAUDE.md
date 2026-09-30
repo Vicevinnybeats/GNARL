@@ -35,6 +35,8 @@ third_party/       JUCE 6.0.5 (modules ONLY), VST3 SDK, kissfft, json,
                    concurrentqueue
 icons/  fonts/     UI glyphs, GNARL's marks, fonts
 
+ui/                GNARL's own panel (TypeScript, one HTML file). Browser build;
+                   the plugin still shows Vital's editor. See docs/design/phase2-02-ui.md
 tools/             check_fork.py (CI guard), vst3_probe.cpp (host-style
                    loader), make_logo.py + embed_logo.py, site tooling
 site/              the marketing site - separate program, NOT GPL
@@ -311,7 +313,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI panel next |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; new panel `ui/` built in the browser, not yet in the plugin (`docs/design/phase2-02-ui.md`) |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
