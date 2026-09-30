@@ -435,7 +435,12 @@ namespace vital {
   }
 
   void SynthVoiceHandler::disableModSource(const std::string& source) {
-    if (source != "env_1")
+    // GNARL: never the wobble. The editor's WOBBLE button disables its source
+    // whenever the button is inactive or destroyed and SynthBase finds no
+    // MATRIX connection from it - and the wobble's routes are fixed, not
+    // matrix connections (connectWobbleRoutes), so SynthBase never finds one.
+    // Opening or closing the editor silenced the wobble macro.
+    if (source != "env_1" && source != "wobble")
       getModulationSource(source)->owner->enable(false);
   }
 
