@@ -1,1100 +1,303 @@
 # GNARL — project context
 
-A commercial VST3/AU/Standalone synthesizer for riddim and dubstep sound
-design. Scope and polish target: Serum / Vital. Sound target: aggressive
-triplet growls, formant wobbles, heavy FX.
+A VST3 synthesizer for riddim and dubstep sound design, for FL Studio and
+Ableton on Windows and macOS. Sound target: aggressive triplet growls,
+formant wobbles, heavy FX.
+
+**GNARL is a fork of [Vital](https://github.com/mtytel/vital)** (GPLv3) with
+riddim-specific features added. It stopped being a from-scratch engine on
+2026-09-30; that engine is preserved, unmodified, on the branch
+`custom-engine-archive` at `222948c`.
 
 **Read this file before writing any code in this repository.** The
 real-time rules in §3 are not style preferences — violating one produces
-crackles, dropouts or hangs in a customer's session, which is the single
-fastest way to kill a plugin's reputation.
+crackles, dropouts or hangs in a customer's session.
 
 ---
 
 ## 1. Architecture
 
 ```
-gnarl/
-├── plugin/                    # C++20 / JUCE 8 — the plugin itself
-│   ├── source/
-│   │   ├── dsp/               # oscillators, filters, FX, voices
-│   │   ├── params/            # APVTS layout + ParameterIDs.h
-│   │   ├── preset/            # .gnarl serialization + factory bank
-│   │   ├── license/           # activation, offline grace period
-│   │   └── PluginProcessor.{h,cpp}
-│   ├── ui-bridge/             # WebBrowserComponent + parameter relays
-│   └── CMakeLists.txt
-├── ui/                        # React 19 + TS + Vite — the interface
-│   ├── src/bridge/            # typed wrappers over JUCE's JS relay layer
-│   ├── src/components/        # knobs, LFO editor, spectrum, mod matrix
-│   ├── src/juce/              # GENERATED — JUCE's JS frontend, do not edit
-│   └── dist/                  # built, embedded into the binary
-├── backend/                   # Cloudflare Worker + D1 — licence activation
-├── cmake/                     # Dependencies.cmake, WebUI.cmake
-├── tests/                     # Catch2 DSP + processor tests
-└── docs/                      # preset format, manual, release process,
-                               # FX architecture, artwork + website briefs
+src/synthesis/     the audio engine. Almost entirely JUCE-free (2 of 147
+                   files touch JUCE). namespace vital, Processor graph,
+                   SIMD over voices via poly_float.
+src/interface/     the OpenGL UI, skinned through look_and_feel/skin.{h,cpp}
+src/common/        SynthBase, preset load/save (load_save.cpp), tuning,
+                   synth_constants.h (file extensions live here)
+src/plugin/        the VST3 entry point (synth_plugin.cpp)
+src/standalone/    the standalone app
+src/headless/      the offline renderer: preset in, WAV out
+
+plugin/ standalone/ headless/ tests/
+                   Projucer .jucer files AND their generated projects:
+                   builds/vs17 (Windows), builds/osx (Xcode), builds/linux*
+third_party/       JUCE 6.0.5 (modules ONLY), VST3 SDK, kissfft, json,
+                   concurrentqueue
+icons/  fonts/     UI glyphs, GNARL's marks, fonts
+
+tools/             check_fork.py (CI guard), vst3_probe.cpp (host-style
+                   loader), make_logo.py + embed_logo.py, site tooling
+site/              the marketing site - separate program, NOT GPL
+backend/           Cloudflare Worker for licence activation - NOT GPL
 ```
 
-**Audio engine** — C++20, JUCE 8 (pinned to tag `8.0.4` via FetchContent),
-CMake ≥ 3.22.
-
-**UI** — React + TypeScript rendered inside `juce::WebBrowserComponent`, built
-by Vite to `ui/dist`, embedded with `juce_add_binary_data` and served from the
-binary by `WebUIResourceProvider`. Nothing is written to disk at runtime.
-
-**Backend** — a **Cloudflare Worker + D1** for licence activation
-([`backend/`](backend/)), Stripe for payment, AI inference server-side. The
-plugin holds **no credential for it** — a key inside a downloadable binary is
-a key shipped to everyone, so the licence key is the credential and the
-endpoint checks it. See [`docs/backend.md`](docs/backend.md) for why not
-Supabase.
-
----
+**What we forked is older than upstream's commit dates suggest.** Upstream's
+newest commit is 2022, but 16 of its 17 commits edit only `README.md`: the
+source is a single dump from **2021-02-10**, Vital 1.0.x. Every fix upstream
+made after that is absent. When a bug looks like one Vital's binary doesn't
+have, that is probably why.
 
 ## 2. Build
 
-```bash
-# Full build (configures JUCE, builds the UI, builds VST3 + AU + Standalone)
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --parallel
-
-# Tests
-ctest --test-dir build --output-on-failure
-
-# Skip the UI build (C++-only iteration; the last built bundle is reused)
-cmake -B build -DGNARL_BUILD_UI=OFF
-
-# UI on its own, in a normal browser with a mock backend
-npm --prefix ui run dev
-```
-
-`COPY_PLUGIN_AFTER_BUILD` is on, so a successful build installs into the
-system plugin folders and the DAW picks it up on rescan.
-
-### Platforms
-
-macOS and Windows are the **shipping** targets.
-
-**Windows needs the Microsoft.Web.WebView2 NuGet package**, and this is not
-optional — without it JUCE compiles the native-integration API out of
-`WebBrowserComponent::Options` (so `plugin/ui-bridge` does not build) and falls
-back to the Internet Explorer engine, which cannot run the React bundle. See
-[`docs/windows-setup.md`](docs/windows-setup.md). `NEEDS_WEBVIEW2 TRUE` and
-`JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1` are both required and are set in
-`plugin/CMakeLists.txt`; do not remove either.
- Linux builds (VST3 +
-Standalone, no AU) work and are useful for CI and headless test runs, but are
-not a release target. On Debian/Ubuntu the build needs:
+Verified on Linux (Ubuntu 24.04, GCC 13). Windows and macOS are built **only
+in CI** — nobody develops on them here, so a green Linux build says nothing
+about their project files.
 
 ```bash
-sudo apt-get install -y libasound2-dev libx11-dev libxext-dev libxinerama-dev \
-  libxrandr-dev libxcursor-dev libxcomposite-dev libfreetype6-dev \
-  libfontconfig1-dev libgl1-mesa-dev libcurl4-openssl-dev libwebkit2gtk-4.1-dev
+# Linux dependencies. debian/control's list is INCOMPLETE: it lacks
+# libcurl4-openssl-dev and libsecret-1-dev, and the second one fails at LINK
+# time, after a four-minute compile.
+sudo apt-get install -y mesa-common-dev libasound2-dev libfreetype6-dev \
+  libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
+  freeglut3-dev libjack-jackd2-dev libgl1-mesa-dev libcurl4-openssl-dev \
+  libsecret-1-dev
+
+make vst3 CONFIG=Release              # -> plugin/builds/linux_vst/build/GNARL.vst3
+make headless_server CONFIG=Release   # -> headless/builds/linux/build/gnarl-render
+
+python3 tools/check_fork.py           # the CI guard; run before pushing
+
+# Load the VST3 the way a DAW's scanner does, and ask it who it is
+g++ -std=c++17 -I third_party/VST_SDK/VST3_SDK tools/vst3_probe.cpp -o /tmp/probe -ldl
+/tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
+
+# Render a preset (length capped at 15 s by src/headless/main.cpp)
+headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140 patch.vital
 ```
 
-JUCE attaches the webkit/GTK include paths to the plugin target privately, so
-`tests/CMakeLists.txt` links `juce::pkgconfig_JUCE_BROWSER_LINUX_DEPS` and
-calls `juce_link_with_embedded_linux_subprocess` itself. Without that, the test
-target fails to find `gtk/gtk.h`.
+**The renderer is deterministic**: rebuilt from clean and run again, the WAV
+is byte-identical. That is what makes a comparison between two renders a
+measurement of the *patch* rather than of the run — Phase 3 rests on it.
 
-### One-time UI setup note
+CI (`.github/workflows/build.yml`): `guard` gates everything; then Linux
+(VST3 + renderer + host-style load + a render), Windows (`msbuild`,
+toolset overridden v141 → v143), macOS (`xcodebuild`, ARCHS overridden to
+`arm64 x86_64` — the project also asks for `arm64e`, which hosts do not load
+for third-party code). Both desktop builds are unsigned.
 
-JUCE's JavaScript frontend library is **not on npm** (there is no
-`juce-framework-frontend` package). It lives inside the JUCE checkout at
-`modules/juce_gui_extra/native/javascript/`, and
-`ui/scripts/sync-juce-frontend.mjs` copies it into `ui/src/juce/` on every
-`npm run build` / `npm run dev`.
+### Project files: two copies of everything
 
-Until CMake has fetched JUCE at least once, that script writes a **dev-mode
-fallback** instead: the UI runs in a browser with in-memory parameter state and
-no audio engine. That is fine for building components; it is never what ships.
-After the first CMake configure, run `npm --prefix ui run sync-juce` to pick up
-the real implementation.
+There is **no Projucer here** — the vendored JUCE is `modules/` only. So a
+build setting lives in two places, the `.jucer` and the generated project,
+and both must change together or a regeneration silently reverts one:
 
-The synced version **must** match the JUCE version the plugin links against —
-the relay wire protocol is versioned with the framework.
+- `JUCE_VST3_CAN_REPLACE_VST2=0` and `NO_AUTH=1` are in the `.jucer`
+  `defines` **and** every `AppConfig.h`.
+- Adding a source file means editing the `.jucer`, the `.vcxproj` +
+  `.filters`, the Xcode project and the Linux Makefile. This is why a CMake
+  migration is planned; until then, prefer adding code to existing files
+  where it genuinely belongs.
+- `BinaryData.{h,cpp}` is Projucer output. `tools/embed_logo.py` rewrites
+  the four logo entries in place; do not hand-edit the rest.
 
----
+**Edit project files by LIST ITEM, never by line or by regex over XML.**
+During the fork, deleting lines containing a path removed whole 900-char
+flag lines; a quoted-token regex ate XML attributes; and a `;REQUIRE_AUTH`
+pattern ate the `;` of the `&#10;` entity before it, leaving `&#10"`. Each
+produced a file that looked edited and was broken. `check_fork.py` parses
+every project file as XML for exactly this reason.
 
 ## 3. Real-time audio thread rules — hard constraints
 
-`processBlock` and everything it calls, transitively, runs on the audio thread.
-That thread has a hard deadline (at 48 kHz / 256 samples: 5.3 ms) and missing
-it produces an audible click. There is no "usually fine" here.
+`SynthPlugin::processBlock` and everything it calls, transitively, runs on
+the audio thread. That thread has a hard deadline (at 48 kHz / 256 samples:
+5.3 ms) and missing it produces an audible click. There is no "usually fine".
 
-**Never, in `processBlock` or anything it calls:**
+In Vital's terms, that means every `Processor::process(int num_samples)` and
+`processWithInput`, everything `SoundEngine` drives, and
+`SynthBase::processAudio`. Constructors, `setSampleRate`, and anything the
+UI calls are not audio-thread code — but check which thread before assuming.
+
+**Never, on the audio thread:**
 
 | Forbidden | Why | Do instead |
 |---|---|---|
-| Allocate or free memory | `malloc` takes a global lock with unbounded latency | Size every buffer in `prepareToPlay` |
-| `new`, `delete`, `std::vector::push_back`, `resize`, `juce::String`, `std::function` construction | All allocate | Pre-allocate; pass `std::span`/raw pointers; use fixed-capacity containers |
-| Lock a mutex, or `std::atomic` with a non-lock-free type | Priority inversion: the audio thread waits on a lower-priority thread | Lock-free FIFO (`juce::AbstractFifo`) or atomics on trivially-copyable types |
-| Log, print, assert-with-message | IO plus allocation | Push a code into a lock-free queue and log from the message thread |
-| File or network IO | Unbounded latency | Load in `prepareToPlay` or on a background thread, hand over via FIFO |
+| Allocate or free memory | `malloc` takes a global lock with unbounded latency | Size every buffer up front (constructor / `setSampleRate` / `kMaxBufferSize`) |
+| `new`, `delete`, `std::vector::push_back`, `resize`, `juce::String`, `std::function` construction, `json` | All allocate | Pre-allocate; fixed-capacity containers; raw pointers |
+| Lock a mutex, or `std::atomic` with a non-lock-free type | Priority inversion | Lock-free queue (`moodycamel::ConcurrentQueue`, as `SynthBase` does) or atomics on trivially-copyable types |
+| Log, print, assert-with-message | IO plus allocation | Push a code into a lock-free queue; log from the message thread |
+| File or network IO | Unbounded latency | Load elsewhere, hand over via a queue |
 | Throw, or call anything that might | Unwinding is unbounded | Return error codes |
-| Call anything on the JUCE message thread, or touch a `Component` | Needs the message lock | Communicate via atomics / FIFO |
-| `std::this_thread::sleep`, spin-wait, or wait on a condition variable | Blows the deadline by construction | Never wait on the audio thread |
-| Call a virtual function in a per-sample inner loop, if avoidable | Prevents inlining and vectorisation | Templates / CRTP for the hot path |
-| Read a parameter by string ID | Hash lookup per block | Cache `std::atomic<float>*` in the constructor |
-| `NaN`/`Inf` or denormals | Denormals cost 100x on some CPUs; NaN poisons the whole signal path | `juce::ScopedNoDenormals` at the top of `processBlock`; clamp feedback paths |
+| Touch a `Component` or anything needing the message lock | Needs the message lock | Communicate via atomics / queues |
+| Sleep, spin-wait, wait on a condition variable | Blows the deadline by construction | Never wait on the audio thread |
+| A virtual call per sample in a hot loop, if avoidable | Prevents inlining and vectorisation | Vital already processes blocks of `poly_float`; keep per-sample work non-virtual |
+| `NaN`/`Inf` or denormals | Denormals cost 100x; NaN poisons the whole path | Clamp feedback paths; see the gap below |
+
+**How values reach the engine in Vital.** The UI enqueues
+`vital::control_change` / `modulation_change` into
+`moodycamel::ConcurrentQueue`s on `SynthBase`; the audio thread drains them
+(`processModulationChanges`) at the top of the block. Enqueuing may allocate
+— fine, it happens on the UI thread. Dequeuing on the audio thread does not.
+New UI→engine paths use the same mechanism.
+
+**KNOWN GAP — no denormal protection.** Upstream's `processBlock` has no
+`juce::ScopedNoDenormals`, and nothing in `src/` sets flush-to-zero. Do not
+count on the compiler either: the Linux build uses `-Ofast -ffast-math`,
+which on older GCC linked `crtfastmath.o` and set FTZ at load, but GCC 13
+does not do that for `-shared` - checked, the built `GNARL.so` contains no
+`set_fast_math` - and MSVC and Clang never did. So denormals are unprotected
+on every platform. Adding `ScopedNoDenormals` to `processBlock` is the first
+Phase 2 hardening item.
 
 **Always:**
 
-- `juce::ScopedNoDenormals` as the first line of `processBlock`.
-- All allocation, `reset()` and `prepare()` in `prepareToPlay`.
-- Clear the output buffer before writing to it. A synth must never pass
-  through what the host left in the buffer.
-- Handle `numSamples == 0` and `numSamples == 1`. Hosts send both.
-- Handle sample-rate and block-size changes at any time — `prepareToPlay` can
-  be called repeatedly, mid-session.
-- Assume `processBlock` can be called before `prepareToPlay` (it shouldn't be,
-  but broken hosts exist). Never dereference a buffer sized there without a
-  null/size check.
+- Clear the output before writing it. A synth must never pass through what
+  the host left in the buffer.
+- Handle `numSamples == 0` and `== 1`; hosts send both. Handle blocks larger
+  than declared — `processBlock` already chunks by `vital::kMaxBufferSize`.
+- Handle sample-rate changes at any time, mid-session.
+- A parameter that jumps discontinuously clicks: smooth it.
 
-**Parameter reads.** Cache the raw `std::atomic<float>*` from
-`APVTS::getRawParameterValue` in the constructor. Wrap every user-facing value
-in a `SmoothedValue` — a parameter that jumps discontinuously clicks.
-`dsp::SmoothedParameter` does both; `dsp::ramp` holds the ramp-time policy and
-says why each value is what it is.
+### Lessons from the previous engine that still apply
 
-**Every filter here is zero-delay-feedback (topology-preserving), and that is
-not a stylistic choice.** A bilinear biquad recalculated per sample is not
-stable, so a filter built from one cannot be modulated at audio rate — and
-audio-rate filter modulation is most of what makes a growl. `FilterTests` has a
-case that sweeps cutoff every single sample across the full range, for every
-filter type, to keep that property honest.
+The retired engine's `CLAUDE.md` (on `custom-engine-archive`) records each of
+these with the bug that taught it. They are properties of DSP, not of that
+codebase:
 
-**A memoryless waveshaper always aliases**, because it generates harmonics
-above Nyquist by construction. Nothing in `Saturation.h` is safe to run at the
-base sample rate at high drive; the caller oversamples it.
+- **Test block-size invariance directly.** Render the same note in 32- and
+  512-sample blocks; the samples must match. That one assertion found three
+  separate bugs where state leaked across a boundary.
+- **A stereo path is two paths.** One filter instance run over left then
+  right interleaves the channels into one state.
+- **A filter instance advances once per sample, no more.** An OTT crossover
+  that reused one came out 24 dB down.
+- **Shared modulation (one LFO for both channels) must advance once per
+  sample, not once per channel.**
+- **A drive control must not double as a volume control** — and the
+  compensation that is right for a narrow drive range is wrong for a wide
+  one. Match RMS on a reference, measured about the mean.
+- **An insertion loss is a number to measure, not to assert in a comment.**
+- **`prepare()`-style resets must not run on a live rate change**, and
+  `juce::SmoothedValue::reset()` snaps to the target.
+- **Measure level with broadband noise, not a single tone**, for anything
+  multi-tap; a tone measures a comb null.
+- **Use a Blackman-Harris window for spectral assertions.** Hann leakage at
+  −48 dBc once passed for aliasing.
+- **A test that passes with the bug put back is not a test.** Reintroduce the
+  bug and watch it fail; `check_fork.py` was verified that way.
 
-**An oversampled oscillator must still band-limit to the BASE rate's
-Nyquist.** Otherwise oversampling makes the oscillator brighter as well as
-giving the nonlinear stages headroom — at 4x it would emit content up to
-96 kHz, none of it audible after downsampling but all of it intermodulating in
-the drive stage. See `WavetableOscillator::setOversamplingRatio`.
+## 4. Fork rules
 
-**A filter instance can be advanced once per sample and no more.** Calling one
-twice in a sample with different inputs corrupts its state. The OTT crossover
-did exactly that and its three bands cancelled rather than summed — measured
-24 dB down. Each cascade path needs its own filters.
+- **Plugin identity is frozen:** manufacturer `Gnrl`, plugin `Gnr2`, company
+  "Gnarl Audio", bundle `audio.gnarl.synth`. A DAW identifies the plugin by
+  these; changing them orphans every project. `Gnr2`, not the retired
+  engine's `Gnr1`, so projects made with that engine show a missing plugin
+  rather than loading into an unrelated parameter set. JUCE stores the codes
+  as **hex** in `JucePluginDefines.h`, which a text search for the name will
+  not find — that is how the first rename missed them.
+- **The account system stays compiled out** (`NO_AUTH=1`). Never connect to
+  upstream's services.
+- **Never use "Vital", "Vital Audio", "Tytel" or "Matt Tytel"** in names or
+  marketing. Keep every copyright header and `debian/` attribution intact.
+  See [`LICENSING.md`](LICENSING.md).
+- **Record every change** in [`CHANGES.md`](CHANGES.md) — GPLv3 §5(a).
+- **The logo is the website's**: `tools/make_logo.py` reads the stroke-font
+  glyphs out of `site/src/loader.ts`, colour `#64e6ff`, painted pinned (not
+  from the skin) in `synth_section.h`. Change the glyphs there, regenerate,
+  re-embed, in one commit.
+- File extensions (`.vital`, `.vitaltable`, `.vitalskin`, `.vitallfo`,
+  `.vitalbank`) are unchanged in `synth_constants.h`, deliberately: opening a
+  producer's existing patches is a feature. Changing what GNARL *saves* is a
+  preset-pack decision.
 
-**And a STEREO path is two paths.** The same rule broke a second time, more
-subtly: `Voice::renderFilters` ran one `FilterSlot` over the whole left
-channel and then over the whole right, so the two channels interleaved into a
-single filter's state. The output was then a function of the BLOCK LAYOUT
-rather than of the signal — the same note rendered in 32-sample chunks and in
-256-sample chunks differed by 5× through the formant filter — and a centred
-patch came out with different left and right channels. Every component test
-still passed, because every component was individually correct. The voice now
-holds one `FilterSlot` per channel per slot, and
-`tests/EngineTests.cpp` asserts block-size invariance and channel identity,
-which is the only shape of test that can see this.
+## 5. Parameters and presets
 
-**Block-size invariance is a property worth testing directly.** If rendering a
-note in 64-sample blocks and in 512-sample blocks does not give the same
-samples, something is carrying state across a boundary it should not. That one
-assertion caught a bug three layers below where it was looking.
+- Parameters are declared in `src/common/synth_parameters.cpp`.
+- **Presets store every parameter keyed by its NAME** (`load_save.cpp`:
+  `settings_data[control.first]`), and every modulation by source and
+  destination name. So **a parameter name is frozen once any preset uses
+  it**: renaming one silently drops that value from every saved patch.
+  Append new parameters; never rename, reorder or remove.
+- Old presets are migrated in `LoadSave::updateFromOldVersion`, keyed on the
+  `synth_version` string. A change in a parameter's *meaning* needs a
+  migration there.
+- Ranges: skew anything frequency- or time-like so the control feels right.
 
-**A drive control must not double as a volume control.** `DriveStage`
-compensates by measuring the slope of the whole stage (pre-gain included) with
-respect to its input. Measuring only the curve's own slope leaves the pre-gain
-in place and gives drive +15 dB of level — which was a real bug here, and one
-a loose test threshold hid. Note that an *even* curve (rectify) cannot have
-unity RMS gain at all: it moves most of the signal's energy to DC, which the DC
-blocker then removes.
+## 6. Modulation rate vocabulary
 
-**And the same fix does not transfer to a wider drive range.** `FxDistortion`
-compensated the way `DriveStage` does — the slope at the origin — and
-reproduced the bug with the sign flipped: every curve came out **12.5 dB
-down**. The slope at zero is the *small-signal* gain, so normalising it makes
-the linear region unity and leaves the loud part of the signal wherever the
-curve's compression put it. Over the FX stage's 48 dB that region is one the
-signal has already left. So `FxDistortion` matches **RMS** on a reference sine
-instead (`kCompensationSine`, -12 dBFS), measured **about the mean rather than
-about zero** — which is exactly what the DC blocker downstream leaves, and is
-why the even curve needs no exclusion here even though it does in the filter.
-A nonlinear curve has no single gain, so this is a level match at one
-amplitude by construction; the residual at other levels is the compression the
-user asked for.
-
-**A shared LFO makes "process each channel in turn" wrong — a third time.**
-The FX rack ran the whole left channel and then the whole right, which is
-correct for per-channel *state* (each channel has its own filter, its own EQ
-bands) and wrong for the one thing the modulated effects *share*: the chorus,
-flanger and phaser advance a single LFO phase on channel 0 only, so that its
-rate does not depend on the channel count. The left pass therefore advanced
-the phase `numSamples` times and handed channel 1 the leftover value — the
-right channel's modulation froze at whatever the block size determined.
-
-Every component test passed. The chorus's own tests measure channel 0, or
-measure that the two channels *differ*, which they emphatically did. It took
-`FxDimension` in the same chain to make it visible at all, because only a
-mid/side effect folds the broken right channel back into the left; the rack
-then failed block-size invariance by 0.002 with **neither effect failing
-alone**. `FxRack::runPerChannel` interleaves the channels now, and
-`FxRackTests` asserts the invariance **bit-exactly** — a tolerance there would
-have let this through, exactly as a loose threshold hid the drive stage's
-+15 dB.
-
-**A single tone is the wrong signal for measuring the level of a multi-tap
-effect.** The hyper's voices are taps spread over 3 ms; at 220 Hz one cycle is
-4.5 ms, so the taps land two thirds of a cycle apart and partly CANCEL.
-Measured that way the level moved 7 dB with the voice count, and chasing it
-produced three different normalisation models, none of which could be right —
-the quantity being measured was a comb null, not a level. Broadband noise is
-what the question means, because averaged across frequency the nulls and peaks
-are both present, which is what a listener hears. With the taps' base delays
-always fanned out (not scaled by detune, which made the coherence itself
-setting-dependent) root *n* then holds to within 4 dB across two to eight
-voices.
-
-**And the number of notches, not their depth, is what a phaser's stage count
-controls.** Probing eight frequencies said twelve stages notch *less* deeply
-than two (11.6 dB against 17.4) — true, and not a bug: more stages means more
-notches, each narrower, and sparse probes miss narrow ones. The claim that
-holds is arithmetic: an N-stage all-pass chain sweeps its phase from 0 to
-−Nπ and cancels against the dry path at every odd multiple of π, so there are
-**N/2** notches. Counting them needs the whole spectrum, so `FxModulationTests`
-takes the impulse response and counts local minima — measured exactly N/2 at
-2, 4, 8 and 12 stages.
-
-**A mid/side round trip is not bit-exact.** `(L+R)/2 + (L−R)/2` loses a unit in
-the last place, so `FxDimension` turned fully down still altered every sample,
-forever. Anything built in mid/side needs an early-out at zero rather than a
-multiply by zero — with fourteen effects in a chain most patches do not use,
-"off" has to mean untouched. Relatedly, the obvious widener (give each channel
-an inverted delayed copy of the other) does *nothing* to a mono input: both
-channels get the same copy subtracted and the outputs come out identical. The
-effect has to be built where width lives — mid passed through, a delayed copy
-of it added to the side with opposite signs — which also makes the mono sum
-exactly the dry mid.
-
-**A TPT filter's idle state converges on a rounding fixed point, not on
-zero.** The FX EQ's state settles at exactly `-2e-37` after silence and stays
-there, unchanged over ten million further samples. That value is a NORMAL
-float, so there is no denormal to flush and `ScopedNoDenormals` never fires on
-it — which is the good news, since it means no per-sample state-snapping is
-needed in the hot path. The consequence worth remembering is the other one: an
-idle effect **cannot** be detected by its output reaching exactly zero,
-because it never does. `FxEqTests` measures the class of the idle tail rather
-than asserting exact silence, which is the assertion that was actually true.
-
-`tests/DenormalTests.cpp` now does this for every DSP unit that can idle — the
-four voice filters, all twelve voice filter types, the OTT, and every effect
-with decaying state. It asserts three things, and the two it does *not* assert
-are the interesting part: not "reaches zero" (a TPT filter's fixed point is
-normal, not zero), and not "below an absolute floor" (a delay at 0.85 feedback
-sits at ~1e-7 after five seconds, decaying perfectly — asserting 1e-20 would
-be asserting the feedback setting). What holds is: no sample in the subnormal
-range under `ScopedNoDenormals`, a tail that is **not increasing**, and a tail
-below −80 dB. "Not increasing" rather than "decreasing" because the FX filter
-reaches its fixed point before the measurement window opens and the phaser
-arrives at exactly zero — both correct, both failing a strict inequality.
-
-**`juce::dsp::FFT`'s inverse transform divides by the transform size.** So
-building several differently-sized frames from one harmonic series gives each a
-different amplitude. Undo it explicitly (`Wavetable::buildMipLevel`) or the mip
-levels end up on different scales and a glide crossing a level boundary jumps
-in volume.
-
-**`prepare()` resets; a live rate change must not.** The oversampling factor
-is a live parameter, so `Voice::setSampleRate` runs while notes are sounding.
-Routing envelopes and LFOs through their `prepare()` there reset every one of
-them to idle at level zero, silencing every held voice the moment the user
-touched the oversampling control. `Envelope` and `Lfo` therefore have a
-`setSampleRate` that changes the rate and nothing else. Same family as the
-`SmoothedValue::reset` trap below.
-
-**`juce::SmoothedValue::reset()` snaps the current value to the target.** So
-the obvious `reset (sr, newRamp); setTargetValue (x);` teleports the value
-before ramping — exactly the discontinuity the smoother exists to prevent. To
-change a ramp length mid-flight, save `getCurrentValue()`, reset, restore it
-with `setCurrentAndTargetValue`, then set the new target. See
-`setRampPreservingValue` in `dsp/Voice.cpp`.
-
-**Voices render into their own float buffer**, whatever precision the host
-asked for, and the processor sums that into the output. The signal path is
-voices → mix → filters → FX → output. `renderVoices` chunks internally, so a
-host handing over more samples than it declared in `prepareToPlay` cannot
-overrun the mix buffer or force an allocation on the audio thread.
-
-**Two message-side threads is still a data race.** `WavetableLibrary::getTable`
-was a plain check-then-act, which was fine while only the message thread
-generated tables. Phase 5 added a background loader so a preset change does
-not freeze the window, and then *both* threads could see a null, build the
-table, and assign over each other's `unique_ptr`. Worse,
-`getTableIfLoaded` is documented real-time safe and read that same owning
-pointer — reading a `std::unique_ptr` another thread is assigning is undefined
-behaviour however harmless it looks. Generation now takes a lock (message and
-background only, **never** audio) and the audio thread reads a separate array
-of atomics published with release ordering after the table is complete. It
-segfaulted rendering the factory bank, intermittently, and **never once under
-a debugger** — which is what a data race looks like.
-
-That also forced a non-generating publish path: a patch change publishes what
-is already built and asks the loader for the rest, because calling the
-generating version would block on the very lock the loader holds while doing
-that work — reintroducing the stall the loader exists to remove.
-
-**A meter that holds the last block's peak is a meter that reads the block
-size.** The UI samples at 60 Hz; a host at 48 kHz / 256 calls back at 187 Hz.
-So "peak of the most recent block" shows whichever two blocks in three the
-timer happened to land on, and the needle becomes a function of the BLOCK
-LAYOUT rather than of the signal — the same family as the per-channel filter
-and the shared LFO above, in the one place where it is merely ugly instead of
-audible. The audio thread therefore holds a *decaying* peak, falling at
-20 dB/s, and an exponential composes exactly (`exp(-a)exp(-b) = exp(-(a+b))`)
-so the reading after a given number of seconds is the same however the host
-chunks them — **as long as the decay is raised to the block's ACTUAL length**.
-Computing it from the block size `prepareToPlay` was handed reintroduces the
-whole bug for a host that declares 512 and sends 64, which is what the first
-version did.
-
-And it snaps to exactly zero below −80 dBFS. Not a denormal guard (see the TPT
-fixed point above — decaying state does not reach zero on its own): it is so
-that a silent plugin produces byte-identical frames and `WebUIEditor`'s
-identical-frame drop keeps working. Without it an empty room costs 60 bridge
-messages a second for as long as the window is open.
-
-**Testing that needed three tries, and the first two passed.** Rendering a
-sustained note in two block sizes and comparing the readings passes with the
-bug deliberately put back, because a note that is still sounding makes the
-block's own peak larger than anything the decay did to the held value — a test
-of the note, not of the ballistics. The decay has to be measured **in
-isolation**, under bypass, from an identical starting level. Then the window
-has to be a whole number of *both* block sizes, or the render loop's own
-overshoot shows up as 0.05 dB of "difference". Only then is the residual the
-arithmetic itself: 8e-6 dB, from composing 93 float multiplications against
-744, which is why the assertion is a thousandth of a dB and **not** bit-exact
-as it first claimed. Reintroducing the bug moves it 23.7 dB. `MeterTests.cpp`.
-
-The gain-reduction meter is reported **per band**. An OTT lifts the quiet top
-while holding the loud low down, so the three bands routinely pull in opposite
-directions and any average or sum of them reads "nothing is happening" at
-exactly the moment the most is.
-
-**A filter's insertion loss is a number to MEASURE, not to assert in a
-comment.** `FormantFilter::kOutputScale` was 2.2, commented "chosen so a
-full-scale saw stays near full scale". Measured on a band-limited 55 Hz saw
-it lost between 8.8 and 14.6 dB across the vowel space — about 12.5 dB in the
-middle — and the comment had nothing behind it. Same shape of false claim as
-`warp.ts`'s "checked against C++" and §8's denormal line.
-
-It was not cosmetic. The riddim factory patches route their sub **direct**,
-around the filter, so the sub arrived 27 dB above the oscillator it was meant
-to sit under, and sweeping the vowel across its entire range moved the
-patch's output by **1.4%**. The growl was being computed correctly and
-buried. At 9.3 the filter sits within ±4 dB of unity across the pad and the
-same sweep moves the patch by 6%.
-
-Like `FxDistortion`'s RMS match this is a level match at one condition by
-construction — a band-pass bank has no single gain — and the ±3 dB residual
-across the pad is the vowels genuinely differing in total formant energy
-rather than an error to chase.
-
-**A factory preset built only from parameter overrides has no modulation at
-all.** A mod slot's source is a parameter; its **destination is not** (§4),
-and neither are the drawn LFO curves. `FactoryBank::Definition` carried only
-`Setting`s, so every preset in the bank enabled a slot, gave it a depth, and
-left both ends pointing at `none`. "Triplet Growl" — the patch whose own
-comment calls it the one the product exists for — did not growl. Definitions
-now carry `routings` and `curves`, and `build` writes a `MODSTATE` child.
-
-**Three tests for that, and the interesting one is the third.** Checking the
-definitions catches an unrouted slot; checking the built tree catches a
-`MODSTATE` that never got written. Neither can catch a destination that is
-spelled correctly and resolves to nothing, so the third renders the patch
-twice — once as defined, once with its `MODSTATE` stripped — and asserts the
-audio differs.
-
-That one took two attempts **and the first passed with the bug reintroduced**.
-It held a note and asserted the RMS moved by more than a decibel over the
-LFO's cycle; it passed unmodulated, because the patch runs two unison voices
-detuned by eight cents and two detuned voices *beat*. It was a test of the
-unison. The differential version cannot be fooled that way — every parameter,
-envelope and unison voice is identical between the two renders — and a
-**control** rendering the same state twice measures exactly 0.0, which is
-what licenses attributing the difference to the modulation and nothing else.
-
-The threshold is 0.02 against a measured 0.06, set by the *separation* rather
-than by the measurement: the bug gives exactly zero, so any positive
-threshold works, and pinning it just under today's figure would make every
-future rebalance of that patch a test failure about something the test is not
-asking.
-
-**An analyser splits across the thread boundary, and the split is the
-design.** The audio thread does exactly one thing for the spectrum display —
-copy the mono sum into a ring buffer — because everything else an analyser
-does is forbidden there (§3): an FFT allocates its tables, a window costs a
-multiply per sample, and a display running at the audio thread's convenience
-would be a display whose frame rate is the block size. The window, the
-transform and the logarithms run on the **message thread** when the UI asks
-for a frame. The reader may catch a frame mid-overwrite; the worst case is
-one seam in a picture, thirty times a second, and a lock to prevent it would
-put the audio thread behind the UI.
-
-**And its bin mapping is logarithmic only where the FFT has the resolution
-for it.** Pitch is logarithmic, so the drawn bins follow a log curve — but at
-2048 points and 48 kHz each FFT bin is 23 Hz wide, and the bottom 128th of
-that curve asks for fractions of a bin. A dozen drawn bins land on FFT bin 1,
-and the monotonic pass then forces them apart one bin at a time. So the
-bottom of the display is **linear, 23 Hz per drawn bin**, and only becomes
-logarithmic above roughly 2 kHz. That is not a compromise to fix with
-different numbers; it is what a 2048-point transform can tell you.
-
-**The test for that caught its own first version.** It re-derived the mapping
-from the log formula and compared bin numbers, and failed by 27 bins — which
-was correct: it was asserting a shape the code deliberately does not follow.
-`SpectrumAnalyser::getBinRange` exists so a test can ask which FFT bins a
-drawn bin covers, and `SpectrumTests` checks that the peak's bin *contains*
-the tone's frequency. That tests the property that matters — the display
-points at the right place — without either copying the mapping or assuming
-one it never claimed. A monotonicity case sits beside it, because per-tone
-correctness at five sampled points would still pass on a mirrored display.
-
-**A preset can be built entirely from correct parts and still be
-inaudible.** The graintable pack's first draft arrived 40 dB under the riddim
-bank — "Grain Choir" peaked at **0.003** — and nothing caught it, because
-every parameter was set correctly, it round-tripped, and it rendered without
-a NaN. None of the causes was a bug either. Graintable mode costs ~5 dB
-against wavetable mode (grains are windowed); the formant filter costs its
-documented residual; **grain size and density move the level by 25 dB across
-their ranges**, with long grains at high density far *quieter* than moderate
-ones; and a patch with no drive stages has no gain staging, while the riddim
-bank gets most of its level from drive it deliberately does not have. Four
-legitimate costs stack into silence.
-
-**And the test and the renderer disagreed about it, which found the last
-piece.** The test held one note and passed; the renderer reported the same
-patch at 0.008. The difference was the *note* — 45 against 36 — and a pad
-through the formant filter at C1 has its harmonics below the formant
-frequencies, so the filter removes nearly all of it. Neither measurement was
-wrong; they were asking about different notes. `FactoryBank::getAuditionNote`
-is now the single mapping both use, because a test that passes while the
-shipped audition is inaudible is a test agreeing with itself rather than with
-the product. An intermediate version that took the best of four notes passed
-for exactly that reason and was worse than useless.
-
-`FactoryBankTests` now asserts every preset peaks above −30 dBFS **at the
-note its category implies**. Not a mix decision — taste is not testable — but
-40 dB under the bank is not taste.
-
-**The bank is 150: twenty-six written out and a hundred and twenty-four
-generated** (`preset/FactoryGenerator.cpp`). The written ones each exercise a
-specific part of the architecture and say so in a comment, which is worth
-doing twenty-six times and worthless a hundred and twenty-four; what a bank
-that size needs is *coverage* of the space they map out. So each archetype
-declares a skeleton and the axes it varies along, and variants are drawn from
-**curated tables** rather than from free randomness — random over the whole
-parameter space gives patches that are silent, clipped, or the same patch
-twice. The sequence is a fixed xorshift with a fixed seed, because a preset
-stores an **index** into this list and a bank that reshuffled itself between
-versions would silently repoint every saved reference to it. Generated
-presets are **appended, never interleaved**, for the same reason.
-
-**A filter envelope has to be UNIPOLAR, and that cost a whole archetype.** A
-mod slot is bipolar by default, which is right for an LFO — it should swing
-either side of where the knob is set — and wrong for an envelope: at note-on
-the envelope reads 0, so a bipolar slot puts the cutoff a full depth *below*
-its base, and the base is where the note has to get out. The cutoff is
-smoothed, so it cannot climb back inside the millisecond an amp envelope
-takes to peak, and the transient — the entire audible part of a pluck —
-passes through an almost-closed filter. The whole pluck archetype measured
-around −30 dBFS and three failed outright, while the hand-written "Metal
-Pluck", identical in envelope and audition note but with **no cutoff
-modulation at all**, passed comfortably. That comparison is what located it;
-the level was a symptom three layers above the cause.
-
-**The two archetypes with no drive stage were the two that failed first.**
-Same lesson as the graintable pack above: a patch with no drive has no gain
-staging, and legitimate costs stack into inaudibility with nothing anywhere
-being a bug.
-
-**"Sub" is a category, on the evidence.** Eight reference tracks the client
-sent were measured — band balance, crest factor, and the modulation rate of
-the 220–1200 Hz band, which is where formant movement lives. The sub band
-carries **50–81% of the total energy**, which makes the sub a patch somebody
-loads on its own rather than a control inside a growl; the growl band is
-2–21%, so the formant content sits *under* the sub; articulation clusters at
-**1/8 and 1/8 triplet** (4.7–8.2 Hz at the ~144 BPM those tracks run), so the
-rate tables are weighted there with the faster divisions as the minority they
-actually are; and crest factors of 9–13 dB mean heavy limiting, so the OTT
-and the limiter are on in nearly everything. `getAuditionNote` had to learn
-"Sub" or the test would have failed those patches for being inaudible at C4,
-an octave above anything they contain.
-
-Measuring that took two corrections worth remembering: band energies must be
-**summed, not averaged** over the bins (a mean divides out the band's width,
-and narrow low bands came back as thousands of per cent of the total), and an
-envelope sampled at one frame per 8192 samples has a Nyquist of 1.35 Hz — so
-every track "measured" a wobble of 1.2 Hz, which was the band edge rather
-than the music. A 1/8 triplet at 150 BPM is 7.5 Hz and needs a hop nearer
-256. The first honest-looking number was an artefact of the instrument, which
-is the oscillator test's Hann-window lesson in §8 wearing different clothes.
-
-**Nothing was sampled from those tracks.** They were measured for
-characteristics; no audio, spectrum or wavetable is derived from them, which
-§9 makes a requirement rather than a preference.
-
-**Message-thread → audio-thread handover.** Anything larger than an atomic
-(a wavetable, an LFO curve, a preset) is built on the message thread, published
-through a lock-free swap, and the old object is freed on the message thread.
-The audio thread never frees anything.
-
----
-
-## 4. Parameter conventions
-
-- The TypeScript choice lists in `ui/src/bridge/choices.ts` are guarded by
-  `tests/ParameterMirrorTests.cpp` as well as the IDs. A drifted choice list
-  fails exactly as silently as a drifted ID: the dropdown works, it just shows
-  the wrong label for every saved patch.
-- **IDs live only in `plugin/source/params/ParameterIDs.h`.** No string
-  literal parameter ID appears anywhere else in the C++ codebase.
-- Both `ParameterIDs.h` and its TypeScript mirror `ui/src/bridge/parameterIds.ts`
-  are **generated** — regenerate them rather than hand-editing, and commit both
-  in the same commit as the C++ change. A mismatch fails silently, because the
-  relay simply never connects; `tests/ParameterMirrorTests.cpp` fails the build
-  if they disagree.
-- A mod slot's **destination is not a parameter**. A host parameter is a
-  number, so a destination would have to be an index into an ordered list of
-  targets — and that index shifts the moment the list changes, silently
-  repointing every saved preset's modulation at the wrong parameter.
-  Destinations are parameter-ID **strings** in the plugin's ValueTree. A mod
-  slot's depth, curve and enable *are* parameters, because those are worth
-  automating.
-- `pid::kParameterVersionHint` is **not** `kStateVersion` and must never
-  change: JUCE folds the hint into the AU parameter ID, so bumping it
-  invalidates every AU automation lane a customer has drawn. They are separate
-  constants so that a preset migration cannot take AU automation down with it.
-- Choice-list **order is frozen** too (`ParameterChoices.h`). A preset stores
-  the chosen index, not the name, so inserting an entry in the middle changes
-  the meaning of every existing preset that used a later entry. Append only.
-- Parameter **creation order** in `ParameterLayout.cpp` is frozen: it sets the
-  index a host shows in its automation list.
-- ID format: `snake_case`, scoped by section.
-  `osc1_table_pos`, `filter2_cutoff`, `lfo3_rate`, `mod_slot7_depth`,
-  `fx_slot2_wet`, `env1_attack`, `macro1`.
-- **IDs are frozen once shipped.** Renaming one breaks every saved preset and
-  every host automation lane pointing at it. To retire a parameter, leave the
-  ID declared and stop reading it.
-- Display names are Title Case and may change freely; IDs may not.
-- Declare the parameter now even if the feature lands three phases later. A
-  parameter added after release cannot be inserted without breaking preset
-  compatibility, so the full layout is declared up front in Phase 1.
-- `pid::kStateVersion` is bumped only when the *meaning* of an existing
-  parameter changes. Migration goes in `setStateInformation`.
-- Ranges: use `NormalisableRange` with a skew for anything frequency- or
-  time-like, so the knob feels right rather than merely covering the range.
-
----
-
-## 5. Modulation rate vocabulary
-
-Every mod source and destination is one of three rates. Say which, in a comment,
-whenever you add one.
+Every mod source and destination is one of three rates. Say which, in a
+comment, whenever you add one.
 
 - **Sample-rate** — recomputed per sample. Audio-rate FM, oscillator phase,
-  filter coefficients when audio-rate modulated. Expensive; use deliberately.
-- **Note-rate** — computed once when a voice starts. Velocity, key tracking,
-  per-voice random seeds, unison detune offsets.
-- **Block-rate** — computed once per `processBlock` and smoothed across it.
-  Almost all UI parameters, control-rate LFOs, envelopes feeding non-audio
-  destinations. This is the default; only leave it when you have a reason.
+  filter coefficients under audio-rate modulation. Expensive; deliberate.
+- **Note-rate** — once when a voice starts. Velocity, key tracking, per-voice
+  random seeds, unison offsets.
+- **Block-rate** — once per block, smoothed across it. Almost all UI
+  parameters. The default; leave it only with a reason.
 
----
+## 7. Sound verification (Phase 3)
 
-## 6. UI conventions
+Nobody working in this repository with an AI can hear. So:
 
-- The web UI never blocks on C++. Every control updates its own state on the
-  pointer event and writes to the relay fire-and-forget.
-- Visualiser data (spectrum frames, wavetable frames, meters) travels as
-  **binary `ArrayBuffer`s at ≤ 30 fps**, never as JSON strings. JSON at 60 fps
-  stutters the UI.
-- Heavy rendering runs on `requestAnimationFrame`, paused when the window is
-  hidden.
-- Drag gestures wrap in `sliderDragStarted()` / `sliderDragEnded()` so host
-  automation records one gesture rather than hundreds of writes.
-- Vite output filenames are **stable and unhashed** (`index.html`,
-  `assets/index.js`, `assets/index.css`). The C++ resource provider resolves
-  them by name at compile time and cannot follow a content hash. The list is
-  duplicated in `cmake/WebUI.cmake` (`GNARL_UI_FILES`) and
-  `ui/vite.config.ts` — keep them in sync.
-- Visual direction: **a lit instrument.** Near-black surfaces with a gradient
-  lift, exactly **one** neon accent per theme (Acid `#b4ff2e`, Ember
-  `#ff5c1a`), and glow marking what is ACTIVE. Radii 3–5 px. This is a
-  deliberate move from the flat matte look the project started with, on the
-  client's direction and against concrete references.
-- **"Dream" is the exception to the one-accent rule, and the only one.** The
-  reference the client chose is a two-tone instrument — violet body, cyan
-  controls — which a single accent cannot reproduce. So Dream declares a
-  second accent (`--gn-accent-2`), and the rule becomes: one accent per theme,
-  except Dream, which has exactly two. **Cyan is the control colour and violet
-  the body colour, and they never swap roles** — every knob ring, every live
-  value and every meter is cyan, so the eye still has one colour that means
-  "this is live". Mixing the two per control is what turns a mood into a mess.
-  `--gn-accent-2` defaults to `--gn-accent`, so a component can use it
-  unconditionally and stays single-toned in the themes that only have one.
-- **A canvas does not repaint when a CSS custom property changes.** Every
-  control that draws itself reads its colours with `getComputedStyle`, which
-  is right — one palette, one file — but it means a theme switch left the
-  canvas controls on the old palette: the knobs stayed acid green on a violet
-  instrument. Canvas controls that redraw on demand (`Knob`, `EnvelopeDisplay`)
-  therefore take `useTheme()` as a render dependency; the ones that redraw every
-  frame anyway (the wavetable display, the LFO editor) re-read the properties
-  each frame and do not need it. Adding a canvas control means deciding which
-  of the two it is.
-- **Glow is not free.** Every `box-shadow` and every canvas `shadowBlur` is
-  compositing work, in a webview inside a DAW that is already busy with audio.
-  So: glow marks state, never decoration; the wavetable display glows one line
-  rather than every line in its stack; and nothing that animates per frame
-  glows except that one line.
-- **Hover glow and state glow are different things, and only one is
-  optional.** `--gn-glow-accent*` marks what is ON — which of fourteen effects
-  are enabled, which chain row is selected — and that is information.
-  `--gn-glow-hover*` says "the pointer is here", which the cursor has already
-  said. The settings panel switches the second off and never the first: a UI
-  that stops telling you what is enabled is broken, not calmer.
-- **The opening growl plays in the WEBVIEW, never through the plugin.** A
-  sound emitted from `processBlock` goes wherever the plugin's output goes —
-  into a take being recorded, through the mixer, audible to everyone on a
-  session — because somebody opened a window. `bridge/growl.ts` uses Web
-  Audio, reaches the system output, and cannot touch the DAW's audio path at
-  all. It is synthesised rather than sampled: a `.wav` would be a hundred
-  kilobytes embedded in every binary for three quarters of a second of sound.
-  It defaults **off** — a plugin that makes a noise every time its window
-  opens is one somebody eventually opens forty times in a row — while the
-  animation defaults on and follows the motion setting like everything else
-  that moves.
-- **View settings live in `ui/src/settings.ts`, not in the ValueTree.** Theme,
-  animations, hover glow, help text and knob travel belong to the person at the
-  machine, not to the patch. In the ValueTree they would travel with a preset,
-  so loading someone else's patch would turn your animations back on and
-  sharing yours would push your accessibility preference onto them. They are in
-  the webview's `localStorage`, wrapped in try/catch because it throws rather
-  than returning null when an embedded webview blocks it, and `motion`/`glow`
-  default from `prefers-reduced-motion`.
-- **Both gates work by redefining TOKENS, never by overriding rules.**
-  `:root[data-glow='off']` sets the hover-glow tokens to `none` in one place,
-  and every rule that draws one keeps reading the same token and stops drawing
-  it. An override beside each glow rule would have to be maintained in step
-  with every new one, and would silently miss the next one added. Motion goes
-  to `0ms` rather than `transition: none`, so a transition that is in flight
-  when the setting changes lands on its target instead of snapping back.
-- **`overflow: hidden` clips an absolutely positioned descendant when it is
-  also the containing block.** The preset browser hangs off the header's
-  preset group, which sets `overflow: hidden` to clip its buttons' rounded
-  corners — so making that element `position: relative` to anchor the popover
-  would have clipped the popover instead. The positioning context is a
-  separate `.gn-preset-group` wrapper. Same family as the stacking-context
-  trap below: a popover in a header has two different ancestors that can eat
-  it, and neither is visible in code review.
-- **A stacking context nobody declared put the settings popover behind the
-  tab.** Dream gives `.gn-header` a `backdrop-filter`, and `backdrop-filter`
-  **creates a stacking context** — so the popover's `z-index: 40` was trapped
-  inside a header that then lost as a whole to `.gn-body`'s `z-index: 1`. The
-  panel showed only its top edge and some ghost text through the panels, in the
-  default theme only, and looked simply broken. `.gn-header` is now
-  `position: relative; z-index: 2`.
-- **How much a hover effect actually draws is MEASURED, like the artwork
-  contrast.** The first hover glow — 38% and 22% alpha at −2px spread —
-  produced a maximum channel delta of **7 out of 255** against the same frame
-  with glow off. It was applying correctly, confined to exactly the hovered
-  row, and invisible; two screenshots side by side did not show it either.
-  Diffing them did. The shipped pair measures about **28**, which reads as a
-  soft halo. `tools/screenshot_ui.mjs` shoots `hover-glow-on`/`-off` with a row
-  actually hovered — the first version photographed the window with the pointer
-  parked in a corner, where a hover effect draws nothing either way and the two
-  pictures came out all but identical.
-- **Row heights in a tab are explicit, not flex proportions.** The vertical
-  budget at the design size is exact — 720 minus the 58 px header, 22 px
-  status bar and 16 px padding leaves 624 px. Content-sized rows overflow
-  that, and an overflowing child renders *on top of* its siblings. This bit
-  three times: the oscillator's send row across the Sub and Noise panel
-  headers twice, then the MOD tab's envelope panels straight across the mod
-  matrix.
-- **A fourth instance of that, and the comment claimed otherwise.** The
-  spectrum was placed in the OTT panel's dead space with `flex: 1` and
-  `align-self: stretch`, commented "this costs no height at all" — and it ate
-  the whole panel, squeezing the three band panels out of existence
-  entirely. It has an explicit 104px height now, matching the knob row it
-  sits beside. Screenshot after any layout change; this was invisible in the
-  diff and unmissable in the picture.
-- **The interface SCALES with the window; it does not reflow.** The editor is
-  resizable 70%–200% with a fixed aspect ratio, and every budget above is an
-  exact pixel count that holds at exactly one size. So `.gn-app` is always
-  1180×720 in its own coordinates and carries `transform: scale(--gn-scale)`,
-  which `useAppScale` sets from the window. Reflowing instead would mean
-  turning every row height into a proportion — the thing that has broken this
-  layout four times.
+- **Only call a sound "close" to a reference if the numbers say so**, and say
+  which numbers. The producer listens and decides; the measurements are what
+  make that conversation specific.
+- **Never commit copyrighted audio.** Reference tracks are measured; only the
+  measurements are committed. No audio, spectrum or wavetable is derived from
+  them.
+- Measure the instrument before trusting it. Past failures here: summing
+  magnitudes instead of power (a sub balance reported as 12–21% was 79%); an
+  envelope sampled at 8192-sample hops whose Nyquist made every track
+  "wobble" at 1.2 Hz; autocorrelation that found the kick drum. Print the
+  whole modulation spectrum, not an argmax.
 
-  Measured before that existed: at **0.70× the page scrolled horizontally,
-  the body overflowed vertically, and a panel body had 180 px of content in a
-  12 px box**. The editor was permitting a window size the CSS could not
-  render. `body` also needs `overflow: hidden`, because a transform does not
-  shrink an element's layout box — a scaled-down 1180×720 element still
-  reserves 1180×720 for scrolling.
-- **The structural half of that fix is `min-height: 0` on `.gn-panel`.** A
-  grid or flex item's automatic minimum size is its *content* size, so a panel
-  taller than its track grows past it — and the body's own `overflow: hidden`
-  cannot help, because the body is sized by the panel rather than the other
-  way round. The first two fixes only adjusted row heights; this is the one
-  that makes the clipping actually happen. Size the rows to what the panels
-  need anyway, and screenshot after any layout change.
-- Density is a feature. The four tabs are the only nesting allowed.
-- **Knob values are always visible**, dim at rest and bright while
-  interacting. Hiding them until hover keeps a panel tidy and makes a dense
-  synth unreadable: you cannot compare two knobs you have to hover one at a
-  time.
-- **A panel must clip its own content.** An overflowing flex child renders ON
-  TOP of its siblings, which is how the oscillator's send row ended up drawn
-  across the Sub and Noise panels. `.gn-panel__body` has `overflow: hidden`
-  and the tab scrolls.
-- The browser preview is seeded with the plugin's **real** parameter ranges and
-  defaults, dumped by `tools/dump_parameter_defaults.cpp` from the actual
-  parameter tree. Without it every knob sits at zero and every readout says
-  "0%", which is useless for judging layout and misleading in a screenshot.
-  **`parameterDefaults.json` goes stale silently**, and did: the FX section
-  added 114 parameters and the file still held 316, so every FX knob in the
-  preview sat at its minimum reading "0%" — exactly the symptom above, and it
-  looked like a formatting bug in the new panels rather than a stale dump.
-  Regenerate it in the same commit as any parameter change:
-  `cmake -B build -DGNARL_BUILD_DEMO_RENDERER=ON && cmake --build build
-  --target GnarlDumpDefaults && ./build/tests/GnarlDumpDefaults
-  ui/src/bridge/parameterDefaults.json`.
-- **Duplicated TypeScript is checked against C++ by `npm run check-reference`,
-  and it runs on every build.** Two modules mirror engine logic on purpose —
-  `bridge/formatters.ts` (the formatters in `ParameterRanges.h`) and
-  `bridge/warp.ts` (a port of `WarpProcessor.h`) — because the UI must show
-  what the engine does and the engine's copy is on the audio thread. Asking
-  the plugin to format each value would be a bridge round trip per frame per
-  knob.
+## 8. Legal and licensing
 
-  `tools/dump_reference_vectors.cpp` writes `ui/tests/referenceVectors.json`:
-  every parameter at 21 points, every warp mode at 33 phases × 5 amounts.
-  Regenerate it in the same commit as any change to either C++ side.
+Full detail in [`LICENSING.md`](LICENSING.md). The short version: GNARL is
+GPLv3; customers receive the source and may redistribute it; the site and
+backend are separate programs and are not GPL; presets shipped as separate
+files can carry their own licence.
 
-  **warp.ts claimed in its own header to be checked this way and was not** —
-  no dumper, no reference file, no test, the same shape of false claim as §8's
-  denormal check. Building the check immediately found real drift: the port
-  had `remap` sharing a case with `phaseDistortion` at a bandwidth expansion
-  of 4 where C++ gives **3**, and that number picks the mip level the
-  wavetable display draws from — so the display was band-limiting remap
-  differently from the engine and drawing a shape brighter than the one that
-  plays.
+GNARL's own licence check (Phase 7, `backend/`):
 
-  Two things the check taught about comparing across the boundary: the mirror
-  must round to **float** at every step (`Math.fround`), because JUCE does
-  this arithmetic in float and several formatters branch on an exact
-  threshold — the envelope attack's midpoint is exactly 10 ms, where float and
-  double fall on opposite sides of `value < 0.01f`. And a **phase must be
-  compared circularly**: 0.9999999 and 0 are a ten-millionth apart, not almost
-  a whole cycle, and comparing them linearly reports a difference of 1.0 for
-  two values naming the same point.
+- **It never silences the plugin.** If verification fails, audio keeps
+  playing; saving and paid features disable and a banner appears.
+- Offline grace period 30 days, not negotiable.
+- Only an explicit valid/rejected answer is a decision; every error,
+  timeout, non-200 or captive-portal page opens the grace period.
+- The licence key lives in machine settings, never in a preset.
+- What crosses the wire as a machine id is a SHA-256 of the device id.
+- Given GPLv3, a customer can remove the check. It exists to make paying the
+  easy path, not to prevent copying.
 
-  The formatter is **inferred** from the text C++ produced, not named — there
-  is no way to ask a `juce::AudioProcessorParameter` which function it was
-  given. That is safe only because the check verifies all 430 parameters at
-  every sampled point. It caught the first inference immediately: `grain_size`
-  runs to 500 and is formatted in *milliseconds*, so a rule of "max ≥ 1 means
-  seconds" read 500 ms as 500 seconds.
-
-### The background artwork
-
-The Dream theme draws a full-bleed image behind the whole interface, embedded
-in the binary like any other asset — no file IO at runtime, nothing to go
-missing on a customer's machine. It is **one composited layer that never
-animates**, which is why it is affordable where glow is not.
-
-The slot is `ui/public/assets/backdrop.webp` — **WebP, not PNG**: the artwork
-is a smooth colour field, which PNG stores losslessly at ~2 MB and WebP stores
-at 78 KB with no visible difference through the scrim and blur it is drawn
-under. It ships in every install. With no artwork present the slot resolves to
-a placeholder (a 1×1 image, or an empty file from the CMake stub) and
-`ui/src/bridge/artwork.ts` detects either and leaves the CSS variable unset, so
-the app draws its procedural gradient instead — a finished look on its own,
-which matters because the art is commissioned separately from the code.
-
-The art always sits under a scrim. **Readability on a dense synth is not
-negotiable**: it sets a mood, it does not compete with a 10px label.
-
-**How bright the artwork may be is MEASURED, not judged by eye.** Screenshot
-the UI, take the modal colour of a patch where labels sit (the glyphs are a
-minority of pixels, so the mode is the background) and compute the WCAG
-contrast ratio. `--gn-text-faint` is the binding constraint — it carries the
-value readouts, and knob values are always visible here — and **4.5:1 against
-the BRIGHTEST corner** is the bar, because that is where it fails first and it
-is not where the eye goes. That measurement is what set the shipped numbers:
-faint text measured 3.27:1 with the artwork in, moved to `#a591c2` for 4.75:1,
-and `--gn-artwork-opacity` then went to 0.62 — as far as it goes before the
-readouts drop back under. Brightening the art is not free, and the smallest
-text on screen pays for it.
-
-See [`docs/artwork-brief.md`](docs/artwork-brief.md) for the size and
-composition constraints, the generation prompts, and the legal position on
-generated art in a product we sell.
-
-### The wavetable display
-
-Draws the frames receding in Z with the active frame bright and forward, so
-moving the position control reads as travelling *through* the table rather than
-as one shape being swapped for another.
-
-Fed **harmonics, not samples** (`tools/dump_wavetable_spectra.cpp` →
-`ui/src/bridge/wavetableSpectra.ts`), so the display can synthesise the
-waveform at exactly the width its canvas happens to be and re-synthesise it
-when the warp changes. The spectra are analysed back *out of* the generated
-tables, so what is drawn is what the oscillator plays, band-limiting included.
-
-The drawn position is smoothed towards the parameter rather than tracking it
-exactly, so a jumped value animates instead of teleporting — the movement is
-most of the point.
-
-`ui/src/bridge/warp.ts` is a **port** of `WarpProcessor.h`, because the display
-has to show what the warp does and the engine's copy is in C++ on the audio
-thread. Duplicated logic is a liability; it is checked against reference values
-dumped from the C++ implementation so a one-sided change fails rather than
-quietly drawing the wrong shape.
-
-### Screenshotting the UI
-
-```bash
-cd ui && npm run build
-(cd dist && python3 -m http.server 4173 --bind 127.0.0.1 &)
-node ../tools/screenshot_ui.mjs <output-directory>
-```
-
-Worth doing after any layout change: the overflow bug above was invisible in
-code review and obvious in a screenshot at the design size.
-
-For motion, `tools/record_ui_motion.mjs` records a video by dragging the real
-controls — so the waveform moves because the parameter moves, not because
-something is animating for the camera.
-
-**Content Security Policy.** `ui/index.html` sets `script-src 'self'` with no
-`unsafe-eval`. JUCE's `check_native_interop.js` contains a direct `eval`, which
-Vite warns about on every build — it is reached only on Android, behind a
-`getAndroidUserScripts` guard, and GNARL does not target Android. Do not add
-`unsafe-eval` to silence the warning.
-
-**The binary-data name mapping is load-bearing.** `juce_add_binary_data`
-mangles `assets/index.js` into the symbol `index_js`, and
-`WebUIResourceProvider` reproduces that mangling by hand. If the two drift, the
-plugin builds, loads, and shows a blank window with nothing in any log.
-`tests/WebUIBridgeTests.cpp` exists to catch that; do not delete it.
-
----
-
-## 7. Performance notes
-
-Measured figures, so later work argues with data rather than intuition.
-
-| What | Release | Debug |
-|---|---|---|
-| Generating one wavetable (256 frames, 11 mip levels) | **21.5 ms** | 316 ms |
-| Generating all 20 factory tables | **0.43 s** | 6.3 s |
-
-(Measured at the earlier 2048-sample geometry. The shipped table is 11264
-samples per frame, so expect roughly 2.5x those figures; re-measure before
-quoting them.)
-
-| Memory | |
-|---|---|
-| One wavetable, all mip levels | ~11.5 MB |
-| Resident at once (two oscillators) | ~23 MB |
-
-| Aliasing (full-bandwidth saw, worst case over MIDI 12-120) | |
-|---|---|
-| Oscillator output | **-65.6 dBc** |
-
-| Hard-clipped sine into the drive stage, worst inharmonic partial | |
-|---|---|
-| Oversampling off | -28.6 dBc |
-| 2x | **-43.1 dBc** |
-| 4x | -42.0 dBc |
-
-Note that 4x is not better than 2x here. Past 2x the folded partials are
-already below the oscillator's own interpolation floor, so the difference is
-not the clipper's any more. The tests assert that 2x beats off and that 4x is
-not WORSE, rather than asserting an ordering that the measurement does not
-support.
-
-**Always benchmark in Release.** Debug is ~15x slower here, because the cost is
-almost entirely `juce::dsp::FFT`. A Debug measurement of DSP code is not a
-slow version of the truth, it is a different shape of it, and acting on one
-leads to optimising the wrong thing.
-
-Consequences of the figure above:
-
-- Factory tables are generated **lazily**, so instantiating the plugin does not
-  pay 0.43 s (nor hold ~80 MB of tables no patch is using).
-- A table switch costs ~21 ms on the message thread. Acceptable for a click,
-  but Phase 5's preset loading should generate on a background thread and
-  publish the result through a lock-free swap, per the handover rule in §3 -
-  loading a preset that changes both oscillators' tables would otherwise stall
-  the UI for ~40 ms.
-
----
-
-## 8. Testing
-
-- `tests/` links the plugin's **shared-code target** (`GNARL`), so tests
-  exercise the same build of the processor the plugin ships, with the real
-  `JucePlugin_*` defines.
-- Every DSP unit gets: a finite-output test across all sample rates and block
-  sizes in `kSampleRates`/`kBlockSizes`, a denormal check
-  (`tests/DenormalTests.cpp` — see §3 for what it does and does not assert),
-  and a parameter sweep asserting no NaN. This line claimed to be true for
-  some time while exactly one unit had a denormal check; if you add a DSP unit
-  that holds decaying state, add it to that file rather than letting the claim
-  drift again.
-- Nonlinear stages additionally get an aliasing measurement (assert below
-  −60 dBFS at 4× oversampling) and a THD+N measurement.
-- **Use a Blackman-Harris window for any spectral assertion.** A Hann
-  window's first sidelobe is only -31 dB down, so with a few hundred harmonics
-  present its leakage fills the gaps between them at about -48 dBc. That is
-  indistinguishable from aliasing, and it does not improve when the DSP
-  improves — an earlier version of the oscillator test produced a confident,
-  constant, entirely fictional -48 dB "aliasing" figure this way, and nearly
-  bought a doubling of the table memory to fix a measurement artefact.
-  Exclude at least two mainlobe widths around each real harmonic.
-- The wavetable tests **measure** band-limiting with an FFT rather than
-  asserting the code was called: `WavetableTests` checks that each mip level
-  holds no more than −60 dB of energy above the harmonic count it claims, and
-  that the level chosen for every MIDI note at 44.1 and 48 kHz is both safe
-  (no harmonic above Nyquist) and not needlessly coarse.
-- Filters get a stability test at extreme resonance/feedback.
-- CI runs `pluginval --strictness-level 10` on the VST3 (macOS + Windows) and
-  the AU (macOS). Strictness 10 is the bar; do not lower it to get green.
-- `tests/CMakeLists.txt` turns `-Wfloat-equal` off for the test target only:
-  tests compare exact floats on purpose (silence is exactly `0.0`, a state
-  round trip must recall bit-identically). That is why the plugin target links
-  `juce::juce_recommended_warning_flags` **privately** — propagating it would
-  impose the warning on the tests.
-
----
-
-## 9. Legal and licensing constraints
-
-- Ship **only** wavetables we generated or hold a commercial license for. Never
-  import tables from Serum, Vital, Massive, Malström or any commercial product.
-- Match Serum's *information architecture* (a category convention, free to
-  use). Never its artwork, colours, knob art, panel textures or typography.
-- The license check never silences the plugin. If verification fails, audio
-  keeps playing; preset saving and AI features disable and a banner appears.
-  Offline grace period is 30 days and is not negotiable — a producer in a
-  studio with no wifi must not be locked out mid-take.
-- **`Status::unenforced` is not a licence state.** A build with no
-  `GNARL_LICENCE_ENDPOINT` configured does not check, and reports that rather
-  than reporting `licensed` — which would be a lie — or `unlicensed`, which
-  would disable preset saving in a build nobody can activate and prove
-  nothing by it. Features stay on and the banner reads "Development build".
-  Setting the endpoint at configure time is the single change that makes a
-  build enforce, and `docs/release-process.md` has a checklist item for it.
-- The status crosses the bridge as a **name**, not as the enum's index. An
-  index would be a second frozen ordering to maintain — the same argument
-  that makes mod destinations parameter-ID strings — and appending
-  `unenforced` would have silently renamed whatever the UI had at that
-  number.
-- **`Status::personal` is a fifth not-a-licence state, and it differs from
-  `unenforced` in exactly one way: the banner.** `unenforced` means somebody
-  has not configured an endpoint yet and *should* nag, because a development
-  build that says nothing is one that gets shipped. `personal`
-  (`GNARL_PERSONAL_BUILD=ON`) means this build has no licensing by design —
-  somebody's own instrument, compiled for their own machine. A permanent
-  "Development build" notice there would be untrue, and a banner that is
-  always up is a banner nobody reads.
-- **The banner lives in the status bar row, not in one of its own.** The tab
-  layout's vertical budget is exact (§6), and a notice that can be up for
-  thirty days must not cost the panels 24 px; an overlay would cover controls
-  instead. It takes the help text's slot while it is up, because a hover hint
-  is not the licence.
-- License verification runs on a background thread with a timeout. It never
-  touches the audio thread and never blocks the UI.
-- **The licence key lives in the machine's settings, never in the ValueTree.**
-  The tree travels with the patch, so a key kept there would be written into
-  every `.gnarl` preset and every host session file — and the first time
-  somebody posted a patch publicly they would be posting their licence with
-  it. It sits beside the view preferences (§6), for the same reason those do.
-- **Only `valid` and `rejected` are decisions.** `license::interpretResponse`
-  maps *everything else* to `unreachable`, which opens the grace period: a
-  non-200 (including the 503 the Worker returns when its own database fails),
-  a body that is not JSON, a 200 whose `status` is unrecognised — a captive
-  portal's login page is exactly that shape. Reading our own outage as a
-  rejection would disable a paying customer's preset saving over a fault that
-  was never theirs, and `LicenseClientTests` fails in six places if the error
-  path is changed to return a decision.
-- What crosses the wire as a machine id is a **SHA-256 of the device id**, not
-  the device id. The server needs to tell two machines apart and has no
-  business telling *which* machine, so a leaked database cannot be joined
-  against anything.
-
----
-
-## 10. Phase status
+## 9. Phase status
 
 | Phase | Scope | State |
 |---|---|---|
-| 0 | Repo skeleton, CMake, UI scaffold, CI, this file | **done** |
-| 1 | Full parameter layout, voice architecture, smoothing | **done** |
-| 2 | Oscillators (wavetable + graintable), filters, formant filter | **done** |
-| 2b | OTT compressor (pulled forward from Phase 4 by request) | **done** |
-| 6a | UI: primitives, OSC tab, FX tab, theme switching | **partial** |
-| 6b | Animated wavetable display | **done** |
-| 6c | UI: MOD tab — LFO editor, envelopes, matrix, macros | **done** |
-| 3 | LFO engine, envelopes, mod matrix, macros | **done** |
-| 4 | FX chain (14 instances, reorderable) + FX tab | **done** |
-| 5 | Preset system (`.gnarl`), browser, morph, randomize | **done** |
-| 6 | Full UI | not started |
-| 7 | Backend, licensing, subscription | client + activation endpoint **done**; Stripe not started |
-| 8 | AI features | not started |
-| 9 | Release prep, installers, manual | not started |
-| 10 | Marketing site — five pages, [`site/`](site/), see [`site/README.md`](site/README.md) | **done** |
+| 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
+| 1 | Fork, rebrand, CI, this file | **done** — Windows/macOS pending first green CI |
+| 2 | Riddim features, one at a time, design first | not started |
+| 3 | Render + compare tooling, reference measurement | not started |
+| 4 | AI preset generation | **not to be started** |
 
-**The synth now makes sound.** Oscillators, sub, noise, send routing and both
-filter slots are wired end to end, and `tests/EngineTests.cpp` drives the whole
-plugin through `processBlock` with real MIDI to prove the pieces are actually
-connected — which is a different failure from any one piece being wrong, and
-the one that produces a synth that passes every unit test and is silent.
+Phase 2 candidates, with what already exists in upstream:
 
-Oversampling is in: the whole voice section runs at 2x or 4x, because a
-nonlinear stage aliases the moment it runs and no filter applied afterwards
-can remove those partials.
+| Feature | Upstream |
+|---|---|
+| Tempo-synced wobble 1/4, 1/8, 1/8T, 1/16 on WT position, cutoff, FM | LFO sync incl. `kTripletTempo` exists; the macro layer does not |
+| Vowel/formant filter with morph | `formant_filter`, `formant_manager`, `vocal_tract` exist |
+| Waveshaper / fold / bitcrush chain | `distortion.h` has all six modes; one stage, not a chain |
+| OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |
+| Clean mono sub under the growl | no dedicated sub path |
+| Riddim preset pack | nothing; upstream ships no presets |
+| Hardening: denormals | `processBlock` has none — see §3 |
 
-To hear it without a DAW:
+## 10. The marketing site
 
-```bash
-cmake -B build -DGNARL_BUILD_DEMO_RENDERER=ON
-cmake --build build --target GnarlRenderDemo
-./build/tests/GnarlRenderDemo <output-directory>
-```
-
-The modulation in those clips is applied per block from `tools/render_demo.cpp`,
-because that tool predates the LFO engine. The engine itself now modulates in
-32-sample chunks, which is the number that matters: a 256-sample block is
-5.3 ms, and a 1/16 wobble at 140 BPM completes in 107 ms, so once per block is
-about 20 steps per cycle and is audibly stepped. 32 samples is 0.67 ms, or
-about 160 steps per cycle of that same wobble.
-
-**The modulation state that is not a parameter** — the drawable LFO curves and
-the mod slots' destination strings — lives in the ValueTree and reaches the
-audio thread through `params::ModStateBridge`, which publishes into a rotating
-set of three snapshots with an atomic index. The UI reads and writes it through
-three native functions on the editor (`gnarlGetModState`, `gnarlSetLfoCurve`,
-`gnarlSetModDestination`); everything else the UI touches is a parameter and
-goes through a relay, so it keeps automation, undo and gesture handling.
-
-**Live modulation reaches the UI by push, not poll.** `WebUIEditor` emits a
-`gnarlModulation` event at 60 Hz with each LFO's value and phase and the
-post-modulation table positions and cutoffs, and drops a frame identical to the
-last one — so an idle editor costs no bridge traffic at all. The wavetable
-display and the LFO editor's playhead read it from a ref inside their animation
-loops rather than through React state, because a `setState` per frame
-re-renders the whole tab sixty times a second. `ui/src/bridge/previewEngine.ts`
-simulates the same frames in the browser preview, where there is no engine to
-push them.
+The site is unchanged by the fork and is still deployed by Vercel from
+`site/` (`vercel.json` → `tools/assemble_deploy.mjs`). `/app` is a tombstone
+page: the React web app that lived there was the retired engine's UI and is
+on `custom-engine-archive`.
 
 ### The marketing site
 
@@ -1291,14 +494,17 @@ was buying most of what it was for).
 
 ---
 
+
 ## 11. Conventions
 
-- C++: JUCE style — 4-space indent, `PascalCase` types, `camelCase` members,
-  a space before `(` in calls (matching JUCE's own sources so the codebase
-  reads as one thing).
+- **New engine and UI code matches Vital's style**, because it lives beside
+  Vital's code and should read as one thing: 2-space indent, `snake_case`
+  members with a trailing underscore (`last_distorted_value_`), `camelCase`
+  methods, `k`-prefixed constants and enum values, `namespace vital` for
+  engine code, `force_inline` for hot helpers. Not the JUCE style the
+  retired engine used.
 - `#pragma once`, not include guards.
-- Everything in namespace `gnarl`.
-- Prefer `constexpr` constants with a comment explaining the number over a
-  bare magic value. Every DSP constant should say *why* it is that value.
-- No `using namespace juce;` in headers.
-- TypeScript: strict mode, no `any`, named exports.
+- Every DSP constant says *why* it is that value.
+- Keep upstream's copyright header on files derived from it; add a line
+  noting GNARL's modification when a file changes materially.
+- TypeScript (site): strict mode, no `any`, named exports.
