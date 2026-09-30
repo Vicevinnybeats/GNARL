@@ -463,6 +463,20 @@
   min-height: 120px;
 }
 
+/*  --- the OTT spectrum needs the width, not the leftovers ---------------
+    Beside the knobs it is a 58px sliver at 390px wide, which shows nothing
+    and looks broken. `.gn-row` already wraps, so a full-width basis is the
+    entire fix - the spectrum drops to its own line under the knobs.
+
+    Portrait only: at 727px wide the knob row leaves it 395px, which is a
+    usable display, and a phone in landscape has no vertical room to spare. */
+@media (max-width: 560px) {
+  :root[data-compact='true'] .gn-ott__spectrum {
+    flex: 1 0 100%;
+    height: 96px;
+  }
+}
+
 /*  Shorter where the whole body is about 190px - the editor cannot have all
     of it, and a curve is still readable at this size. */
 @media (max-height: 460px) {

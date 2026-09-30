@@ -81,11 +81,20 @@ function OttPanel() {
           <Knob label="X-High" value={xHigh.normalised} readout={xHigh.text} onChange={xHigh.setNormalised} onGestureStart={xHigh.beginGesture} onGestureEnd={xHigh.endGesture} size={34} />
         </Row>
 
-        {/*  The spectrum goes in the dead space to the RIGHT of the knob row,
-             not in a row of its own. The tab's vertical budget is exact
-             (§6) and an overflowing panel renders on top of its siblings -
-             which has bitten this interface three times. This costs no
-             height at all. */}
+        {/*  On a DESKTOP the spectrum goes in the dead space to the right of
+             the knob row, because the tab's vertical budget is exact (§6)
+             and an overflowing panel renders on top of its siblings.
+
+             It has an explicit 104px height, not `align-self: stretch`.
+             This comment used to claim the placement "costs no height at
+             all" while it was in fact eating the whole panel - see the
+             note on .gn-ott__spectrum in FxTab.css.
+
+             On a narrow phone there IS no dead space to the right: the
+             knob row fills the width and the spectrum was left a 58px
+             sliver, which reads as a rendering fault rather than as a
+             display. compact.css drops it onto its own full-width line,
+             which portrait has the room for and landscape does not need. */}
         <div className="gn-ott__spectrum">
           <Spectrum />
         </div>
