@@ -386,6 +386,27 @@ namespace vital {
     // Default 0: an existing patch renders exactly as before.
     { "wobble_amount_formant", 0x010009, -1.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Wobble Vowel Depth", nullptr },
+
+    // GNARL: the drive chain's FOLD and CRUSH stages, after Vital's drive
+    // stage in the distortion slot (docs/design/phase2-07-drive-chain.md).
+    // 0x01000A sorts after the vowel route. Both off by default: an existing
+    // patch renders exactly as before. Fold drive has the drive stage's
+    // range, since it is the same processor. Crush defaults to 8 bits and no
+    // hold, so switching it on is audible but not yet destroyed.
+    { "distortion_fold_on", 0x01000A, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Fold On", strings::kOffOnNames },
+    { "distortion_fold_type", 0x01000A, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Fold Type", strings::kFoldTypeNames },
+    { "distortion_fold_drive", 0x01000A, Distortion::kMinDrive, Distortion::kMaxDrive, 0.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " dB", "Fold Drive", nullptr },
+    { "distortion_fold_mix", 0x01000A, 0.0, 1.0, 1.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Fold Mix", nullptr },
+    { "distortion_crush_on", 0x01000A, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Crush On", strings::kOffOnNames },
+    { "distortion_crush_bits", 0x01000A, 1.0, 16.0, 8.0, 0.0, 1.0,
+      ValueDetails::kLinear, false, " bits", "Crush Bits", nullptr },
+    { "distortion_crush_rate", 0x01000A, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Crush Rate", nullptr },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {

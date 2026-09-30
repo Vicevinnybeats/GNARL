@@ -209,3 +209,20 @@ the merge commit forward: `git log 7651809..`.
   `tests/host_parameters.txt`: 781 unchanged, 1 appended.
 - See docs/design/phase2-06-vowel-filter.md.
 
+## 2026-09-30 - Phase 2: the drive chain (DIST -> FOLD -> CRUSH)
+
+- `DistortionModule`: two stages after Vital's drive stage in the
+  distortion slot - FOLD (a second instance of Vital's Distortion
+  processor, sine or linear fold, own drive and mix) and CRUSH (new: 1-16
+  bits, sample hold 1x-64x). `ReorderableEffectChain` runs the slot while
+  any stage is on; `distortion_on` switches the drive stage only.
+- Seven parameters appended at 0x01000A (`distortion_fold_*`,
+  `distortion_crush_*`), all off by default. `tests/host_parameters.txt`:
+  782 unchanged, 7 appended.
+- `tests/test_drive_chain.py` (new, in CI for both builds): FOLD alone is
+  bit-identical to Vital's single fold stage; off is bit-identical to no
+  keys; CRUSH quantises and holds as specified and is exactly block-size
+  independent.
+- The panel's FOLD and CRUSH tiles are bound. See
+  docs/design/phase2-07-drive-chain.md.
+

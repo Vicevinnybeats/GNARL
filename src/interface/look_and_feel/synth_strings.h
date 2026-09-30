@@ -41,6 +41,12 @@ namespace strings {
     "-2 Oct",
   };
 
+  // GNARL: distortion_fold_type. APPEND ONLY - a preset stores the index.
+  const std::string kFoldTypeNames[] = {
+    "Sine",
+    "Linear",
+  };
+
   const std::string kUnipolarBipolarNames[] = {
     "Unipolar",
     "Bipolar"

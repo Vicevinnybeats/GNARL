@@ -80,6 +80,7 @@ headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140
 
 python3 tests/test_wobble.py          # renders + measures the wobble macro
 python3 tests/test_vowel.py           # each vowel button produces its vowel
+python3 tests/test_drive_chain.py     # FOLD = Vital's fold; CRUSH bits, hold, block size
 (cd ui && npm run build && npm test)  # the panel's bridge, in Chromium, against a fake plugin
 python3 tests/test_sub.py --plugin /tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
                                       # the mono sub; --plugin adds the mid-block note check
@@ -325,6 +326,11 @@ codebase:
   echo loop - 12,000 host parameter changes a second while idle.
   `ui/tests/bridge.test.mjs` checks that an idle page sends nothing; run
   `npm test` in `ui/` after any bridge change.
+- **Quantisation amplifies rounding.** A block-size comparison of a render
+  that ends in a bit crusher turns Vital's own −113 dB block differences into
+  whole-step flips; it passes or fails by where the steps fall. Test the
+  stateful stage alone for exactness, and the smoothed stage against Vital's
+  own figure.
 - **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
   write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
@@ -381,7 +387,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
 | 3 | Render + compare tooling, reference measurement | not started |
 | 4 | AI preset generation | **not to be started** |
 
@@ -391,7 +397,7 @@ Phase 2 candidates, with what already exists in upstream:
 |---|---|
 | Tempo-synced wobble 1/4, 1/8, 1/8T, 1/16 on WT position, cutoff, FM | **engine done** (`tests/test_wobble.py`); UI panel next |
 | Vowel/formant filter with morph | **done** — vowel buttons, model-following panel, wobble→vowel route; `tests/test_vowel.py`, docs/design/phase2-06-vowel-filter.md |
-| Waveshaper / fold / bitcrush chain | `distortion.h` has all six modes; one stage, not a chain |
+| Waveshaper / fold / bitcrush chain | **done** — DIST → FOLD → CRUSH in the distortion slot; `tests/test_drive_chain.py`, docs/design/phase2-07-drive-chain.md |
 | OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |
 | Clean mono sub under the growl | **done** — `mono_sub_*`, `tests/test_sub.py`, docs/design/phase2-05-mono-sub.md |
 | Riddim preset pack | nothing; upstream ships no presets |

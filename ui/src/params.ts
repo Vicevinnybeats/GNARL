@@ -89,10 +89,11 @@ export const PARAMS: readonly Param[] = [
 
   P('dist.drive', 'DRIVE', 0.55, 'distortion_drive', 'db'),
   P('dist.mix', 'MIX', 0.8, 'distortion_mix'),
-  P('fold.amount', 'AMOUNT', 0.4, null),
-  P('fold.mix', 'MIX', 0.5, null),
-  P('crush.bits', 'BITS', 10, null, 'bits', 1, 16, { step: 1 }),
-  P('crush.rate', 'RATE', 0.3, null),
+  // FOLD and CRUSH: the drive chain after DIST (docs/design/phase2-07-drive-chain.md).
+  P('fold.amount', 'AMOUNT', 0.4, 'distortion_fold_drive', 'db'),
+  P('fold.mix', 'MIX', 1, 'distortion_fold_mix'),
+  P('crush.bits', 'BITS', 8, 'distortion_crush_bits', 'bits', 1, 16, { step: 1 }),
+  P('crush.rate', 'RATE', 0, 'distortion_crush_rate'),
   P('ott.depth', 'DEPTH', 0.45, 'compressor_mix'),
   P('ott.time', 'TIME', 0.5, 'compressor_attack'),
 ];
@@ -124,9 +125,8 @@ export const CHOICES: readonly Choice[] = [
   { id: 'env.page', options: ['AMP', 'FILTER'], def: 0, vital: null },
   // Vital's distortion types: 0 Soft Clip, 1 Hard Clip. No tube model yet.
   { id: 'dist.mode', options: ['TUBE', 'HARD', 'SOFT'], def: 0, vital: 'distortion_type', values: [null, 1, 0] },
-  // Folding is a Vital distortion TYPE, and the DIST tile owns that
-  // parameter: a separate FOLD stage is the Phase 2 distortion chain.
-  { id: 'fold.mode', options: ['SINE', 'LINEAR'], def: 0, vital: null },
+  // The FOLD stage's own type: Vital's sine or linear fold.
+  { id: 'fold.mode', options: ['SINE', 'LINEAR'], def: 0, vital: 'distortion_fold_type', values: [0, 1] },
   { id: 'crush.mode', options: ['HARD', 'SOFT'], def: 0, vital: null },
   // compressor_enabled_bands: 0 Multiband (three bands). No two-band mode.
   { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands', values: [0, null] },
@@ -148,8 +148,8 @@ export const POWER: Readonly<Record<string, string | null>> = {
   'dist.on': 'distortion_on',
   'ott.on': 'compressor_on',
   'sub.on': 'mono_sub_on',
-  'fold.on': null,
-  'crush.on': null,
+  'fold.on': 'distortion_fold_on',
+  'crush.on': 'distortion_crush_on',
   'wobble.on': null,
 };
 

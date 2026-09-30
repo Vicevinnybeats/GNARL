@@ -55,14 +55,14 @@ text to three significant figures (`tidyText`).
 | SUB dot, LEVEL, DRIVE, -1 OCT | `mono_sub_on`, `_level`, `_drive`, `_octave` (docs/design/phase2-05-mono-sub.md); MONO is fixed on, since the sub is mono by construction |
 | VOWEL FILTER knobs, A E I O U | follow filter 1's model; see docs/design/phase2-06-vowel-filter.md |
 | wobble VOWEL destination | `wobble_amount_formant` |
+| FOLD, CRUSH tiles | `distortion_fold_*`, `distortion_crush_*` (docs/design/phase2-07-drive-chain.md) |
 | scope press, keys | MIDI note on/off through the plugin's keyboard state |
 
 Anything with no engine parameter behind it yet is **dimmed**, and struck
 through on a button, with "Not in the engine yet" on hover:
 
 - FM amount
-- FOLD and CRUSH
-- TUBE, 2-BAND and the FOLD warp mode
+- TUBE, 2-BAND, CRUSH's HARD/SOFT and the FOLD warp mode
 - the wobble's SMOOTH and PHASE
 - the mod matrix
 

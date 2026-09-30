@@ -12,6 +12,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the distortion slot runs while any stage
+ * of GNARL's drive chain is on.
  */
 
 #include "reorderable_effect_chain.h"
@@ -124,6 +127,13 @@ namespace vital {
 
       int index = effect_order_[i];
       bool on = effects_on_[index]->value();
+      // GNARL: the distortion slot is a chain (drive, fold, crush) and runs
+      // while any stage is on; distortion_on switches only the drive stage.
+      if (index == constants::kDistortion) {
+        DistortionModule* distortion = static_cast<DistortionModule*>(effects_[index]);
+        distortion->setDriveStageOn(on);
+        on = on || distortion->chainStageOn();
+      }
       bool enabled = effects_[index]->enabled();
       if (on != enabled)
         effects_[index]->enable(on);

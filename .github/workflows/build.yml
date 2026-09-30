@@ -85,14 +85,16 @@ jobs:
           sudo apt-get install -y -qq python3-numpy
           python3 tests/test_wobble.py
 
-      #  The vowel buttons produce their vowels (phase2-06-vowel-filter.md).
+      #  The vowel buttons produce their vowels (phase2-06-vowel-filter.md);
+      #  the drive chain's fold and crush stages (phase2-07-drive-chain.md).
       #  The clean mono sub (docs/design/phase2-05-mono-sub.md): off changes
       #  nothing, pitch, purity (also under full distortion + OTT), mono,
       #  level, drive, block size - and, through the VST3, a phase reset on
       #  the note's own sample mid-block, which the renderer cannot reach.
-      - name: Mono sub and vowel tests
+      - name: Mono sub, vowel and drive chain tests
         run: |
           python3 tests/test_vowel.py
+          python3 tests/test_drive_chain.py
           python3 tests/test_sub.py --plugin ./vst3_probe \
             "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 
@@ -113,6 +115,7 @@ jobs:
             build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_vowel.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+          python3 tests/test_drive_chain.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_sub.py build-cmake/gnarl_render_artefacts/Release/gnarl-render --plugin ./vst3_probe \
             "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 

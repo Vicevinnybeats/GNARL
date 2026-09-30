@@ -780,3 +780,10 @@
 779	54617	Mono Sub Octave
 780	54639	Mono Sub On
 781	54640	Wobble Vowel Depth
+782	54641	Crush Bits
+783	54642	Crush On
+784	54643	Crush Rate
+785	54644	Fold Drive
+786	54645	Fold Mix
+787	54646	Fold On
+788	54647	Fold Type
