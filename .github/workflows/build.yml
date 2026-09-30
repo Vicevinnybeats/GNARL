@@ -130,6 +130,13 @@ jobs:
       #  third-party code - hosts do not load it. arm64 + x86_64 is the
       #  universal binary that actually runs everywhere.
       #  Unsigned: signing and notarisation need an Apple Developer account.
+      #  DEPLOYMENT_LOCATION=NO: the project installs straight into
+      #  ~/Library/Audio/Plug-Ins with DSTROOT = /, and Xcode 15's build
+      #  system then treats the filesystem root as a build directory that
+      #  contains its own output - "Cycle inside a single target", with
+      #  `CreateBuildDirectory /` in the trace. Off, the bundle lands in
+      #  plugin/builds/osx/build/Release, which is all CI wants anyway.
+      #
       #  stderr is merged into the tail. The first run exited 74 with
       #  NOTHING in the log, because xcodebuild reports a damaged project on
       #  stderr and only stdout was being piped.
@@ -139,7 +146,8 @@ jobs:
           xcodebuild -project plugin/builds/osx/GNARL.xcodeproj \
             -target "GNARL - VST3" -configuration Release \
             ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" 2>&1 | tail -60
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            DEPLOYMENT_LOCATION=NO 2>&1 | tail -60
 
       - name: Locate the bundle
         id: find

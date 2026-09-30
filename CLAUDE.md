@@ -85,6 +85,12 @@ toolset overridden v141 → v143), macOS (`xcodebuild`, ARCHS overridden to
 `arm64 x86_64` — the project also asks for `arm64e`, which hosts do not load
 for third-party code). Both desktop builds are unsigned.
 
+**Building on a Mac with Xcode 15 needs `DEPLOYMENT_LOCATION=NO`**, as CI
+passes. Upstream's project installs straight into `~/Library/Audio/Plug-Ins`
+with `DSTROOT = /`, and Xcode 15 then treats the filesystem root as a build
+directory containing its own output: "Cycle inside a single target". Copy
+the bundle from `plugin/builds/osx/build/Release/` by hand.
+
 ### Project files: two copies of everything
 
 There is **no Projucer here** — the vendored JUCE is `modules/` only. So a
