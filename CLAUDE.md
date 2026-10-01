@@ -37,7 +37,11 @@ icons/  fonts/     UI glyphs, GNARL's marks, fonts
 
 ui/                GNARL's own panel (TypeScript, one HTML file). Embedded in the
                    JUCE 8 plugin (src/plugin/web_panel.cpp, docs/design/phase2-04-
-                   web-panel.md); the JUCE 6 plugin still shows Vital's editor
+                   web-panel.md); the JUCE 6 plugin still shows Vital's editor.
+                   dist/gnarl-web.html is the mobile version: the same page with
+                   the engine inside (ui/src/web/, docs/design/phase2-09-mobile.md)
+wasm/              the engine compiled to WebAssembly for that page, no JUCE
+                   (wasm/README.md)
 tools/             check_fork.py (CI guard), vst3_probe.cpp (host-style
                    loader), make_logo.py + embed_logo.py, site tooling
 site/              the marketing site - separate program, NOT GPL
@@ -88,6 +92,11 @@ python3 tests/test_measure.py         # Phase 3's instrument on known signals + 
 python3 tools/measure.py ref.wav --bpm 140 --from 61 --to 69 --json references/x.json
 python3 tools/compare.py references/x.json patch.vital --bpm 140 --note F1
 (cd ui && npm run build && npm test)  # the panel's bridge, in Chromium, against a fake plugin
+
+# The mobile version (wasm/README.md): engine to WebAssembly, then the page
+source /path/to/emsdk/emsdk_env.sh && wasm/build.sh
+python3 tests/test_web.py             # browser engine vs gnarl-render
+(cd ui && npm run build && node tests/web.test.mjs)   # dist/gnarl-web.html end to end
 python3 tests/test_sub.py --plugin /tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
                                       # the mono sub; --plugin adds the mid-block note check
 
@@ -344,6 +353,13 @@ codebase:
   the mode; the panel shows them as one more option (`flag` in
   `ui/src/params.ts`). And a warp override must reach
   `setFourierWaveBuffers` too - it reads the warp type separately.
+- **The browser build is the same engine, not a copy.** `wasm/` compiles
+  `src/unity_build/synthesis.cpp` unchanged; an engine change reaches the
+  phone page by rebuilding. It differs from the desktop in kissfft, libc++
+  (random phases) and no denormal flush (wasm/README.md);
+  `tests/test_web.py` holds it to the desktop renderer. Compare with random
+  phase off. An AudioWorklet has no TextEncoder, and Chrome loads no worklet
+  from a blob: URL on a file:// page.
 - **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
   write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
@@ -405,7 +421,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); FM knob, osc FOLD, TUBE, CRUSH SOFT, wobble SMOOTH/PHASE and the panel's mod matrix **done and tested**, nothing on the panel dimmed (`docs/design/phase2-08-panel-controls.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); FM knob, osc FOLD, TUBE, CRUSH SOFT, wobble SMOOTH/PHASE and the panel's mod matrix **done and tested**, nothing on the panel dimmed (`docs/design/phase2-08-panel-controls.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test; **mobile version built and tested**: the real engine in WebAssembly in the phone page (`docs/design/phase2-09-mobile.md`), not yet played on a phone |
 | 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); no reference measured yet - the producer's step |
 | 4 | AI preset generation | **not to be started** |
 

@@ -1,0 +1,120 @@
+# Phase 2 — the mobile version
+
+**Status:** built and tested (2026-10-01). `ui/dist/gnarl-web.html` is the
+phone panel with GNARL's real engine inside, compiled to WebAssembly and
+running in an AudioWorklet. Nobody has played it on a phone yet.
+
+## What it is
+
+The panel's phone layout (phase2-02-ui.md) used to play nothing. It drew a
+model of the patch, and it was the base "for the mobile version" (that
+doc's last line). Now the same page carries the engine:
+
+- **Tap to play.** A phone only lets a page make sound from a tap, so the
+  page opens behind a start layer. The tap creates the AudioContext, loads
+  the engine and connects the panel.
+- **The page's defaults are the patch.** They are sent to the engine as if
+  set by hand, so the first note sounds like what the panel showed before
+  the tap. The plugin is different: there the engine's state wins, because
+  a project has saved one.
+- **Everything on the panel works.** Keys, pitch and mod wheels, oscillators
+  with FM and FOLD, sub, vowel filter, wobble (rate, depth, smooth, phase,
+  shape, drawing), envelopes, the drive chain, OTT and the mod matrix.
+  ADVANCED is hidden, because there is no classic editor in a browser. The
+  preset arrows stay disabled, because there is no preset loader yet.
+- **No server.** One HTML file, about 1.5 MB, which fetches nothing. It can
+  be hosted anywhere that serves HTML over https. It was published as a
+  private Artifact for the producer to try.
+
+## How it fits together
+
+```
+page (bridge.ts, unchanged protocol)
+  -> window.__JUCE__, installed by web/host.ts
+  -> MessagePort
+  -> web/worklet.js (AudioWorkletProcessor; plays web_panel.cpp's part)
+  -> web/engine-core.js
+  -> wasm/build/gnarl.wasm (gnarl_web.cpp + the engine)
+```
+
+The page already talks to an engine through `window.__JUCE__` inside the
+plugin. `host.ts` installs one whose other end is the worklet, speaking the
+same messages as `src/plugin/web_panel.cpp`: `gnarlConnect`, `gnarlSet`,
+`gnarlNote`, `gnarlWobbleShape`, `gnarlRoute` in, and `gnarlValues`,
+`gnarlFrame`, `gnarlRoutes` out. So `bridge.ts` and every control run as
+they do in the plugin. The differences are in two places:
+
+- `isPlugin()` is false (`initialisationData.gnarlWeb`), which hides
+  ADVANCED.
+- The connect answer names the preset. If a frame announced it instead,
+  the frame would arrive after the page had sent its defaults, and the
+  bridge would treat it as a new preset and unlight the wobble shape. The
+  bridge test that caught this is `web.test.mjs` "SHAPE still shows".
+
+The build: `wasm/build.sh` makes the module (wasm/README.md). Then
+`ui/scripts/inline.mjs` writes `gnarl-web.html` next to `gnarl-ui.html`,
+with the module as base64 in a classic script ahead of the app. Without a
+built module it skips the web page, so the plugin's build needs no
+Emscripten.
+
+## Measured
+
+`tests/test_web.py` renders with `tools/web_render.mjs`, which mirrors
+`SynthBase::renderAudioToFile` step for step, and compares the result with
+`gnarl-render`. Random phase is off (wasm/README.md says why).
+
+| What | Browser vs desktop |
+|---|---|
+| init patch | −109.1 dB |
+| unison 7, FORMANT warp, mono sub, wobble 1/8T on cutoff | −128 to −135 dB |
+| osc FOLD, TUBE, formant filter, reverb | −104 to −122 dB |
+| FM knob, CRUSH, OTT | −81 to −82 dB |
+| osc 2 an octave up | −59 dB over 2 s, growing from −71 to −56 dB through the note: a pitch drift from float rounding, well under a hundredth of a cent |
+| pitch wheel at +1 | 65.406 → 73.416 Hz, 2.0000 semitones (bend range 2) |
+| mod wheel → cutoff | at 0, bit-identical to no route; at 1, the 5th harmonic falls from −15 to −46 dBc |
+| blocks 32 vs 128 (heavy patch, no chorus or CRUSH) | browser −44.2 dB, desktop −44.4 dB |
+| speed, heavy patch (7+5 unison voices, every effect) | 4.1× real time (one core of the CI machine) |
+| speed, the page's default patch | 5.0× real time for one note, 2.7× for three |
+
+`ui/tests/web.test.mjs` opens the page in Chromium at phone size, taps to
+start and checks:
+- frames arrive;
+- silence before a note, sound on a key;
+- the wobble's phase runs;
+- MASTER at zero silences;
+- the engine's own text comes back;
+- a matrix route goes in and out;
+- the shape stays lit;
+- an idle page sends nothing.
+
+The negative control: with the engine's pitch-wheel line removed,
+`test_web.py`'s pitch check reads 0.0000 semitones and fails.
+
+## Found on the way
+
+- **Vital's chorus depends on the block size**: −11.7 dB between blocks of 32
+  and 128 on the heavy patch, identical in both builds, against −44 dB
+  without it. The desktop plugin has it too, since hosts choose the block
+  size. It is not fixed here: a fix changes the chorus's sound, which is a
+  change of its own.
+- **Chrome will not load a worklet from a `blob:` URL on a `file://` page**,
+  whose origin is opaque. Served over http(s) it works. The test serves the
+  page; a phone opens it from a URL.
+- **An AudioWorklet has no `TextEncoder` or `TextDecoder`.** `engine-core.js`
+  encodes UTF-8 itself.
+
+## Not done
+
+- **Nobody has played it on a phone.** iPhone needs iOS 16.4+ (WebAssembly
+  SIMD). The page sets `navigator.audioSession.type = 'playback'` so the
+  silent switch does not mute it where Safari supports that (17+); on older
+  iOS the switch mutes web audio.
+- **CPU on a phone is unmeasured.** The numbers above are a server core. If
+  it crackles, the first lever is oversampling (2× by default, as Vital's
+  init).
+- **Presets.** There is no loader in the browser (wasm/README.md), so the
+  arrows are disabled and nothing is saved between visits.
+- **Hosting.** Before the page is public it needs its GPLv3 notice and a
+  link to the source on the page (LICENSING.md). The site's `/app` tombstone
+  is the natural home. Vercel builds the site without Emscripten, so that
+  needs either a committed module or a CI step that deploys it.

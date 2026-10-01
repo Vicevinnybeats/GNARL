@@ -273,3 +273,23 @@ the merge commit forward: `git log 7651809..`.
   centre when let go, inside the same gesture, so a DAW records the return.
 - `ui/tests/bridge.test.mjs`: the spring, its gesture order, and that MOD
   stays put (checked failing with the spring removed).
+
+## 2026-10-01 - Phase 2: the mobile version
+
+- The engine builds for the browser: `wasm/` (Emscripten; the same
+  `src/synthesis` unity file, a small part of `src/common`, a host in
+  `wasm/gnarl_web.cpp`, and shims for the few JUCE names the engine uses).
+  No engine source changed.
+- `ui/dist/gnarl-web.html`: the phone panel with the engine inside, in an
+  AudioWorklet (`ui/src/web/`). Tap to play; every control works; the page's
+  defaults are sent to the engine as the starting patch.
+- `bridge.ts`: `isPlugin()` is false for the web engine (no ADVANCED); a
+  connect answer may name the preset.
+- The panel's page: no double-tap zoom or long-press menu on a phone;
+  home-screen meta tags.
+- Tests: `tests/test_web.py` (browser engine vs gnarl-render: -109 dB on init,
+  every GNARL feature -81 dB or better, wheels, block size, speed),
+  `ui/tests/web.test.mjs` (the page end to end in Chromium). Both in CI;
+  the page is uploaded as `GNARL-mobile-web`. `tools/web_render.mjs` renders
+  with the browser build.
+- See docs/design/phase2-09-mobile.md and wasm/README.md.

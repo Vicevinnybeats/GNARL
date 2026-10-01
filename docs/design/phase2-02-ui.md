@@ -83,4 +83,5 @@ engine used it). The path:
 JUCE 8's open licence is AGPLv3, which may be combined with GPLv3 (§13 of
 both); it would be recorded in LICENSING.md.
 
-The same page is the base for the mobile version (Phase: end).
+The same page is the base for the mobile version: docs/design/phase2-09-mobile.md
+(built: the page with the real engine inside, in WebAssembly).

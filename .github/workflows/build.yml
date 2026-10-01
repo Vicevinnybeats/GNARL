@@ -134,6 +134,26 @@ jobs:
           npx playwright install --with-deps chromium
           npm test
 
+      #  The mobile version (docs/design/phase2-09-mobile.md): the engine
+      #  compiled to WebAssembly with a pinned Emscripten, measured against
+      #  gnarl-render, then the phone page with it inside, end to end in
+      #  Chromium. The page is uploaded: one HTML file, open it over https.
+      - name: Mobile version (engine in WebAssembly)
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.10
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.10
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          wasm/build.sh
+          python3 tests/test_web.py
+          cd ui
+          npm run build
+          node tests/web.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GNARL-mobile-web
+          path: ui/dist/gnarl-web.html
+
       #  The JUCE 8 plugin against the JUCE 6 one, as a host sees them: same
       #  identity and class IDs, the same host parameters in the same order,
       #  and bit-identical audio through the VST3 wrapper - on init and after

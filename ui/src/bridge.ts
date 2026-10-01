@@ -36,6 +36,8 @@ interface ConnectResult {
   values: Record<string, Entry>;
   steps: Record<string, number>;
   routes?: EngineRoute[];
+  /** The web build names its preset here (web/worklet.js); the plugin, in frames. */
+  preset?: string;
 }
 interface Frame {
   scope?: number[];
@@ -388,8 +390,10 @@ function unbound(node: HTMLElement): void {
 
 /* ------------------------------------------------------------------ start */
 
+/** Inside the plugin - not the web build's engine (web/host.ts), which
+ * speaks the same protocol but has no host and no classic editor. */
 export function isPlugin(): boolean {
-  return window.__JUCE__?.backend !== undefined;
+  return window.__JUCE__?.backend !== undefined && window.__JUCE__.initialisationData.gnarlWeb !== true;
 }
 
 /** Set a matrix connection (amount -1..1), or remove it. */
@@ -421,6 +425,7 @@ export async function connect(): Promise<void> {
   const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
+  if (result.preset !== undefined) lastPreset = engine.preset = result.preset;
   engine.connected = true;
   document.body.dataset.plugin = 'true';
 

@@ -60,6 +60,9 @@ body {
   -webkit-user-select: none;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  /* A phone: no double-tap zoom while playing the keys, no long-press menu. */
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
 }
 
 /* The stage holds the scaled panel's real on-screen size; a transform does
@@ -976,4 +979,47 @@ body[data-mode='phone'] .toast {
 .preset__step:disabled {
   opacity: 0.25;
   cursor: default;
+}
+
+/* ------------------------------------------------------------- web start */
+
+/* The web build's tap-to-start layer (main.ts webStart): a phone only plays
+   sound from a tap, and this is the tap. */
+.webstart {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background:
+    radial-gradient(80% 50% at 50% 40%, rgba(178, 106, 255, 0.35) 0%, transparent 70%),
+    rgba(12, 6, 30, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.webstart__logo {
+  width: 96px;
+  height: 96px;
+}
+.webstart__button {
+  height: 52px;
+  padding: 0 28px;
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  background: var(--chip-on);
+  color: var(--chip-on-text);
+  border-color: var(--chip-on);
+  box-shadow: var(--glow);
+}
+.webstart__note {
+  margin: 0;
+  max-width: 320px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
 }

@@ -13,6 +13,7 @@
 import './fonts.css';
 import './styles.css';
 import { connect, isPlugin, sendRoute, showClassic } from './bridge';
+import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -554,6 +555,44 @@ function phone(): HTMLElement {
   );
 }
 
+/* ------------------------------------------------------------- web engine */
+
+/*
+ * The web build carries GNARL's engine (web/host.ts). A phone only lets a
+ * page make sound from a tap, so the engine starts from this one. Until then
+ * - or if this browser cannot run it - the page is the preview it always was.
+ */
+function webStart(): HTMLElement {
+  const problem = webEngineProblem();
+  const button = chipButton(problem ? 'PREVIEW ONLY' : 'TAP TO PLAY');
+  button.classList.add('webstart__button');
+  const note = el('p', 'webstart__note', problem ?? 'The real GNARL engine, running in this browser.');
+  const root = el('div', 'webstart', logoCanvas('webstart__logo'), button, note);
+  button.addEventListener('click', () => {
+    if (problem) {
+      root.remove();
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'STARTING';
+    startWebEngine()
+      .then(() => connect())
+      .then(() => {
+        // The page's defaults ARE the patch here: there is no saved state to
+        // keep, and the panel has shown them since it loaded. Sent to the
+        // engine as if set by hand. (In the plugin the engine's state wins.)
+        resetAll();
+        for (const v of presetViews) v();
+        root.remove();
+      })
+      .catch((error: unknown) => {
+        root.remove();
+        toast(`The engine could not start: ${String(error)}. This is the preview.`);
+      });
+  });
+  return root;
+}
+
 /* ------------------------------------------------------------------- toast */
 
 let toastTimer = 0;
@@ -625,6 +664,7 @@ function start(): void {
   void connect().then(() => {
     for (const v of presetViews) v();
   });
+  if (hasWebEngine()) document.body.append(webStart());
 
   // Double-click the wordmark to reset the whole panel.
   // Not in the plugin: the page's defaults are not a patch, and the engine
