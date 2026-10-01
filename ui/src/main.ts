@@ -170,7 +170,10 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
     const patchName = engine.preset || 'GNARL';
     savePatch(patchName)
       .then(({ json }) => exportPatch(patchName, json))
-      .then(render)
+      .then((said) => {
+        toast(said);
+        return render();
+      })
       .catch((error: unknown) => toast(String(error)));
   });
   init.addEventListener('click', () => {

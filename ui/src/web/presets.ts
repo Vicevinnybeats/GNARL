@@ -131,14 +131,43 @@ export function loadProblem(result: number): string {
   }
 }
 
-/** Hand the patch back as a .vital file. */
-export function exportPatch(name: string, json: string): void {
+/*
+ * Inside a claude.ai Artifact a page may not start a download itself; the
+ * viewer's `downloads` capability offers the file instead, after the viewer
+ * confirms. It accepts a fixed list of extensions, without .vital, so there
+ * the file is NAME.vital.json: renamed to .vital it opens in the plugin.
+ * Anywhere else (the page served on its own) it is a plain download.
+ */
+interface ViewerDownloads {
+  save(request: { filename: string; data: string }): Promise<{ status: string }>;
+}
+interface Viewer {
+  use(name: 'downloads'): Promise<ViewerDownloads | null>;
+}
+
+/** Hand the patch back as a .vital file. Resolves with a sentence for the page. */
+export async function exportPatch(name: string, json: string): Promise<string> {
+  const base = name.replace(/[\\/:*?"<>|]/g, '_') || 'GNARL';
+  const viewer = (window as unknown as { claude?: Viewer }).claude;
+  if (viewer?.use) {
+    const downloads = await viewer.use('downloads').catch(() => null);
+    if (downloads) {
+      try {
+        await downloads.save({ filename: `${base}.vital.json`, data: json });
+        return `Saved ${base}.vital.json. Rename it to ${base}.vital to open it in the plugin.`;
+      } catch (error) {
+        const code = (error as { code?: string }).code ?? '';
+        return code === 'declined' ? 'Export cancelled.' : 'This view cannot save files.';
+      }
+    }
+  }
   const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${name.replace(/[\\/:*?"<>|]/g, '_') || 'GNARL'}.vital`;
+  a.download = `${base}.vital`;
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return `Exported ${base}.vital.`;
 }
