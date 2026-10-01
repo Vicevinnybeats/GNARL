@@ -35,6 +35,10 @@ The READMEs and the release notes are in `docs/release/`.
   reaches `/app` on the site's next deploy**, not by itself: redeploy the
   site, or push any commit, after a release.
 
+Releases so far: `v1.0.6-beta.1` (first), `beta.2` (preset sheet closes,
+starting sounds), `beta.3` (effects rack), `beta.4` (the delay line). Each
+was followed by a push so the site redeployed with it.
+
 **The file names are a contract** between the workflow, the site and the
 deploy script. Rename one in all three places or not at all.
 
