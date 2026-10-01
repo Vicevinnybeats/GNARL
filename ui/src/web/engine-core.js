@@ -149,6 +149,14 @@ function createGnarlEngine(wasmBytes, sampleRate) {
     /** The init patch. */
     reset: () => x.gnarl_reset(),
     presetName: () => readString(x.gnarl_preset_name()),
+    /** OSC `osc` (0, 1) from wavetable JSON text: 0 loaded, 1 refused. */
+    loadWavetable(osc, text) {
+      const encoded = encode(text);
+      const pointer = x.gnarl_load_buffer(encoded.length);
+      bytes().set(encoded, pointer);
+      return x.gnarl_load_wavetable(osc);
+    },
+    wavetableName: (osc) => readString(x.gnarl_wavetable_name(osc)),
     routes() {
       const list = [];
       const count = x.gnarl_route_count();

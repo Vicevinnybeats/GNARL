@@ -451,3 +451,13 @@ the merge commit forward: `git log 7651809..`.
 - The panel's wheels leave the header for their own panel at the end of the
   effects row (40 x 92 px tracks, twice the old size); on the phone they
   stretch to the keyboard's height.
+
+## 2026-10-01 - OSC wavetables; FX presets
+
+- Nine generated wavetables for OSC 1 and 2 (Basic, Growl, Vowel, Croak,
+  Fold, Sync, FM, Pulse, Steps), picked in each OSC panel's header. The page
+  sends wavetable JSON (`gnarlWavetable`); `WebPanel::loadWavetable` and the
+  browser engine's `gnarl_load_wavetable` load it as Vital's editor loads a
+  wavetable file, and report the table names back in frames.
+- A PRESET button on each of the ten effects: three or four settings each.
+- docs/design/phase2-13-tables-fx-presets.md.

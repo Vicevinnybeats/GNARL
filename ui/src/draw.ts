@@ -11,6 +11,7 @@ import type { Display } from './widgets';
 import { engine } from './engine';
 import { get } from './store';
 import { noteName, sounding } from './voice';
+import { tableSample } from './wavetables';
 
 export const CYAN = '#5fe3ff';
 export const BLUE = '#3d8bff';
@@ -166,12 +167,17 @@ function oscSample(n: 1 | 2, phase: number, wt: number): number {
   }
   ph += fm * 0.12 * Math.sin(TAU * phase * 2);
 
-  // The table: osc 1 morphs sine -> saw -> growl, osc 2 square -> saw.
+  // The table: one of GNARL's own (wavetables.ts) drawn as it is, otherwise
+  // a model - osc 1 morphs sine -> saw -> growl, osc 2 square -> saw.
+  const name = engine.tables[n - 1];
+  const own = name == null ? null : tableSample(name, ph, wt);
   const sine = Math.sin(TAU * ph);
   const saw = 1 - 2 * (((ph % 1) + 1) % 1);
   const square = Math.sin(TAU * ph) >= 0 ? 0.85 : -0.85;
   let v: number;
-  if (n === 1) {
+  if (own !== null) {
+    v = own;
+  } else if (n === 1) {
     const growl = Math.tanh(2 * Math.sin(TAU * ph) + 0.8 * Math.sin(TAU * 2 * ph));
     v = wt < 0.5 ? sine + (saw - sine) * (wt * 2) : saw + (growl - saw) * ((wt - 0.5) * 2);
   } else {

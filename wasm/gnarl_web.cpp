@@ -692,4 +692,31 @@ extern "C" {
   EMSCRIPTEN_KEEPALIVE const char* gnarl_preset_name() {
     return preset_name.c_str();
   }
+
+  // OSC `osc`'s table from the wavetable JSON in the load buffer
+  // (ui/src/wavetables.ts): 0 loaded, 1 refused (the table is unchanged, or
+  // the init table if the reader failed part-way).
+  EMSCRIPTEN_KEEPALIVE int gnarl_load_wavetable(int osc) {
+    if (osc < 0 || osc >= vital::kNumOscillators || !wavetable_creators[osc])
+      return 1;
+    json data = json::parse(preset_json.c_str(), nullptr, false);
+    if (data.is_discarded() || !data.is_object())
+      return 1;
+    try {
+      wavetable_creators[osc]->jsonToState(data);
+      return 0;
+    }
+    catch (const std::exception&) {
+      wavetable_creators[osc]->init();
+      return 1;
+    }
+  }
+
+  // OSC `osc`'s table name. Valid until the next call.
+  EMSCRIPTEN_KEEPALIVE const char* gnarl_wavetable_name(int osc) {
+    static std::string name;
+    name = osc >= 0 && osc < vital::kNumOscillators && wavetable_creators[osc] ?
+           wavetable_creators[osc]->getName() : std::string();
+    return name.c_str();
+  }
 }

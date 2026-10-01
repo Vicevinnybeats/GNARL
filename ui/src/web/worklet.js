@@ -22,6 +22,7 @@ class GnarlProcessor extends AudioWorkletProcessor {
     this.samplesToFrame = 0;
     this.curveChanged = true;
     this.lastRoutes = '';
+    this.lastTables = '';
     this.presetName = 'Init';
     this.presetChanged = false;
     this.port.onmessage = (event) => this.receive(event.data);
@@ -58,6 +59,7 @@ class GnarlProcessor extends AudioWorkletProcessor {
         }
         const routes = engine.routes();
         this.lastRoutes = JSON.stringify(routes);
+        this.lastTables = '';
         // The patch's name and shape go out with the first frame, as the
         // plugin's do: the page then shows the engine's own wobble shape.
         this.announcePreset(this.presetName);
@@ -110,6 +112,9 @@ class GnarlProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: 'event', id: 'gnarlPresetLoaded', payload: { result, name: engine.presetName() } });
         break;
       }
+      case 'wavetable':
+        if (typeof message.table === 'string') engine.loadWavetable(message.osc, message.table);
+        break;
       case 'init':
         engine.reset();
         this.announcePreset(message.name ?? 'Init');
@@ -169,6 +174,12 @@ class GnarlProcessor extends AudioWorkletProcessor {
     if (this.presetChanged) {
       frame.preset = this.presetName;
       this.presetChanged = false;
+    }
+    // OSC 1 and 2's table names, when either changed (as WebPanel).
+    const tables = [engine.wavetableName(0), engine.wavetableName(1)];
+    if (tables.join('\n') !== this.lastTables) {
+      this.lastTables = tables.join('\n');
+      frame.tables = tables;
     }
     this.port.postMessage({ type: 'event', id: 'gnarlFrame', payload: frame });
 

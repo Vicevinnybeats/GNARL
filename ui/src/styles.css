@@ -289,6 +289,43 @@ body {
   color: var(--text);
 }
 
+/* OSC 1 / 2's wavetable: arrows either side of a list, in the aside's type. */
+.table-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.table-pick__list {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(8, 4, 20, 0.6);
+  border: 1px solid rgba(100, 230, 255, 0.18);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  min-width: 78px;
+  text-align: center;
+  cursor: pointer;
+}
+.table-pick__list:focus-visible { outline: 1px solid #64e6ff; }
+.table-pick__list option { background: #120a26; color: var(--text); }
+.table-pick__arrow {
+  background: none;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.table-pick__arrow:hover { opacity: 1; color: #64e6ff; }
+
 .panel__body {
   flex: 1;
   min-height: 0;
@@ -1414,4 +1451,10 @@ body[data-mode='phone'] .toast {
 }
 .webstart__source:focus-visible {
   outline: 1px solid var(--cyan);
+}
+
+/* An effect's PRESET button: the header's size, the name it applied. */
+.fx__preset {
+  min-width: 54px;
+  font-size: 9px;
 }

@@ -16,6 +16,7 @@ import type { EngineLicence, EngineRoute } from './engine';
 import { CHOICES, PARAM_BY_ID, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
 import { apply, get, onGesture, refresh, subscribe } from './store';
 import { setNoteSink } from './voice';
+import { tableJson } from './wavetables';
 import vowelMap from './vowels.json';
 
 interface JuceBackend {
@@ -46,6 +47,7 @@ interface Frame {
   wobblePhase?: number;
   preset?: string;
   curve?: number[];
+  tables?: string[];
 }
 
 /** How one page control maps to one host parameter. */
@@ -486,6 +488,10 @@ function receiveFrame(frame: Frame): void {
   if (frame.scope) engine.scope = Float32Array.from(frame.scope);
   if (typeof frame.wobblePhase === 'number') engine.wobblePhase = frame.wobblePhase;
   if (frame.curve) engine.curve = frame.curve;
+  if (frame.tables) {
+    engine.tables = [frame.tables[0] ?? null, frame.tables[1] ?? null];
+    for (const v of engineViews) v();
+  }
   if (frame.preset !== undefined && frame.preset !== lastPreset) {
     lastPreset = frame.preset;
     engine.preset = frame.preset;
@@ -533,6 +539,12 @@ export function isPlugin(): boolean {
 }
 
 /** Set a matrix connection (amount -1..1), or remove it. */
+/** OSC n's table (wavetables.ts): the engine reports the name back in a frame. */
+export function sendWavetable(n: 1 | 2, name: string): void {
+  const table = tableJson(name);
+  if (table) send('gnarlWavetable', { osc: n - 1, table });
+}
+
 export function sendRoute(source: string, destination: string, amount: number, remove = false): void {
   send('gnarlRoute', { source, destination, amount, remove });
 }

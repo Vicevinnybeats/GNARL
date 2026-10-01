@@ -14,6 +14,7 @@
 #include "synth_module.h"
 #include "synth_plugin.h"
 #include "value_bridge.h"
+#include "wavetable_creator.h"
 
 // The page talks to this class through JUCE's native integration:
 //
@@ -38,11 +39,13 @@
 //                                               the wobble shape (ui/src/web/
 //                                               factory.json)
 //                  gnarlPresetInit {}           the init patch
+//                  gnarlWavetable {osc, table}  osc 0 or 1; table is a
+//                                               wavetable's JSON text
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
 //                                               whenever it changes
-//                  gnarlFrame {scope, wobblePhase, preset, curve?}
+//                  gnarlFrame {scope, wobblePhase, preset, curve?, tables?}
 //                  gnarlLicence {status, message, saving, hasKey}  the licence
 //                                               banner, whenever it changes
 //                                               (licensed builds only)
@@ -61,6 +64,7 @@ namespace {
   const Identifier kLicenceKey("gnarlLicenceKey");
   const Identifier kPresetFactory("gnarlPresetFactory");
   const Identifier kPresetInit("gnarlPresetInit");
+  const Identifier kWavetable("gnarlWavetable");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -112,6 +116,7 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kLicenceKey, [this](const var& event) { setLicenceKey(event); })
       .withEventListener(kPresetFactory, [this](const var& event) { loadFactory(event); })
       .withEventListener(kPresetInit, [this](const var&) { loadInit(); })
+      .withEventListener(kWavetable, [this](const var& event) { loadWavetable(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -163,6 +168,7 @@ var WebPanel::connect(const Array<var>& args) {
 
   connected_ = true;
   curve_changed_ = true;
+  last_tables_.clear();
 
   DynamicObject::Ptr result = new DynamicObject();
   result->setProperty("version", ProjectInfo::versionString);
@@ -271,6 +277,35 @@ void WebPanel::loadInit() {
   synth_.loadInitPreset();
   synth_.setPresetName("Init");
   curve_changed_ = true;
+}
+
+void WebPanel::loadWavetable(const var& event) {
+  // As Vital's editor loads a wavetable file: on this thread, straight into
+  // the oscillator's creator, which hands the audio thread the new frames.
+  int osc = event["osc"];
+  if (osc < 0 || osc > 1 || !event["table"].isString())
+    return;
+  WavetableCreator* creator = synth_.getWavetableCreator(osc);
+  if (creator == nullptr)
+    return;
+  json data = json::parse(event["table"].toString().toStdString(), nullptr, false);
+  if (data.is_discarded() || !data.is_object())
+    return;
+  try {
+    creator->jsonToState(data);
+  }
+  catch (const json::exception&) {
+    creator->init();
+  }
+}
+
+String WebPanel::wavetableNames() {
+  String names;
+  for (int i = 0; i < 2; ++i) {
+    WavetableCreator* creator = synth_.getWavetableCreator(i);
+    names += String(creator ? creator->getName() : std::string()) + "\n";
+  }
+  return names;
 }
 
 // A starting sound, built exactly as the phone's worklet builds it (ui/src/
@@ -436,6 +471,19 @@ void WebPanel::timerCallback() {
   if (curve_changed_) {
     frame->setProperty("curve", wobbleCurve());
     curve_changed_ = false;
+  }
+
+  // OSC 1 and 2's table names, when either changed (a preset, the panel's
+  // picker, Vital's editor).
+  String tables = wavetableNames();
+  if (tables != last_tables_) {
+    last_tables_ = tables;
+    Array<var> names;
+    for (const String& name : StringArray::fromLines(tables.trimEnd()))
+      names.add(name);
+    while (names.size() < 2)
+      names.add(String());
+    frame->setProperty("tables", names);
   }
 
   browser_->emitEventIfBrowserIsVisible(kFrame, var(frame.get()));

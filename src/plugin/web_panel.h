@@ -62,6 +62,9 @@ class WebPanel : public Component, private Timer {
     // The starting sounds (ui/src/web/factory.json) and the init patch.
     void loadFactory(const var& event);
     void loadInit();
+    // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
+    void loadWavetable(const var& event);
+    String wavetableNames();
 
     void timerCallback() override;
     var valueEntry(ValueBridge* bridge, float value) const;
@@ -74,6 +77,7 @@ class WebPanel : public Component, private Timer {
     String last_preset_name_;
     String last_routes_;
     String last_licence_;
+    String last_tables_;
     bool curve_changed_ = true;
     bool connected_ = false;
 

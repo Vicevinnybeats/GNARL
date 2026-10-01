@@ -14,6 +14,8 @@ export const engine = {
   /** The wobble's shape over one cycle, 0..1 (1 is the top). */
   curve: null as readonly number[] | null,
   preset: null as string | null,
+  /** OSC 1 and 2's table names, as the engine reports them. */
+  tables: [null, null] as [string | null, string | null],
   /** The engine's own readout per control id: only it knows its units. */
   text: new Map<string, string>(),
   /** The modulation matrix: every connection, amount -1..1. */

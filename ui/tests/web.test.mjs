@@ -77,12 +77,14 @@ check(true, 'tapped: the engine started and the panel connected to it');
 // Listen where the page listens.
 await page.evaluate(() => {
   const w = window;
-  w.__seen = { frames: 0, peak: 0, wobble: -1, routes: null, values: {} };
+  w.__seen = { frames: 0, peak: 0, wobble: -1, routes: null, values: {}, tables: null, scope: null };
   const backend = w.__JUCE__.backend;
   backend.addEventListener('gnarlFrame', (f) => {
     w.__seen.frames += 1;
     for (const s of f.scope ?? []) w.__seen.peak = Math.max(w.__seen.peak, Math.abs(s));
     if (typeof f.wobblePhase === 'number') w.__seen.wobble = f.wobblePhase;
+    if (f.tables) w.__seen.tables = f.tables;
+    if (f.scope) w.__seen.scope = f.scope;
   });
   backend.addEventListener('gnarlRoutes', (r) => (w.__seen.routes = r));
   backend.addEventListener('gnarlValues', (v) => Object.assign(w.__seen.values, v));
@@ -213,6 +215,47 @@ await page.locator('.m .route').last().locator('.route__dest').click({ button: '
 await page.waitForTimeout(300);
 await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
 
+// OSC 1's table (src/wavetables.ts): the init patch's is Vital's "Init";
+// a pick reaches the engine, which names it back, changes the sound, and
+// saves it inside the patch.
+s = await seen();
+const picker = page.locator('.m select[aria-label="OSC 1 wavetable"]');
+check(s.tables?.[0] === 'Init' && (await picker.locator('option:checked').textContent()) === 'INIT',
+  `the init patch's OSC 1 table is reported and shown: ${JSON.stringify(s.tables)}`);
+const scopeOf = async () => {
+  await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 48, on: true }));
+  await page.waitForTimeout(500);
+  const scope = (await seen()).scope;
+  await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 48, on: false }));
+  await page.waitForTimeout(400);
+  return scope;
+};
+const before = await scopeOf();
+await picker.selectOption('Pulse');
+await page.waitForFunction(() => window.__seen.tables?.[0] === 'Pulse', null, { timeout: 3000 }).catch(() => {});
+s = await seen();
+check(s.tables?.[0] === 'Pulse' && s.tables?.[1] === 'Init', `picking PULSE loads it into OSC 1 only: ${JSON.stringify(s.tables)}`);
+const after = await scopeOf();
+const correlation = (a, b) => {
+  let ab = 0, aa = 0, bb = 0;
+  for (let i = 0; i < a.length; i += 1) { ab += a[i] * b[i]; aa += a[i] * a[i]; bb += b[i] * b[i]; }
+  return ab / Math.sqrt(aa * bb + 1e-30);
+};
+const r = correlation(before, after);
+check(r < 0.8, `and the output changes shape: correlation with the init table's ${r.toFixed(3)}`);
+await page.locator('.m .table-pick__arrow').nth(1).tap();
+await page.waitForFunction(() => window.__seen.tables?.[0] === 'Steps', null, { timeout: 3000 }).catch(() => {});
+check((await seen()).tables?.[0] === 'Steps', `the next arrow steps PULSE -> ${(await seen()).tables?.[0]}`);
+const saved = await page.evaluate(() => new Promise((resolve) => {
+  window.__JUCE__.backend.addEventListener('gnarlPresetSaved', (reply) => resolve(reply.json));
+  window.__JUCE__.backend.emitEvent('gnarlPresetSave', { name: 'Table Test' });
+}));
+const savedTables = JSON.parse(saved).settings.wavetables.map((t) => t.name);
+check(savedTables[0] === 'Steps' && savedTables[1] === 'Init', `the table is saved in the patch: ${JSON.stringify(savedTables)}`);
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
+await page.waitForFunction(() => window.__seen.tables?.[0] === 'Init', null, { timeout: 3000 }).catch(() => {});
+check((await seen()).tables?.[0] === 'Init', 'INIT puts the init table back');
+
 // The effects rack (docs/design/phase2-10-fx.md): each page, each switch
 // reaches the engine, and a mode button steps to the next mode.
 await page.locator('.m__tabs .chip', { hasText: 'FX' }).tap();
@@ -227,6 +270,44 @@ for (const [pageName, slots] of Object.entries(FX_ON)) {
     check(v?.[0] === 1, `${pageName}: the ${slot.toUpperCase()} switch turns ${slot}_on on in the engine (${JSON.stringify(v)})`);
   }
 }
+// Each effect's PRESET button (src/fxpresets.ts) applies its next preset to
+// the engine and names it.
+await page.locator('.m .fxrack__nav .chip', { hasText: 'DRIVE' }).tap();
+if ((await engineValue('distortion_on'))?.[0] !== 0) await page.locator('.m .fx--dist .panel__dot').tap();
+await page.waitForTimeout(150);
+check((await engineValue('distortion_on'))?.[0] === 0, 'DIST is off before its preset');
+const distPreset = page.locator('.m .fx--dist .fx__preset');
+await distPreset.tap();
+await page.waitForTimeout(200);
+const warmType = await engineValue('distortion_type');
+check((await distPreset.textContent()) === 'WARM' && (await engineValue('distortion_on'))?.[0] === 1,
+  `DIST's first preset is WARM and switches it on (${JSON.stringify(await engineValue('distortion_on'))})`);
+await distPreset.tap();
+await page.waitForTimeout(200);
+const gritType = await engineValue('distortion_type');
+const gritDrive = await engineValue('distortion_drive');
+check((await distPreset.textContent()) === 'GRIT' && gritType?.[1] !== warmType?.[1],
+  `the next is GRIT, a different distortion (${warmType?.[1]} -> ${gritType?.[1]}, drive ${gritDrive?.[1]})`);
+await page.locator('.m .fxrack__nav .chip', { hasText: 'SPACE' }).tap();
+const delayPreset = page.locator('.m .fx--delay .fx__preset');
+for (let k = 0; k < 4; k += 1) await delayPreset.tap();
+await page.waitForTimeout(250);
+const dubSteps = await engineValue('delay_steps');
+const dubStyle = await engineValue('delay_style');
+check((await delayPreset.textContent()) === 'DUB' && dubSteps?.[1] === '3' && dubStyle?.[1] === 'Ping Pong',
+  `the delay's fourth preset, DUB: 3 steps, ping-pong (${JSON.stringify(dubSteps)}, ${JSON.stringify(dubStyle)})`);
+for (let k = 0; k < 2; k += 1) await delayPreset.tap();
+await page.waitForTimeout(250);
+check((await delayPreset.textContent()) === 'PING' && (await engineValue('delay_steps'))?.[1] === '1',
+  `and round again to PING: ${await delayPreset.textContent()}, ${JSON.stringify(await engineValue('delay_steps'))} step`);
+// Back to the init state the delay checks below expect.
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
+await page.waitForTimeout(400);
+for (const slot of ['delay', 'reverb']) {
+  if ((await engineValue(`${slot}_on`))?.[0] !== 1) await page.locator(`.m .fx--${slot} .panel__dot`).tap();
+}
+await page.waitForTimeout(200);
+
 // The delay line (docs/design/phase2-11-ddl.md): the LED counts steps of
 // the step length, or ms; both taps follow.
 const led = () => page.locator('.m .ddl__led').getAttribute('aria-label');

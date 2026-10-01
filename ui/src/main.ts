@@ -12,7 +12,7 @@
 
 import './fonts.css';
 import './styles.css';
-import { connect, isPlugin, sendLicenceKey, sendRoute, showClassic } from './bridge';
+import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
@@ -30,6 +30,8 @@ import { gesture, get, resetAll, set, subscribe } from './store';
 import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle, wheel } from './widgets';
 import type { Display } from './widgets';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
+import { TABLE_NAMES, TABLES } from './wavetables';
+import { FX_PRESETS } from './fxpresets';
 
 const DESIGN_W = 1280;
 const DESIGN_H = 720;
@@ -385,10 +387,61 @@ function header(): HTMLElement {
 
 /* ------------------------------------------------------------ oscillators */
 
-function oscPanel(n: 1 | 2, table: string): HTMLElement {
+/*
+ * OSC n's table: GNARL's own (wavetables.ts), stepped with the arrows or
+ * picked from the list. The name is the engine's, so a preset's own table
+ * (Vital's init, a producer's import) shows as itself, outside the list.
+ */
+function tablePicker(n: 1 | 2): HTMLElement {
+  const select = el('select', 'table-pick__list');
+  select.setAttribute('aria-label', `OSC ${n} wavetable`);
+  const other = el('option', '', '');
+  other.disabled = true;
+  select.append(other);
+  for (const t of TABLES) {
+    const o = el('option', '', t.name.toUpperCase());
+    o.value = t.name;
+    o.title = t.about;
+    select.append(o);
+  }
+  const arrow = (step: number, glyph: string): HTMLButtonElement => {
+    const b = el('button', 'table-pick__arrow', glyph);
+    b.type = 'button';
+    b.setAttribute('aria-label', step < 0 ? `OSC ${n}: previous wavetable` : `OSC ${n}: next wavetable`);
+    b.addEventListener('click', () => {
+      const at = TABLE_NAMES.indexOf(select.value);
+      const next = at < 0 ? (step > 0 ? 0 : TABLE_NAMES.length - 1) : (at + step + TABLE_NAMES.length) % TABLE_NAMES.length;
+      pick(TABLE_NAMES[next] ?? 'Basic');
+    });
+    return b;
+  };
+  const pick = (name: string): void => {
+    select.value = name;
+    sendWavetable(n, name);
+  };
+  select.addEventListener('change', () => pick(select.value));
+  const show = (): void => {
+    const name = engine.tables[n - 1];
+    if (name == null) return;
+    if (TABLE_NAMES.includes(name)) {
+      select.value = name;
+    } else {
+      other.textContent = (name || 'INIT').toUpperCase();
+      select.value = '';
+      other.selected = true;
+    }
+  };
+  engineViews.add(show);
+  other.textContent = 'INIT';
+  other.selected = true;
+  show();
+  return el('span', 'table-pick', arrow(-1, '\u2039'), select, arrow(1, '\u203a'));
+}
+
+function oscPanel(n: 1 | 2): HTMLElement {
   const d = display(280, 110);
   return panel(
-    { title: `OSC ${n}`, aside: table, power: `osc${n}.on` },
+    { title: `OSC ${n}`, aside: tablePicker(n), power: `osc${n}.on` },
     addDisplay(d, (t) => drawOsc(d, n, t)),
     knobs(knob(`osc${n}.wtpos`), knob(`osc${n}.warp`), knob(`osc${n}.fm`), knob(`osc${n}.unison`), knob(`osc${n}.detune`)),
     choiceRow(`osc${n}.mode`),
@@ -707,17 +760,55 @@ const FX_PAGES: readonly { label: string; slots: readonly FxSlot[] }[] = [
   },
 ];
 
+/*
+ * The slot's PRESET button (fxpresets.ts): each tap applies the next preset,
+ * as a knob turn would - a gesture per control, so a host records it - and
+ * switches the effect on. It names the preset it applied until a control
+ * of the slot is moved by hand.
+ */
+function fxPresetButton(slot: string): HTMLElement | null {
+  const presets = FX_PRESETS[slot];
+  if (!presets || presets.length === 0) return null;
+  const b = chipButton('PRESET');
+  b.classList.add('fx__preset');
+  b.title = `${presets.map((p) => p.name).join(', ')}: tap for the next`;
+  let at = -1;
+  let applying = false;
+  b.addEventListener('click', () => {
+    at = (at + 1) % presets.length;
+    const preset = presets[at];
+    if (!preset) return;
+    applying = true;
+    for (const [id, value] of [[`${slot}.on`, 1] as const, ...Object.entries(preset.values)]) {
+      gesture(id, true);
+      set(id, value);
+      gesture(id, false);
+    }
+    applying = false;
+    b.textContent = preset.name;
+    b.dataset.on = 'true';
+  });
+  const own = new Set(Object.keys(presets[0]?.values ?? {}));
+  subscribe((id, _value, fromEngine) => {
+    if (applying || fromEngine || !own.has(id)) return;
+    b.textContent = 'PRESET';
+    b.dataset.on = 'false';
+  });
+  return b;
+}
+
 function fxPanel(index: number, fx: FxSlot): HTMLElement {
   const number = index < 10 ? `0${index}` : `${index}`;
   const choices = fx.choices.map((id) => choiceRow(id, { cls: 'chips--cycle' }));
   // Beside three knobs a button does not fit the row: it goes in the header.
   const inHeader = (fx.header === true || fx.knobs.length > 2) && choices.length > 0;
+  const preset = fxPresetButton(fx.slot);
   return panel(
     {
       title: `${number} ${fx.title}`,
       power: `${fx.slot}.on`,
       cls: `fx fx--${fx.slot}`,
-      ...(inHeader ? { aside: el('div', 'fx__aside', ...choices) } : {}),
+      aside: el('div', 'fx__aside', ...(preset ? [preset] : []), ...(inHeader ? choices : [])),
     },
     el(
       'div',
@@ -910,7 +1001,7 @@ function desktop(): HTMLElement {
     'div',
     'app',
     header(),
-    el('div', 'row row--1', oscPanel(1, 'GROWL_TABLE_01'), oscPanel(2, 'HARD_SQUARE'), subPanel(), vowelPanel()),
+    el('div', 'row row--1', oscPanel(1), oscPanel(2), subPanel(), vowelPanel()),
     el('div', 'row row--2', wobblePanel(), envelopePanel(), modPanel()),
     (() => {
       const rack = fxRack();
@@ -988,7 +1079,7 @@ function keyboard(): HTMLElement {
 /* ------------------------------------------------------------------- phone */
 
 const TABS = [
-  { label: 'OSC', build: (): HTMLElement[] => [oscPanel(1, 'GROWL_TABLE_01'), oscPanel(2, 'HARD_SQUARE'), subPanel()] },
+  { label: 'OSC', build: (): HTMLElement[] => [oscPanel(1), oscPanel(2), subPanel()] },
   { label: 'FILTER', build: (): HTMLElement[] => [vowelPanel(), envelopePanel()] },
   { label: 'WOBBLE', build: (): HTMLElement[] => [wobblePanel()] },
   { label: 'MOD', build: (): HTMLElement[] => [modPanel()] },
