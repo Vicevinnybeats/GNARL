@@ -30,6 +30,15 @@ called. Exit status is the number of failures.
 8. And it does something: the render differs from depth 0 by more than
    -20 dB, where check 7 alone would pass for a route that moved nothing
    in both renders.
+9. PHASE and SMOOTH at their defaults are bit-identical to a patch without
+   those keys (they replaced constants of exactly those values).
+10. PHASE 0.5 shifts the wobble by half a period against PHASE 0, with the
+    note started at the same point in the bar.
+12. The FM route (wobble_amount_osc_fm) is exactly a matrix connection to
+    osc_1_fm_amount, at blocks 32 and 128, and moves the sound.
+11. SMOOTH (wobble_smooth_time) at 2^-3 s = 125 ms rounds a 1/8T square
+    wobble: the filter envelope's swing falls by more than half against the
+    default 5.5 ms (measured 1.2 -> 0.4 dB), and the rate stays 7 Hz.
 
 Oscillator random phase is switched off in every patch, so two renders
 differ only by what the test changes.
@@ -199,6 +208,46 @@ def main():
     n = min(len(still), len(moved))
     change = 20 * np.log10(np.sqrt(np.mean((moved[:n] - still[:n]) ** 2)) / np.sqrt(np.mean(still[:n] ** 2)))
     check(change > -20, f'vowel depth 0.6 changes the sound by {change:.1f} dB against depth 0')
+
+    # 9. PHASE and SMOOTH defaults.
+    keys = ['wobble_phase', 'wobble_smooth_time']
+    on = dict(wobble_amount_cutoff=0.6, wobble_rate=2, **wobble)
+    a, _ = render(patch(base, 'ps_default', **on), os.path.join(TMP, 'ps_default.wav'), 3)
+    b, _ = render(patch(base, 'ps_nokeys', drop=keys, **on), os.path.join(TMP, 'ps_nokeys.wav'), 3)
+    check(np.array_equal(a, b), 'PHASE and SMOOTH at their defaults are bit-identical to a patch without them')
+
+    # 10. PHASE moves the cycle against the grid.
+    period = 60 / 140 / 3
+    a, sr = render(patch(base, 'ph0', wobble_phase=0, **on), os.path.join(TMP, 'ph0.wav'), 3)
+    b, _ = render(patch(base, 'ph5', wobble_phase=0.5, **on), os.path.join(TMP, 'ph5.wav'), 3)
+    lag = envelope_lag(a, b, sr, period)
+    check(min(abs(lag - 0.5), abs(lag + 0.5)) < 0.05, f'PHASE 0.5 shifts the wobble {lag:.3f} periods (expect 0.5)')
+
+    # 11. SMOOTH rounds the wobble's corners.
+    def swing(x):
+        e = filter_envelope(x, sr, 0.5, 2.5)
+        return 20 * np.log10(np.percentile(e, 95) / np.percentile(e, 5))
+    square = dict(on, wobble_rate=2)
+    sharp, _ = render(patch(base, 'sm_sharp', **square), os.path.join(TMP, 'sm_sharp.wav'), 8)
+    soft, _ = render(patch(base, 'sm_soft', wobble_smooth_time=-3, **square), os.path.join(TMP, 'sm_soft.wav'), 8)
+    s_sharp, s_soft = swing(sharp), swing(soft)
+    rate = modulation_peak(soft, sr)
+    check(s_soft < 0.5 * s_sharp and abs(rate - 7.0) < 0.07,
+          f'SMOOTH 125 ms: envelope swing {s_sharp:.1f} -> {s_soft:.1f} dB, rate {rate:.3f} Hz')
+
+    # 12. The FM route.
+    fmw = dict(wobble, osc_2_on=1, osc_2_transpose=12, osc_2_random_phase=0)
+    route = patch(base, 'fmroute', wobble_amount_osc_fm=0.6, wobble_rate=2, **fmw)
+    matrix = patch(base, 'fmmatrix', wobble_rate=2, modulation=('wobble', 'osc_1_fm_amount', 0.6), **fmw)
+    for block in (32, 128):
+        x, _ = render(route, os.path.join(TMP, f'fmroute{block}.wav'), 3, block=block)
+        y, _ = render(matrix, os.path.join(TMP, f'fmmatrix{block}.wav'), 3, block=block)
+        check(np.array_equal(x, y), f'block {block}: FM depth 0.6 is bit-identical to a 0.6 matrix connection')
+    still, _ = render(patch(base, 'fmstill', wobble_rate=2, **fmw), os.path.join(TMP, 'fmstill.wav'), 3)
+    moved, _ = render(route, os.path.join(TMP, 'fmmoved.wav'), 3)
+    n = min(len(still), len(moved))
+    change = 20 * np.log10(np.sqrt(np.mean((moved[:n] - still[:n]) ** 2)) / np.sqrt(np.mean(still[:n] ** 2)))
+    check(change > -20, f'FM depth 0.6 changes the sound by {change:.1f} dB against depth 0')
 
     print(f'\n{len(FAILS)} failure(s)')
     return len(FAILS)

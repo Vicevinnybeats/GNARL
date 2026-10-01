@@ -238,3 +238,29 @@ the merge commit forward: `git log 7651809..`.
 - `tools/check_fork.py` check 8: CI fails if any audio file is committed.
 - See docs/design/phase3-01-measure.md.
 
+
+## 2026-10-01 - Phase 2: the panel's last dimmed controls
+
+- Osc FM knob (`osc_N_fm_amount`): Vital's FM law applied through the
+  oscillator's phase-buffer hook, so it runs alongside a warp mode.
+  `ProducersModule` orders oscillators for it; mutual FM hears the previous
+  block.
+- Osc FOLD (`osc_N_fold`): a switch that replaces the warp mode with a sine
+  fold of the oscillator's output, driven by WARP.
+- DIST TUBE (`distortion_tube`): an asymmetric tanh in place of the drive
+  stage's curve, then a 10 Hz DC blocker.
+- CRUSH SOFT (`distortion_crush_mode`): smoothstep between quantiser steps.
+- Wobble SMOOTH and PHASE are parameters (`wobble_smooth_time`,
+  `wobble_phase`), formerly constants. Default renders differ by -111.6 dB:
+  Vital's exponential scale approximates `exp2`.
+- Wobble -> FM (`wobble_amount_osc_fm`), a sixth fixed route to osc 1's FM
+  knob. `wobble_amount_fm` keeps driving WARP.
+- Panel: OTT 2-BAND binds Vital's "Low Band"; the mod matrix edits Vital's
+  modulation connections (`gnarlRoute` / `gnarlRoutes`). No control is
+  dimmed any more.
+- Eleven parameters appended at 0x01000B. `tests/host_parameters.txt`: 789
+  unchanged, 11 appended.
+- Tests: `tests/test_fm.py` (new, in CI for both builds),
+  `tests/test_wobble.py` 9-12, `tests/test_drive_chain.py` TUBE and SOFT,
+  `ui/tests/bridge.test.mjs` matrix and flag choices.
+- See docs/design/phase2-08-panel-controls.md.

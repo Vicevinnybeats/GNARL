@@ -81,6 +81,7 @@ void SynthEditor::showClassicEditor() {
   // The panel sets values the way Vital's own knobs do, which does not
   // redraw Vital's knobs: bring the hidden editor up to date first.
   updateFullGui();
+  notifyModulationsChanged();
   gui_->setVisible(true);
   gui_->redoBackground();
 }

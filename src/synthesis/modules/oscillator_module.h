@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: usesGnarlFm().
  */
 
 #pragma once
@@ -47,6 +49,10 @@ namespace vital {
 
       Wavetable* getWavetable() { return wavetable_.get(); }
       force_inline SynthOscillator* oscillator() { return oscillator_; }
+      // GNARL: whether this oscillator's FM knob is up, by its base value -
+      // the producers module processes the FM source first when it is.
+      bool usesGnarlFm() const { return fm_amount_ && fm_amount_->value() > 0.0f; }
+
       SynthOscillator::DistortionType getDistortionType() {
         int val = distortion_type_->value();
         return static_cast<SynthOscillator::DistortionType>(val);
@@ -60,6 +66,7 @@ namespace vital {
       Value* on_;
       SynthOscillator* oscillator_;
       Value* distortion_type_;
+      Value* fm_amount_ = nullptr;
 
       JUCE_LEAK_DETECTOR(OscillatorModule)
   };

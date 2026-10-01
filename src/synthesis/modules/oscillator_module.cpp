@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the FM amount control.
  */
 
 #include "oscillator_module.h"
@@ -58,6 +60,9 @@ namespace vital {
     Output* distortion_spread = createPolyModControl(prefix_ + "_distortion_spread");
     distortion_type_ = createBaseControl(prefix_ + "_distortion_type");
     Output* distortion_amount = createPolyModControl(prefix_ + "_distortion_amount");
+    // GNARL: FM depth from the other oscillator. Block-rate.
+    Output* fm_amount = createPolyModControl(prefix_ + "_fm_amount");
+    fm_amount_ = data_->controls[prefix_ + "_fm_amount"];
     Output* spectral_morph_spread = createPolyModControl(prefix_ + "_spectral_morph_spread");
     Value* spectral_morph_type = createBaseControl(prefix_ + "_spectral_morph_type");
     Output* spectral_morph_amount = createPolyModControl(prefix_ + "_spectral_morph_amount");
@@ -89,6 +94,8 @@ namespace vital {
     oscillator_->plug(distortion_spread, SynthOscillator::kUnisonDistortionSpread);
     oscillator_->plug(distortion_type_, SynthOscillator::kDistortionType);
     oscillator_->plug(distortion_amount, SynthOscillator::kDistortionAmount);
+    oscillator_->plug(fm_amount, SynthOscillator::kGnarlFmAmount);
+    oscillator_->plug(createBaseControl(prefix_ + "_fold"), SynthOscillator::kGnarlFold);
     oscillator_->plug(spectral_morph_spread, SynthOscillator::kUnisonSpectralMorphSpread);
     oscillator_->plug(spectral_morph_type, SynthOscillator::kSpectralMorphType);
     oscillator_->plug(spectral_morph_amount, SynthOscillator::kSpectralMorphAmount);

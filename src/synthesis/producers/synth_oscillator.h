@@ -12,6 +12,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: FM from the other oscillator alongside any
+ * warp mode (kGnarlFmAmount); the FOLD warp mode (kGnarlFold).
  */
 
 #pragma once
@@ -88,6 +91,8 @@ namespace vital {
         kActiveVoices,
         kReset,
         kRetrigger,
+        kGnarlFmAmount,
+        kGnarlFold,
         kNumInputs
       };
 
@@ -235,6 +240,7 @@ namespace vital {
       void processChunk(poly_float current_center_amplitude, poly_float current_detuned_amplitude);
 
       void processBlend(int num_samples, poly_mask reset_mask);
+      void processGnarlFold(poly_float* audio_out, int num_samples, poly_mask reset_mask);
 
       void loadVoiceBlock(VoiceBlock& voice_block, int index, poly_mask active_mask);
 
@@ -307,6 +313,11 @@ namespace vital {
       int wavetable_version_;
       Output* first_mod_oscillator_;
       Output* second_mod_oscillator_;
+      // GNARL: FM depth (amount squared) at the end of the last block.
+      poly_float gnarl_fm_;
+      // GNARL: FOLD - this block's on state and the depth it ended on.
+      bool gnarl_fold_on_;
+      poly_float gnarl_fold_;
       Output* sample_;
     
       poly_float fourier_frames1_[kNumBuffers + 1][kSpectralBufferSize];

@@ -25,9 +25,14 @@
 //                  gnarlGesture {name, begin}   a knob grabbed / released
 //                  gnarlNote {note, on}         play a note (hold the scope)
 //                  gnarlWobbleShape {kind, points}
+//                  gnarlRoute {source, destination, amount}   set a matrix
+//                                               connection (amount -1..1), or
+//                                               remove it with remove: true
 //                  gnarlClassic {}              show Vital's editor
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
+//                  gnarlRoutes [{source, destination, amount}]  the matrix,
+//                                               whenever it changes
 //                  gnarlFrame {scope, wobblePhase, preset, curve?}
 //
 // ui/src/bridge.ts is the other half.
@@ -38,6 +43,8 @@ namespace {
   const Identifier kNote("gnarlNote");
   const Identifier kWobbleShape("gnarlWobbleShape");
   const Identifier kClassic("gnarlClassic");
+  const Identifier kRoute("gnarlRoute");
+  const Identifier kRoutes("gnarlRoutes");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -85,6 +92,7 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kGesture, [this](const var& event) { gesture(event); })
       .withEventListener(kNote, [this](const var& event) { note(event); })
       .withEventListener(kWobbleShape, [this](const var& event) { setWobbleShape(event); })
+      .withEventListener(kRoute, [this](const var& event) { route(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -141,6 +149,8 @@ var WebPanel::connect(const Array<var>& args) {
   result->setProperty("version", ProjectInfo::versionString);
   result->setProperty("values", var(values.get()));
   result->setProperty("steps", var(steps.get()));
+  result->setProperty("routes", routes());
+  last_routes_ = JSON::toString(routes(), true);
   return var(result.get());
 }
 
@@ -226,6 +236,46 @@ void WebPanel::setWobbleShape(const var& event) {
   curve_changed_ = true;
 }
 
+// The matrix as the page shows it: every connection with its amount, which
+// lives in the host parameter modulation_N_amount for connection slot N.
+var WebPanel::routes() const {
+  Array<var> list;
+  for (vital::ModulationConnection* connection : synth_.getModulationConnections()) {
+    int index = synth_.getConnectionIndex(connection->source_name, connection->destination_name);
+    if (index < 0)
+      continue;
+    DynamicObject::Ptr entry = new DynamicObject();
+    entry->setProperty("source", String(connection->source_name));
+    entry->setProperty("destination", String(connection->destination_name));
+    std::string amount_name = "modulation_" + std::to_string(index + 1) + "_amount";
+    entry->setProperty("amount", synth_.getControls()[amount_name]->value());
+    list.add(var(entry.get()));
+  }
+  return list;
+}
+
+// Connect or disconnect the way Vital's own matrix does, and set the amount
+// the way its amount slider does - valueChangedInternal, so the host records
+// it and the slot's host parameter follows.
+void WebPanel::route(const var& event) {
+  std::string source = event["source"].toString().toStdString();
+  std::string destination = event["destination"].toString().toStdString();
+  if (source.empty() || destination.empty())
+    return;
+
+  if ((bool) event["remove"]) {
+    synth_.disconnectModulation(source, destination);
+    return;
+  }
+
+  synth_.connectModulation(source, destination);
+  int index = synth_.getConnectionIndex(source, destination);
+  if (index < 0)
+    return;
+  float amount = jlimit(-1.0f, 1.0f, (float) event["amount"]);
+  synth_.valueChangedInternal("modulation_" + std::to_string(index + 1) + "_amount", amount);
+}
+
 Array<var> WebPanel::wobbleCurve() {
   Array<var> curve;
   LineGenerator* line = synth_.getWobbleSource();
@@ -293,4 +343,13 @@ void WebPanel::timerCallback() {
   }
 
   browser_->emitEventIfBrowserIsVisible(kFrame, var(frame.get()));
+
+  // The matrix, when it changed: a preset load, Vital's editor, automation of
+  // an amount. A handful of connections, compared as text.
+  var current_routes = routes();
+  String routes_text = JSON::toString(current_routes, true);
+  if (routes_text != last_routes_) {
+    last_routes_ = routes_text;
+    browser_->emitEventIfBrowserIsVisible(kRoutes, current_routes);
+  }
 }

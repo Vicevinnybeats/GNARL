@@ -12,6 +12,7 @@
 
 import { drawnListeners, drawnSteps } from './draw';
 import { engine, engineViews } from './engine';
+import type { EngineRoute } from './engine';
 import { CHOICES, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
 import { apply, get, onGesture, refresh, subscribe } from './store';
 import { setNoteSink } from './voice';
@@ -34,6 +35,7 @@ interface ConnectResult {
   version: string;
   values: Record<string, Entry>;
   steps: Record<string, number>;
+  routes?: EngineRoute[];
 }
 interface Frame {
   scope?: number[];
@@ -75,6 +77,9 @@ const VOWELS: Readonly<Record<string, VowelPosition>> = Object.fromEntries(
 );
 const FILTER_NAMES = ['filter_1_model', 'filter_1_style', 'filter_1_formant_x', 'filter_1_formant_y'];
 const FILTER_IDS = ['vowel.cutoff', 'vowel.res', 'vowel.morph', 'vowel.drive'];
+// Choices with a GNARL switch as one option (osc FOLD, DIST TUBE).
+const FLAG_CHOICES = CHOICES.filter((c) => c.flag && c.vital && c.values);
+const FLAG_NAMES = FLAG_CHOICES.flatMap((c) => [c.vital ?? '', c.flag?.name ?? '']);
 // The engine's last host value and text per name, for the binding a model
 // switch makes active, and for the vowel buttons.
 const lastEntry = new Map<string, Entry>();
@@ -126,7 +131,7 @@ function buildBindings(): void {
     if (p.formant) add(knob(p.formant, true));
   }
   for (const c of CHOICES) {
-    if (!c.vital || !c.values) continue;
+    if (!c.vital || !c.values || c.flag) continue;
     const values = c.values;
     const name = c.vital;
     // Every choice the page binds is an indexed parameter starting at 0, so
@@ -185,6 +190,26 @@ function currentVowel(options: readonly string[]): number {
     const at = VOWELS[v];
     return at !== undefined && at.style === style && Math.abs(at.x - x) < 1e-3 && Math.abs(at.y - y) < 1e-3;
   });
+}
+
+/** The option a switch-or-type choice shows: the switch's, or the type's. */
+function applyFlagChoices(): void {
+  for (const c of FLAG_CHOICES) {
+    const flag = c.flag;
+    const values = c.values;
+    if (!flag || !values || !c.vital) continue;
+    const on = (lastEntry.get(flag.name)?.[0] ?? 0) >= 0.5;
+    apply(c.id, on ? flag.option : values.indexOf(indexOf(c.vital)));
+  }
+}
+
+function sendFlagChoice(id: string, option: number): void {
+  const c = FLAG_CHOICES.find((x) => x.id === id);
+  if (!c || !c.flag || !c.values || !c.vital) return;
+  const on = option === c.flag.option;
+  send('gnarlSet', { name: c.flag.name, value: on ? 1 : 0 });
+  const v = c.values[option];
+  if (!on && v !== null && v !== undefined) send('gnarlSet', { name: c.vital, value: hostOfIndex(c.vital, v) });
 }
 
 function sendVowel(vowel: string): void {
@@ -274,8 +299,10 @@ let boundNames: ReadonlySet<string> = new Set();
 function receiveValues(values: Record<string, Entry>): void {
   let wobble = false;
   let filter = false;
+  let flags = false;
   for (const [name, [host, text]] of Object.entries(values)) {
     lastEntry.set(name, [host, text]);
+    if (FLAG_NAMES.includes(name)) flags = true;
     if (FILTER_NAMES.includes(name)) {
       filter = true;
       if (name === 'filter_1_model') filterModel = indexOf(name);
@@ -295,6 +322,7 @@ function receiveValues(values: Record<string, Entry>): void {
   }
   if (wobble) applyWobbleRoutes();
   if (filter) applyFilterModel(boundNames);
+  if (flags) applyFlagChoices();
 }
 
 /**
@@ -337,14 +365,16 @@ function receiveFrame(frame: Frame): void {
 /** Dim what the engine does not have yet, and say so on hover. */
 function markUnbound(bound: ReadonlySet<string>): void {
   const idle = (id: string): boolean =>
-    !PAGE_ONLY.has(id) && !bound.has(id) && !WOBBLE_BOUND.has(id) && !FILTER_IDS.includes(id) && id !== 'vowel.vowel';
+    !PAGE_ONLY.has(id) && !bound.has(id) && !WOBBLE_BOUND.has(id) && !FILTER_IDS.includes(id) && id !== 'vowel.vowel' &&
+    !FLAG_CHOICES.some((c) => c.id === id);
   for (const node of document.querySelectorAll<HTMLElement>('[data-param]')) {
     const id = node.dataset.param ?? '';
     if (idle(id)) unbound(node);
     const choice = CHOICES.find((c) => c.id === id);
-    if (!choice?.values || !bound.has(id)) continue;
+    if (!choice?.values || !(bound.has(id) || choice.flag)) continue;
     for (const chip of node.querySelectorAll<HTMLElement>('[data-option]')) {
-      if (choice.values[Number(chip.dataset.option)] === null) unbound(chip);
+      const option = Number(chip.dataset.option);
+      if (choice.values[option] === null && choice.flag?.option !== option) unbound(chip);
     }
   }
 }
@@ -360,6 +390,16 @@ function unbound(node: HTMLElement): void {
 
 export function isPlugin(): boolean {
   return window.__JUCE__?.backend !== undefined;
+}
+
+/** Set a matrix connection (amount -1..1), or remove it. */
+export function sendRoute(source: string, destination: string, amount: number, remove = false): void {
+  send('gnarlRoute', { source, destination, amount, remove });
+}
+
+function receiveRoutes(routes: EngineRoute[]): void {
+  engine.routes = routes;
+  for (const v of engineViews) v();
 }
 
 /** Show Vital's full editor in place of this panel. */
@@ -378,7 +418,7 @@ export async function connect(): Promise<void> {
   });
 
   buildBindings();
-  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES])];
+  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
   engine.connected = true;
@@ -399,12 +439,15 @@ export async function connect(): Promise<void> {
 
   backend.addEventListener('gnarlValues', (payload) => receiveValues(payload as Record<string, Entry>));
   backend.addEventListener('gnarlFrame', (payload) => receiveFrame(payload as Frame));
+  backend.addEventListener('gnarlRoutes', (payload) => receiveRoutes(payload as EngineRoute[]));
+  receiveRoutes(result.routes ?? []);
 
   subscribe((id, value, fromEngine) => {
     if (fromEngine) return;
     if (id === 'wobble.shape') sendWobbleShape();
     else if (WOBBLE_BOUND.has(id) || id === 'wobble.on') sendWobbleRoutes();
     else if (id === 'vowel.vowel') sendVowel(CHOICES.find((c) => c.id === id)?.options[value] ?? '');
+    else if (FLAG_CHOICES.some((c) => c.id === id)) sendFlagChoice(id, value);
     const b = activeBinding(id);
     if (!b || !boundNames.has(b.name)) return;
     const host = b.toHost(value);

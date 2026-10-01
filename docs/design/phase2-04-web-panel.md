@@ -58,15 +58,12 @@ text to three significant figures (`tidyText`).
 | FOLD, CRUSH tiles | `distortion_fold_*`, `distortion_crush_*` (docs/design/phase2-07-drive-chain.md) |
 | scope press, keys | MIDI note on/off through the plugin's keyboard state |
 
-Anything with no engine parameter behind it yet is **dimmed**, and struck
-through on a button, with "Not in the engine yet" on hover:
-
-- FM amount
-- TUBE, 2-BAND, CRUSH's HARD/SOFT and the FOLD warp mode
-- the wobble's SMOOTH and PHASE
-- the mod matrix
-
-These are the Phase 2 list. The preset arrows are disabled, since there is
+The controls that used to be dimmed (FM, TUBE, 2-BAND, CRUSH HARD/SOFT,
+FOLD warp, wobble SMOOTH and PHASE, the mod matrix) are bound since
+docs/design/phase2-08-panel-controls.md, which also gives the matrix's
+`gnarlRoute` / `gnarlRoutes` protocol. A control with no engine path would
+still be dimmed, struck through, with "Not in the engine yet" on hover; the
+bridge test fails if any is. The preset arrows are disabled, since there is
 no preset browser behind them yet; the name shown is the engine's.
 
 ## Found on the way
@@ -149,5 +146,5 @@ updated Windows 10 include.
    - knobs record automation;
    - ADVANCED and the G logo switch views;
    - a saved project reopens with the same values.
-2. Engine features for the dimmed controls, one at a time (the Phase 2
-   list in CLAUDE.md §9).
+2. ~~Engine features for the dimmed controls~~ - done,
+   docs/design/phase2-08-panel-controls.md.

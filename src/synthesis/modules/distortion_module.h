@@ -51,7 +51,18 @@ namespace vital {
       static constexpr mono_float kMinCrushBits = 1.0f;
       static constexpr mono_float kMaxCrushBits = 16.0f;
 
+      // TUBE: the drive stage's asymmetric curve, (tanh(x + b) - tanh(b)) /
+      // (1 - tanh(b)^2) - slope 1 at zero, so it adds no gain of its own.
+      // The bias makes the positive side flatten first: even harmonics, the
+      // tube sound. 0.3 puts the limits at +0.78 and -1.41.
+      static constexpr mono_float kTubeBias = 0.3f;
+      // The asymmetry adds a DC offset that moves with the level; a one-pole
+      // blocker at 10 Hz takes it out, below any bass note GNARL plays.
+      static constexpr mono_float kTubeDcCutoff = 10.0f;
+
     protected:
+      void distort(const poly_float* audio_in, int num_samples);
+      void processTube(const poly_float* audio_in, int num_samples);
       void processFold(int num_samples);
       void processCrush(int num_samples);
 
@@ -68,7 +79,12 @@ namespace vital {
       Distortion* fold_;
       Output* fold_mix_;
       poly_float fold_mix_value_;
+      Value* tube_on_;
+      Output* drive_;
+      poly_float tube_dc_in_;
+      poly_float tube_dc_out_;
       Value* crush_on_;
+      Value* crush_mode_;
       Output* crush_bits_;
       Output* crush_rate_;
       mono_float crush_step_;

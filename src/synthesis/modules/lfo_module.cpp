@@ -107,9 +107,11 @@ namespace vital {
     frequency->plug(beats_per_second_, WobbleRate::kBeatsPerSecond);
     addProcessor(frequency);
 
-    // Fixed, not parameters: a wobble that is transport-locked has no use for
-    // a phase offset, fade-in, delay or per-channel phase, and every
-    // parameter added is one more name frozen forever by the first preset.
+    // Fixed, not parameters: fade-in, delay and per-channel phase have no use
+    // on a transport-locked wobble, and every parameter added is one more
+    // name frozen forever by the first preset. PHASE and SMOOTH became
+    // parameters on 2026-10-01 (the panel's knobs), defaulting to exactly the
+    // constants they replace.
     //
     // Each constant is the value an LFO's DEFAULT parameter delivers to
     // SynthLfo - in the engine's units, not the parameter's. That matters for
@@ -119,17 +121,18 @@ namespace vital {
     // control-rate LFO steps once per block, so the render depended on the
     // block size by -14 dB, against -64 dB for Vital's own LFO on the same
     // destination - and did not match that LFO at all (-16 dB).
-    static constexpr mono_float kLfoDefaultSmoothTime = -7.5f;
-    cr::Value* phase = new cr::Value(0.0f);
+    // wobble_phase: where on the grid the cycle starts, 0..1 of a cycle.
+    // wobble_smooth_time: Vital's LFO smoothing, 2^x seconds. Block-rate.
+    Output* phase = createPolyModControl("wobble_phase");
+    Output* smooth_time = createPolyModControl("wobble_smooth_time");
     cr::Value* fade = new cr::Value(0.0f);
     cr::Value* delay = new cr::Value(0.0f);
     cr::Value* stereo_phase = new cr::Value(0.0f);
     cr::Value* sync_type = new cr::Value(SynthLfo::kSync);
     cr::Value* smooth_mode = new cr::Value(1.0f);
-    cr::Value* smooth_time = new cr::Value(std::exp2(kLfoDefaultSmoothTime));
-    for (Processor* constant : { (Processor*)phase, (Processor*)fade, (Processor*)delay,
+    for (Processor* constant : { (Processor*)fade, (Processor*)delay,
                                  (Processor*)stereo_phase, (Processor*)sync_type,
-                                 (Processor*)smooth_mode, (Processor*)smooth_time })
+                                 (Processor*)smooth_mode })
       addIdleProcessor(constant);
 
     lfo_->useInput(input(kNoteTrigger), SynthLfo::kNoteTrigger);

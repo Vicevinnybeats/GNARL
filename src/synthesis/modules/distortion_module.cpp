@@ -25,11 +25,17 @@
 #include <cmath>
 
 namespace vital {
+  namespace {
+    // Computed when the plugin loads, never on the audio thread: a function-
+    // local static would be initialised on its first call, behind a lock.
+    const mono_float kTubeBiasTanh = std::tanh(DistortionModule::kTubeBias);
+  } // namespace
 
   DistortionModule::DistortionModule() :
       SynthModule(0, 1), distortion_(nullptr), filter_(nullptr), mix_(0.0f),
-      drive_stage_on_(true), fold_on_(nullptr), fold_type_(nullptr), fold_distortion_type_(nullptr),
-      fold_(nullptr), fold_mix_(nullptr), fold_mix_value_(0.0f), crush_on_(nullptr), crush_bits_(nullptr),
+      drive_stage_on_(true), tube_on_(nullptr), drive_(nullptr), tube_dc_in_(0.0f), tube_dc_out_(0.0f), fold_on_(nullptr), fold_type_(nullptr), fold_distortion_type_(nullptr),
+      fold_(nullptr), fold_mix_(nullptr), fold_mix_value_(0.0f), crush_on_(nullptr), crush_mode_(nullptr),
+      crush_bits_(nullptr),
       crush_rate_(nullptr), crush_step_(0.0f), crush_period_(1.0f), crush_hold_(0.0f), crush_count_(0.0f) { }
 
   DistortionModule::~DistortionModule() {
@@ -42,6 +48,8 @@ namespace vital {
 
     Value* distortion_type = createBaseControl("distortion_type");
     Output* distortion_drive = createMonoModControl("distortion_drive", true, true);
+    drive_ = distortion_drive;
+    tube_on_ = createBaseControl("distortion_tube");
     distortion_mix_ = createMonoModControl("distortion_mix");
 
     distortion_->plug(distortion_type, Distortion::kType);
@@ -76,6 +84,7 @@ namespace vital {
 
     // CRUSH: bits and a sample hold, block-rate, ramped across the block.
     crush_on_ = createBaseControl("distortion_crush_on");
+    crush_mode_ = createBaseControl("distortion_crush_mode");
     crush_bits_ = createMonoModControl("distortion_crush_bits");
     crush_rate_ = createMonoModControl("distortion_crush_rate");
 
@@ -91,6 +100,8 @@ namespace vital {
 
   void DistortionModule::hardReset() {
     SynthModule::hardReset();
+    tube_dc_in_ = 0.0f;
+    tube_dc_out_ = 0.0f;
     crush_hold_ = 0.0f;
     crush_count_ = 0.0f;
   }
@@ -105,14 +116,14 @@ namespace vital {
       utils::copyBuffer(audio_out, audio_in, num_samples);
     else {
       if (filter_order_->output()->buffer[0][0] < 1.0f)
-        distortion_->processWithInput(audio_in, num_samples);
+        distort(audio_in, num_samples);
       else if (filter_order_->output()->buffer[0][0] > 1.0f) {
-        distortion_->processWithInput(audio_in, num_samples);
+        distort(audio_in, num_samples);
         filter_->processWithInput(output()->buffer, num_samples);
       }
       else {
         filter_->processWithInput(audio_in, num_samples);
-        distortion_->processWithInput(output()->buffer, num_samples);
+        distort(output()->buffer, num_samples);
       }
 
       poly_float current_mix = mix_;
@@ -129,6 +140,37 @@ namespace vital {
       processFold(num_samples);
     if (crush_on_->value())
       processCrush(num_samples);
+  }
+
+  // The drive stage: Vital's distortion, or GNARL's TUBE in its place.
+  void DistortionModule::distort(const poly_float* audio_in, int num_samples) {
+    if (tube_on_->value())
+      processTube(audio_in, num_samples);
+    else
+      distortion_->processWithInput(audio_in, num_samples);
+  }
+
+  // The drive in dB is the same smoothed control Vital's stage reads, scaled
+  // the same way (Distortion::driveDbScale), so DRIVE means the same thing.
+  void DistortionModule::processTube(const poly_float* audio_in, int num_samples) {
+    const mono_float bias_tanh = kTubeBiasTanh;
+    const mono_float slope = 1.0f / (1.0f - bias_tanh * bias_tanh);
+    mono_float pole = 1.0f - 2.0f * kPi * kTubeDcCutoff / getSampleRate();
+    const poly_float* drive = drive_->buffer;
+    poly_float* audio_out = output()->buffer;
+    poly_float dc_in = tube_dc_in_;
+    poly_float dc_out = tube_dc_out_;
+
+    for (int i = 0; i < num_samples; ++i) {
+      poly_float driven = audio_in[i] * Distortion::driveDbScale(drive[i]);
+      poly_float shaped = (futils::tanh(driven + kTubeBias) - bias_tanh) * slope;
+      dc_out = shaped - dc_in + dc_out * pole;
+      dc_in = shaped;
+      audio_out[i] = dc_out;
+    }
+
+    tube_dc_in_ = dc_in;
+    tube_dc_out_ = dc_out;
   }
 
   // The same steps as the drive stage above, so FOLD alone renders exactly
@@ -149,7 +191,10 @@ namespace vital {
   }
 
   // Quantise to 2^bits levels over -1..1, then hold each quantised sample
-  // for `period` engine samples. Bits and period ramp across the block; the
+  // for `period` engine samples. HARD rounds to the nearest level; SOFT
+  // keeps the same levels but crosses between them on a smoothstep
+  // (3f^2 - 2f^3), so each step's edge is a curve, not a jump: the levels
+  // still sound, the top end the jumps add does not. Bits and period ramp across the block; the
   // hold counter carries over, so the result does not depend on block size.
   void DistortionModule::processCrush(int num_samples) {
     mono_float bits = utils::clamp(crush_bits_->buffer[0][0], kMinCrushBits, kMaxCrushBits);
@@ -170,6 +215,7 @@ namespace vital {
     mono_float count = crush_count_;
     poly_float hold = crush_hold_;
     poly_float* audio = output()->buffer;
+    bool soft = crush_mode_->value() != 0.0f;
 
     for (int i = 0; i < num_samples; ++i) {
       step += delta_step;
@@ -177,7 +223,15 @@ namespace vital {
       count += 1.0f;
       if (count >= period) {
         count -= period;
-        hold = utils::round(audio[i] * (1.0f / step)) * step;
+        if (soft) {
+          poly_float position = audio[i] * (1.0f / step);
+          poly_float level = utils::floor(position);
+          poly_float fraction = position - level;
+          poly_float eased = fraction * fraction * (poly_float(3.0f) - fraction * 2.0f);
+          hold = (level + eased) * step;
+        }
+        else
+          hold = utils::round(audio[i] * (1.0f / step)) * step;
       }
       audio[i] = hold;
     }

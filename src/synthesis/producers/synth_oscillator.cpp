@@ -534,7 +534,8 @@ namespace vital {
       Processor(kNumInputs, kNumOutputs), random_generator_(-1.0f, 1.0f),
       transpose_quantize_(0), last_quantized_transpose_(0.0f), last_quantize_ratio_(1.0f),
       unison_(1), active_oscillators_(2), wavetable_(wavetable), wavetable_version_(wavetable->getVersion()),
-      first_mod_oscillator_(nullptr), second_mod_oscillator_(nullptr), sample_(nullptr),
+      first_mod_oscillator_(nullptr), second_mod_oscillator_(nullptr), gnarl_fm_(0.0f),
+      gnarl_fold_on_(false), gnarl_fold_(0.0f), sample_(nullptr),
       fourier_frames1_(), fourier_frames2_() {
     pan_amplitude_ = 0.0f;
     center_amplitude_ = 0.0f;
@@ -811,6 +812,10 @@ namespace vital {
     float phase_inc_adjustment = getPhaseIncAdjustment();
     
     DistortionType distortion_type = static_cast<DistortionType>((int)input(kDistortionType)->at(0)[0]);
+    // GNARL: FOLD skips the warp here too - SYNC and FORMANT pick a different
+    // band limit for the wavetable.
+    if (input(kGnarlFold)->at(0)[0] != 0.0f)
+      distortion_type = kNone;
     poly_mask distortion_frequency_mask = 0;
     mono_float distortion_mult = 1.0f;
     if (distortion_type == kFormant || distortion_type == kSync) {
@@ -1217,6 +1222,11 @@ namespace vital {
 
     SpectralMorph spectral_morph = static_cast<SpectralMorph>((int)input(kSpectralMorphType)->at(0)[0]);
     DistortionType distortion_type = static_cast<DistortionType>((int)input(kDistortionType)->at(0)[0]);
+    // GNARL: in FOLD mode the warp is skipped and the output folded instead
+    // (processBlend), WARP setting the fold's depth.
+    gnarl_fold_on_ = input(kGnarlFold)->at(0)[0] != 0.0f;
+    if (gnarl_fold_on_)
+      distortion_type = kNone;
     setSpectralMorphValues(spectral_morph);
     setDistortionValues(distortion_type);
     voice_block_.phase_inc_buffer = phase_inc_buffer_->buffer;
@@ -1320,9 +1330,25 @@ namespace vital {
     poly_float* inc_dest = phase_inc_buffer_->buffer;
     poly_int* phase_dest = phase_buffer_->buffer;
 
+    // GNARL: FM from the first modulation oscillator, added to the phase
+    // offset every voice already reads - so it runs alongside whatever warp
+    // mode is selected. Exactly fmPhase's law: offset = modulator * amount^2,
+    // scaled by kFmPhaseMult * kMaxFmModulation. Block-rate depth, ramped.
+    poly_float fm_amount = utils::clamp(input(kGnarlFmAmount)->at(0), 0.0f, 1.0f);
+    poly_float fm_target = fm_amount * fm_amount;
+    poly_float fm = utils::maskLoad(gnarl_fm_, fm_target, reset_mask);
+    poly_float fm_delta = (fm_target - fm) * sample_inc;
+    const poly_float* fm_source = first_mod_oscillator_ ? first_mod_oscillator_->buffer : nullptr;
+    bool fm_on = fm_source && poly_float::greaterThan(utils::max(fm, fm_target), 0.0f).anyMask();
+    gnarl_fm_ = fm_target;
+
     for (int i = 0; i < num_samples; ++i) {
       poly_float shift_phase = utils::mod(phase_buffer[i]) - 0.5f;
       poly_int phase = utils::toInt(shift_phase * phase_scale);
+      if (fm_on) {
+        fm += fm_delta;
+        phase += utils::toInt(fm_source[i] * fm * kFmPhaseMult) * kMaxFmModulation;
+      }
       phase_dest[i] = utils::maskLoad(utils::swapVoices(phase), phase, active_mask);
 
       current_midi += delta_midi;
@@ -1509,6 +1535,32 @@ namespace vital {
   void SynthOscillator::processBlend(int num_samples, poly_mask reset_mask) {
     poly_float* audio_out = output(kRaw)->buffer;
     stereoBlend(audio_out, num_samples, reset_mask);
+    processGnarlFold(audio_out, num_samples, reset_mask);
     levelOutput(output(kLevelled)->buffer, audio_out, num_samples, reset_mask);
+  }
+
+  // GNARL: FOLD. Vital's sine fold (the same curve as its distortion's), at a
+  // drive of 1 + 7 x depth: at 8x a full-scale wave folds back about twice per
+  // half cycle, the edge of a growl before it turns to noise. Faded in over
+  // the first quarter of the depth, so engaging it is not a jump (the fold at
+  // drive 1 is sin(pi x / 2), not x). Depth ramps across the block; off, it
+  // ramps to 0 and then costs nothing.
+  void SynthOscillator::processGnarlFold(poly_float* audio_out, int num_samples, poly_mask reset_mask) {
+    static constexpr mono_float kMaxFoldDrive = 8.0f;
+    static constexpr mono_float kFoldFadeIn = 4.0f;
+    poly_float target = gnarl_fold_on_ ? utils::clamp(input(kDistortionAmount)->at(0), 0.0f, 1.0f) : 0.0f;
+    poly_float depth = utils::maskLoad(gnarl_fold_, target, reset_mask);
+    gnarl_fold_ = target;
+    if (!poly_float::greaterThan(utils::max(depth, target), 0.0f).anyMask())
+      return;
+
+    poly_float delta = (target - depth) * (1.0f / num_samples);
+    for (int i = 0; i < num_samples; ++i) {
+      depth += delta;
+      poly_float drive = depth * (kMaxFoldDrive - 1.0f) + 1.0f;
+      poly_float folded = futils::sin1(utils::mod(audio_out[i] * drive * -0.25f + 0.5f));
+      poly_float mix = utils::min(depth * kFoldFadeIn, 1.0f);
+      audio_out[i] += (folded - audio_out[i]) * mix;
+    }
   }
 } // namespace vital

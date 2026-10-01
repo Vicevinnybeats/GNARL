@@ -407,6 +407,26 @@ namespace vital {
       ValueDetails::kLinear, false, " bits", "Crush Bits", nullptr },
     { "distortion_crush_rate", 0x01000A, 0.0, 1.0, 0.0, 0.0, 100.0,
       ValueDetails::kLinear, false, "%", "Crush Rate", nullptr },
+
+    // GNARL: the wobble's PHASE and SMOOTH knobs (docs/design/phase2-08-panel-
+    // controls.md). Their defaults are the constants WobbleModule used
+    // before, Vital's LFO defaults: phase 0, smoothing 2^-7.5 s = 5.5 ms.
+    { "wobble_phase", 0x01000B, 0.0, 1.0, 0.0, 0.0, 360.0,
+      ValueDetails::kLinear, false, " deg", "Wobble Phase", nullptr },
+    { "wobble_smooth_time", 0x01000B, -10.0, 4.0, -7.5, 0.0, 1.0,
+      ValueDetails::kExponential, false, " secs", "Wobble Smooth", nullptr },
+    // CRUSH's HARD / SOFT. Hard (0) is what CRUSH did before it existed.
+    { "distortion_crush_mode", 0x01000B, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Crush Mode", strings::kCrushModeNames },
+    // The wobble's route to osc 1's FM amount (the FM knob). The older
+    // wobble_amount_fm goes to osc 1's WARP and keeps that meaning.
+    { "wobble_amount_osc_fm", 0x01000B, -1.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "Wobble FM Depth", nullptr },
+    // DIST's TUBE: replaces the drive stage's Vital curve while on. A switch
+    // rather than a seventh distortion_type, because widening that range
+    // would move every existing automation of it.
+    { "distortion_tube", 0x01000B, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Tube", strings::kOffOnNames },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {
@@ -578,6 +598,17 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Destination", strings::kDestinationNames },
     { "view_2d", 0x000402, 0.0, 2.0, 1.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "View 2D", strings::kOffOnNames },
+    // GNARL: FM from the other oscillator (osc 1 <- osc 2, osc 2 <- osc 1,
+    // osc 3 <- osc 1), alongside any warp mode - the panel's FM knob
+    // (docs/design/phase2-08-panel-controls.md). Same depth law as Vital's
+    // FM warp (amount squared). 0 is off, so an existing patch is unchanged.
+    { "fm_amount", 0x01000B, 0.0, 1.0, 0.0, 0.0, 100.0,
+      ValueDetails::kLinear, false, "%", "FM Amount", nullptr },
+    // GNARL: the FOLD warp mode. On, the oscillator skips its warp and folds
+    // its output instead, WARP (distortion_amount) setting the depth. A switch
+    // rather than a new distortion_type, whose range would move automation.
+    { "fold", 0x01000B, 0.0, 1.0, 0.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Fold", strings::kOffOnNames },
   };
 
   const ValueDetails ValueDetailsLookup::mod_parameter_list[] = {

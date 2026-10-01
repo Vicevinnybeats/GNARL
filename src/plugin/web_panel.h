@@ -54,6 +54,8 @@ class WebPanel : public Component, private Timer {
     void gesture(const var& event);
     void note(const var& event);
     void setWobbleShape(const var& event);
+    void route(const var& event);
+    var routes() const;
 
     void timerCallback() override;
     var valueEntry(ValueBridge* bridge, float value) const;
@@ -64,6 +66,7 @@ class WebPanel : public Component, private Timer {
     std::map<std::string, Bound> bound_;
     std::vector<int> held_notes_;
     String last_preset_name_;
+    String last_routes_;
     bool curve_changed_ = true;
     bool connected_ = false;
 

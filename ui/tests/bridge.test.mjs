@@ -41,8 +41,21 @@ const engineInit = {
     filter_1_formant_x: 0.5,
     filter_1_formant_y: 0.5,
     filter_1_on: 0,
+    distortion_type: 0,
+    distortion_tube: 0,
+    osc_1_distortion_type: 2 / 12, // FORMANT
+    osc_1_fold: 0,
   },
-  steps: { filter_1_model: 8, filter_1_style: 10, filter_1_on: 2, osc_1_on: 2, osc_2_on: 2 },
+  steps: {
+    filter_1_model: 8, filter_1_style: 10, filter_1_on: 2, osc_1_on: 2, osc_2_on: 2,
+    distortion_type: 6, distortion_tube: 2, osc_1_distortion_type: 13, osc_2_distortion_type: 13,
+    osc_1_fold: 2, osc_2_fold: 2, distortion_crush_mode: 2, compressor_enabled_bands: 4,
+  },
+  // The matrix as web_panel.cpp reports it; the second has no panel names.
+  routes: [
+    { source: 'wobble', destination: 'filter_1_cutoff', amount: 0.45 },
+    { source: 'lfo_3', destination: 'osc_1_pan', amount: 0.2 },
+  ],
 };
 
 function fakeJuce(init) {
@@ -52,7 +65,8 @@ function fakeJuce(init) {
   const emitToPage = (id, payload) =>
     setTimeout(() => (listeners.get(id) ?? []).forEach((fn) => fn(payload)), 1);
   const entry = (name) => [values[name] ?? 0.5, `${(values[name] ?? 0.5).toFixed(3)}`];
-  window.__fake = { values, log };
+  const routes = init.routes.map((r) => ({ ...r }));
+  window.__fake = { values, log, routes };
   window.__JUCE__ = {
     initialisationData: {},
     backend: {
@@ -64,7 +78,7 @@ function fakeJuce(init) {
           log.push([id, payload]);
           if (id === '__juce__invoke' && payload.name === 'gnarlConnect') {
             const names = payload.params[0];
-            const result = { version: '1.0.6', values: {}, steps: {} };
+            const result = { version: '1.0.6', values: {}, steps: {}, routes: routes.map((r) => ({ ...r })) };
             for (const n of names) {
               result.values[n] = entry(n);
               if (init.steps[n]) result.steps[n] = init.steps[n];
@@ -73,6 +87,13 @@ function fakeJuce(init) {
           } else if (id === 'gnarlSet') {
             values[payload.name] = payload.value;
             emitToPage('gnarlValues', { [payload.name]: entry(payload.name) });
+          } else if (id === 'gnarlRoute') {
+            const i = routes.findIndex((r) => r.source === payload.source && r.destination === payload.destination);
+            if (payload.remove) {
+              if (i >= 0) routes.splice(i, 1);
+            } else if (i >= 0) routes[i].amount = payload.amount;
+            else routes.push({ source: payload.source, destination: payload.destination, amount: payload.amount });
+            emitToPage('gnarlRoutes', routes.map((r) => ({ ...r })));
           }
         }, 1);
       },
@@ -137,6 +158,57 @@ await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlSet', { name: 
 await settle();
 check((await aside()) === 'DIGITAL', `after the engine picks Digital the corner reads ${await aside()}`);
 check((await lit()).length === 0, 'and no vowel is lit');
+
+// Nothing on the panel is dimmed any more: every control has an engine path.
+const dimmed = await page.evaluate(() =>
+  [...document.querySelectorAll('.app [data-unbound="true"]')].map((n) => n.dataset.param ?? n.textContent));
+check(dimmed.length === 0, `no dimmed controls in the desktop panel (${JSON.stringify(dimmed)})`);
+
+// DIST TUBE / HARD: a switch, then a type.
+const chip = (param, option) => `.app [data-param="${param}"] [data-option="${option}"]`;
+await page.$eval(chip('dist.mode', 0), (b) => b.click());
+await settle();
+let e = await engine();
+check(e.distortion_tube === 1, `TUBE switches distortion_tube on (${e.distortion_tube})`);
+await page.$eval(chip('dist.mode', 1), (b) => b.click());
+await settle();
+e = await engine();
+check(e.distortion_tube === 0 && near(e.distortion_type * 5, 1), `HARD: tube off, distortion_type ${e.distortion_type * 5}`);
+// Osc FOLD / SYNC.
+await page.$eval(chip('osc1.mode', 3), (b) => b.click());
+await settle();
+e = await engine();
+check(e.osc_1_fold === 1, `osc 1 FOLD switches osc_1_fold on (${e.osc_1_fold})`);
+await page.$eval(chip('osc1.mode', 1), (b) => b.click());
+await settle();
+e = await engine();
+check(e.osc_1_fold === 0 && near(e.osc_1_distortion_type * 12, 1),
+      `SYNC: fold off, osc_1_distortion_type ${e.osc_1_distortion_type * 12}`);
+const litMode = await page.evaluate(() =>
+  [...document.querySelectorAll('.app [data-param="osc1.mode"] [data-option]')].filter((b) => b.dataset.on === 'true')
+    .map((b) => b.textContent));
+check(JSON.stringify(litMode) === '["SYNC"]', `osc 1 lights ${JSON.stringify(litMode)}`);
+
+// The matrix: engine routes in, edits out.
+const rows = () => page.evaluate(() => [...document.querySelectorAll('.app .route')].map((r) =>
+  [...r.querySelectorAll('button')].map((b) => b.textContent).join(' > ')));
+const matrixAside = await page.evaluate(() => [...document.querySelectorAll('.app .panel')].find((p) =>
+  p.textContent.includes('MOD MATRIX'))?.querySelector('.panel__aside')?.textContent);
+check(JSON.stringify(await rows()) === '["WOBBLE > FILTER CUTOFF"]' && matrixAside === '1/4 +1 in ADVANCED',
+      `matrix shows the engine's route ${JSON.stringify(await rows())}, counts the other: "${matrixAside}"`);
+await page.click('.app .route .route__dest');
+await settle();
+let routes = await page.evaluate(() => window.__fake.routes.map((r) => `${r.source}>${r.destination}`));
+check(JSON.stringify(routes) === '["lfo_3>osc_1_pan","wobble>filter_1_formant_x"]',
+      `retargeting the destination disconnects and connects: ${JSON.stringify(routes)}`);
+await page.click('.app .route__add');
+await settle();
+routes = await page.evaluate(() => window.__fake.routes.length);
+check(routes === 3, `ADD ROUTE connects one in the engine (${routes} connections)`);
+await page.click('.app .route .route__dest', { button: 'right' });
+await settle();
+routes = await page.evaluate(() => window.__fake.routes.map((r) => `${r.source}>${r.destination}`));
+check(!routes.includes('wobble>filter_1_formant_x'), `right-click disconnects it: ${JSON.stringify(routes)}`);
 
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);

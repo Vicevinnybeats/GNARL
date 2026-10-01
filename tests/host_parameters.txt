@@ -787,3 +787,14 @@
 786	54645	Fold Mix
 787	54646	Fold On
 788	54647	Fold Type
+789	54648	Crush Mode
+790	54670	Tube
+791	54671	Oscillator 1 FM Amount
+792	54672	Oscillator 1 Fold
+793	54673	Oscillator 2 FM Amount
+794	54674	Oscillator 2 Fold
+795	54675	Oscillator 3 FM Amount
+796	54676	Oscillator 3 Fold
+797	54677	Wobble FM Depth
+798	54678	Wobble Phase
+799	54679	Wobble Smooth

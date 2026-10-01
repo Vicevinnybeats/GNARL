@@ -47,6 +47,12 @@ namespace strings {
     "Linear",
   };
 
+  // GNARL: distortion_crush_mode. APPEND ONLY - a preset stores the index.
+  const std::string kCrushModeNames[] = {
+    "Hard",
+    "Soft",
+  };
+
   const std::string kUnipolarBipolarNames[] = {
     "Unipolar",
     "Bipolar"

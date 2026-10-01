@@ -16,9 +16,15 @@ exit status is the number of failures.
    more than -20 dB, so both act on the signal.
 5. CRUSH bits: at 1x oversampling (the decimator then passes samples
    through), 3 bits leaves at most 2^3 + 1 distinct output values in the
-   sustained note; with CRUSH off there are thousands.
+   sustained note; with CRUSH off there are thousands. SOFT at the same
+   depth carries at least 6 dB less power above 8 kHz than HARD and at
+   least 20 dB more than clean, on a dark (low-passed) source.
 6. CRUSH rate: at 50% the hold is 64^0.5 = 8 samples; the median run of
    identical output samples is 8.
+8. TUBE: on a pure sine at +12 dB drive, a 2nd harmonic above -30 dBc where
+   Vital's symmetric soft clip has none (below -60 dBc), and a DC offset
+   under 1% of the RMS (the blocker after the asymmetric curve). Off by
+   default (check 1); block-size dependence no worse than Vital's stage.
 7. Block size, at blocks 32 and 512:
    a. CRUSH alone is exact (differs by less than -200 dB): its hold counter
       and ramps carry across blocks.
@@ -88,7 +94,9 @@ def main():
     base = json.load(open(init))
     base['settings'].update(osc_1_random_phase=0.0, env_1_sustain=1.0)
     chain_keys = [k for k in base['settings'] if k.startswith(('distortion_fold_', 'distortion_crush_'))]
-    check(len(chain_keys) == 7, f'the seven chain parameters are saved: {sorted(chain_keys)}')
+    chain_keys.append('distortion_tube')
+    check(len(chain_keys) == 9 and 'distortion_tube' in base['settings'],
+          f'the nine chain parameters are saved: {sorted(chain_keys)}')
 
     # 1. Off changes nothing.
     for on in (0, 1):
@@ -134,6 +142,49 @@ def main():
     median = float(np.median(runs)) if len(runs) else 0.0
     check(median == 8, f'rate 50%: median run of held samples {median:g} (expected 8)')
 
+    # 5b. CRUSH SOFT: same levels, curved edges - less top end than HARD.
+    def air_db(x):
+        w = window(x, sr)
+        spec = np.abs(np.fft.rfft(w * np.hanning(len(w)))) ** 2
+        f = np.fft.rfftfreq(len(w), 1 / sr)
+        return 10 * np.log10(spec[f > 8000].sum() / spec.sum())
+    # A dark source - the saw through filter 1's low pass at 82 Hz - so the
+    # top end is the crusher's alone. On the bright init saw it was not:
+    # clean, HARD and SOFT all measured -24 to -25 dB above 8 kHz.
+    dark = dict(oversampling=0, filter_1_on=1, filter_1_cutoff=40)
+    dark_clean, _, _ = render(base, 'crush_dark', **dark)
+    hard, _, _ = render(base, 'crush_hard', distortion_crush_on=1, distortion_crush_bits=3, **dark)
+    soft, _, _ = render(base, 'crush_soft', distortion_crush_on=1, distortion_crush_bits=3, distortion_crush_mode=1,
+                        **dark)
+    a_clean, a_hard, a_soft = air_db(dark_clean), air_db(hard), air_db(soft)
+    check(a_soft < a_hard - 6 and a_soft > a_clean + 20,
+          f'CRUSH SOFT at 3 bits: power above 8 kHz {a_soft:.1f} dB vs HARD {a_hard:.1f} dB (clean {a_clean:.1f})')
+
+    # 8. TUBE: even harmonics where Vital's soft clip has none, and no DC.
+    # A pure sine source: oscillator 1's spectral low-pass at amount 0
+    # (harmonics measured at -121 dBc), so every harmonic is the stage's own.
+    sine = dict(oversampling=0, osc_1_spectral_morph_type=7, osc_1_spectral_morph_amount=0)
+
+    def harmonics(x):
+        w = window(x, sr)
+        n = len(w)
+        t = np.arange(n) / (n - 1)
+        bh = 0.35875 - 0.48829 * np.cos(2 * np.pi * t) + 0.14128 * np.cos(4 * np.pi * t) - 0.01168 * np.cos(6 * np.pi * t)
+        spec = np.abs(np.fft.rfft(w * bh, 1 << 20))
+        f = np.fft.rfftfreq(1 << 20, 1 / sr)
+        f0 = 440 * 2 ** ((36 - 69) / 12)
+        h = [spec[(f > k * f0 - 3) & (f < k * f0 + 3)].max() for k in (1, 2, 3)]
+        return [20 * np.log10(v / h[0]) for v in h[1:]]
+
+    tube, sr, _ = render(base, 'tube', distortion_on=1, distortion_drive=12, distortion_tube=1, **sine)
+    clip, _, _ = render(base, 'softclip', distortion_on=1, distortion_drive=12, distortion_type=0, **sine)
+    (t2, t3), (c2, c3) = harmonics(tube), harmonics(clip)
+    w = window(tube, sr)
+    dc = abs(np.mean(w)) / np.sqrt(np.mean(w ** 2))
+    check(t2 > -30 and c2 < -60, f'TUBE at +12 dB: 2nd harmonic {t2:.1f} dBc (Vital soft clip {c2:.1f}); '
+          f'3rd {t3:.1f} (soft clip {c3:.1f})')
+    check(dc < 0.01, f'TUBE output DC: {100 * dc:.3f}% of its RMS')
+
     # 7. Block size.
     def blocks_db(name, **settings):
         a, _, _ = render(base, name, block=32, **settings)
@@ -149,6 +200,10 @@ def main():
         vitals = blocks_db(f'blk_vital_{label}', distortion_on=1, distortion_type=vital_type, distortion_drive=9)
         check(ours <= vitals + 1.0, f'{label} FOLD alone, blocks 32 vs 512: {ours:.1f} dB '
               f'(Vital\'s own {label} fold: {vitals:.1f} dB; may not be worse)')
+
+    tube_db = blocks_db('blk_tube', distortion_on=1, distortion_drive=12, distortion_tube=1)
+    clip_db = blocks_db('blk_clip', distortion_on=1, distortion_drive=12, distortion_type=0)
+    check(tube_db <= clip_db + 1.0, f'TUBE, blocks 32 vs 512: {tube_db:.1f} dB (Vital soft clip: {clip_db:.1f} dB)')
 
     print(f'\n{len(FAILS)} failure(s)')
     return len(FAILS)

@@ -12,11 +12,18 @@
 
 import './fonts.css';
 import './styles.css';
-import { connect, isPlugin, showClassic } from './bridge';
+import { connect, isPlugin, sendRoute, showClassic } from './bridge';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
-import { MOD_DESTINATIONS, MOD_SOURCES, PRESET_NAMES, WOBBLE_DESTINATIONS } from './params';
+import {
+  MOD_DESTINATION_NAMES,
+  MOD_DESTINATIONS,
+  MOD_SOURCE_NAMES,
+  MOD_SOURCES,
+  PRESET_NAMES,
+  WOBBLE_DESTINATIONS,
+} from './params';
 import { get, resetAll, subscribe } from './store';
 import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle } from './widgets';
 import type { Display } from './widgets';
@@ -253,16 +260,54 @@ interface Route {
 }
 
 // Shared by both layouts, so a route added on the phone shows on the desktop.
+// In the plugin it is rebuilt from the engine's matrix (engine.routes); every
+// edit is sent to the engine, which answers with the new matrix.
 const routes: Route[] = [
   { source: 0, dest: 0, amount: 0.72 },
   { source: 0, dest: 2, amount: 0.45 },
   { source: 1, dest: 3, amount: 0.55 },
 ];
 const MAX_ROUTES = 4;
+// Engine connections this panel has no names for (made in the full editor).
+let hiddenRoutes = 0;
 const routeViews = new Set<() => void>();
 const rerenderRoutes = (): void => {
   for (const v of routeViews) v();
 };
+
+function routesFromEngine(): void {
+  const shown: Route[] = [];
+  hiddenRoutes = 0;
+  for (const r of engine.routes) {
+    const source = (MOD_SOURCE_NAMES as readonly string[]).indexOf(r.source);
+    const dest = (MOD_DESTINATION_NAMES as readonly string[]).indexOf(r.destination);
+    if (source < 0 || dest < 0 || shown.length >= MAX_ROUTES) hiddenRoutes += 1;
+    else shown.push({ source, dest, amount: Math.min(1, Math.abs(r.amount)) });
+  }
+  routes.splice(0, routes.length, ...shown);
+}
+engineViews.add(() => {
+  if (!engine.connected) return;
+  routesFromEngine();
+  rerenderRoutes();
+});
+
+const names = (r: Route): [string, string] => [MOD_SOURCE_NAMES[r.source] ?? '', MOD_DESTINATION_NAMES[r.dest] ?? ''];
+const taken = (source: number, dest: number, except: Route): boolean =>
+  routes.some((r) => r !== except && r.source === source && r.dest === dest);
+
+/** Move a route to a new source or destination: in the engine, disconnect and connect. */
+function retarget(route: Route, source: number, dest: number): void {
+  if (taken(source, dest, route)) return;
+  if (engine.connected) {
+    const [s0, d0] = names(route);
+    sendRoute(s0, d0, 0, true);
+    sendRoute(MOD_SOURCE_NAMES[source] ?? '', MOD_DESTINATION_NAMES[dest] ?? '', route.amount);
+  }
+  route.source = source;
+  route.dest = dest;
+  rerenderRoutes();
+}
 
 function modPanel(): HTMLElement {
   const list = el('div', 'routes');
@@ -275,19 +320,24 @@ function modPanel(): HTMLElement {
         src.dataset.on = 'true';
         src.title = 'Click to change the source';
         src.addEventListener('click', () => {
-          route.source = (route.source + 1) % MOD_SOURCES.length;
-          rerenderRoutes();
+          for (let k = 1; k <= MOD_SOURCES.length; k += 1) {
+            const next = (route.source + k) % MOD_SOURCES.length;
+            if (!taken(next, route.dest, route)) return retarget(route, next, route.dest);
+          }
         });
 
         const dest = el('button', 'route__dest', MOD_DESTINATIONS[route.dest] ?? '');
         dest.type = 'button';
         dest.title = 'Click to change the destination; right-click to remove';
         dest.addEventListener('click', () => {
-          route.dest = (route.dest + 1) % MOD_DESTINATIONS.length;
-          rerenderRoutes();
+          for (let k = 1; k <= MOD_DESTINATIONS.length; k += 1) {
+            const next = (route.dest + k) % MOD_DESTINATIONS.length;
+            if (!taken(route.source, next, route)) return retarget(route, route.source, next);
+          }
         });
         dest.addEventListener('contextmenu', (e) => {
           e.preventDefault();
+          if (engine.connected) sendRoute(...names(route), 0, true);
           routes.splice(i, 1);
           rerenderRoutes();
         });
@@ -301,6 +351,7 @@ function modPanel(): HTMLElement {
           route.amount = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
           fill.style.width = `${route.amount * 100}%`;
           bar.title = `${Math.round(route.amount * 100)} %`;
+          if (engine.connected) sendRoute(...names(route), route.amount);
         };
         bar.addEventListener('pointerup', rerenderRoutes);
         bar.addEventListener('pointerdown', (e) => {
@@ -315,11 +366,19 @@ function modPanel(): HTMLElement {
     add.type = 'button';
     add.disabled = routes.length >= MAX_ROUTES;
     add.addEventListener('click', () => {
-      routes.push({ source: 2, dest: 4, amount: 0.5 });
-      rerenderRoutes();
+      // The first source/destination pair not already in the matrix.
+      for (let n = 0; n < MOD_SOURCES.length * MOD_DESTINATIONS.length; n += 1) {
+        const route = { source: (2 + Math.floor(n / MOD_DESTINATIONS.length)) % MOD_SOURCES.length,
+                        dest: (4 + n) % MOD_DESTINATIONS.length, amount: 0.5 };
+        if (taken(route.source, route.dest, route)) continue;
+        if (engine.connected) sendRoute(...names(route), route.amount);
+        routes.push(route);
+        rerenderRoutes();
+        return;
+      }
     });
     list.append(add);
-    count.textContent = `${routes.length}/${MAX_ROUTES}`;
+    count.textContent = `${routes.length}/${MAX_ROUTES}` + (hiddenRoutes ? ` +${hiddenRoutes} in ADVANCED` : '');
   };
   routeViews.add(render);
   render();

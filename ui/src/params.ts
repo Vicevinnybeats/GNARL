@@ -48,9 +48,9 @@ const P = (
 const osc = (n: 1 | 2, wt: number, warp: number, fm: number): Param[] => [
   P(`osc${n}.wtpos`, 'WT POS', wt, `osc_${n}_wave_frame`),
   P(`osc${n}.warp`, 'WARP', warp, `osc_${n}_distortion_amount`),
-  // Vital's FM is a warp MODE (FM <- Osc), not an amount of its own, so a
-  // separate FM knob needs engine work. See the design doc.
-  P(`osc${n}.fm`, 'FM', fm, null),
+  // FM from the other oscillator, alongside the warp mode (docs/design/
+  // phase2-08-panel-controls.md): the same law as Vital's FM warp.
+  P(`osc${n}.fm`, 'FM', fm, `osc_${n}_fm_amount`),
   P(`osc${n}.unison`, 'UNISON', n === 1 ? 5 : 3, `osc_${n}_unison_voices`, 'x', 1, 16, { step: 1 }),
   P(`osc${n}.detune`, 'DETUNE', n === 1 ? 0.35 : 0.2, `osc_${n}_unison_detune`),
 ];
@@ -75,8 +75,8 @@ export const PARAMS: readonly Param[] = [
   P('vowel.drive', 'DRIVE', 0.3, 'filter_1_drive', '%', 0, 1, { formant: null }),
 
   P('wobble.depth', 'DEPTH', 0.7, null),
-  P('wobble.smooth', 'SMOOTH', 0.35, null),
-  P('wobble.phase', 'PHASE', 0.0, null, 'deg'),
+  P('wobble.smooth', 'SMOOTH', 0.18, 'wobble_smooth_time'),
+  P('wobble.phase', 'PHASE', 0.0, 'wobble_phase', 'deg'),
 
   P('env.amp.att', 'ATT', 0.04, 'env_1_attack', 'ms'),
   P('env.amp.dec', 'DEC', 0.3, 'env_1_decay', 'ms'),
@@ -108,12 +108,20 @@ export interface Choice {
   readonly vital: string | null;
   /** The engine value each option sets; null for an option the engine lacks. */
   readonly values?: readonly (number | null)[];
+  /**
+   * An option that is a GNARL switch rather than a value of `vital`: on, it
+   * overrides the type (osc FOLD, DIST TUBE). Choosing any other option turns
+   * it off and sets the type.
+   */
+  readonly flag?: { readonly name: string; readonly option: number };
 }
 
 export const CHOICES: readonly Choice[] = [
   // FORMANT / SYNC / BEND are Vital's warp modes 2 / 1 / 4. FOLD is not one.
-  { id: 'osc1.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 0, vital: 'osc_1_distortion_type', values: [2, 1, 4, null] },
-  { id: 'osc2.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 1, vital: 'osc_2_distortion_type', values: [2, 1, 4, null] },
+  { id: 'osc1.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 0, vital: 'osc_1_distortion_type',
+    values: [2, 1, 4, null], flag: { name: 'osc_1_fold', option: 3 } },
+  { id: 'osc2.mode', options: ['FORMANT', 'SYNC', 'BEND', 'FOLD'], def: 1, vital: 'osc_2_distortion_type',
+    values: [2, 1, 4, null], flag: { name: 'osc_2_fold', option: 3 } },
   { id: 'sub.mono', options: ['MONO'], def: 1, vital: null },
   // A one-button toggle: off is mono_sub_octave 0, on is 1 (-1 octave).
   // The engine's -2 octaves lights neither.
@@ -124,19 +132,22 @@ export const CHOICES: readonly Choice[] = [
   { id: 'wobble.shape', options: ['SINE', 'SOFT SQR', 'DRAW'], def: 1, vital: null },
   { id: 'env.page', options: ['AMP', 'FILTER'], def: 0, vital: null },
   // Vital's distortion types: 0 Soft Clip, 1 Hard Clip. No tube model yet.
-  { id: 'dist.mode', options: ['TUBE', 'HARD', 'SOFT'], def: 0, vital: 'distortion_type', values: [null, 1, 0] },
+  { id: 'dist.mode', options: ['TUBE', 'HARD', 'SOFT'], def: 0, vital: 'distortion_type', values: [null, 1, 0],
+    flag: { name: 'distortion_tube', option: 0 } },
   // The FOLD stage's own type: Vital's sine or linear fold.
   { id: 'fold.mode', options: ['SINE', 'LINEAR'], def: 0, vital: 'distortion_fold_type', values: [0, 1] },
-  { id: 'crush.mode', options: ['HARD', 'SOFT'], def: 0, vital: null },
-  // compressor_enabled_bands: 0 Multiband (three bands). No two-band mode.
-  { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands', values: [0, null] },
+  { id: 'crush.mode', options: ['HARD', 'SOFT'], def: 0, vital: 'distortion_crush_mode', values: [0, 1] },
+  // compressor_enabled_bands: 0 Multiband (three bands); 1 "Low Band", which
+  // splits at the low crossover into two compressed bands - lows and the rest.
+  { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands', values: [0, 1] },
 ];
 
 /** Wobble destinations are independent toggles, one engine depth each. */
 export const WOBBLE_DESTINATIONS = [
   { id: 'wobble.to.wtpos', label: 'WT POS', vital: 'wobble_amount_wave_frame', def: true },
   { id: 'wobble.to.cutoff', label: 'CUTOFF', vital: 'wobble_amount_cutoff', def: true },
-  { id: 'wobble.to.fm', label: 'FM', vital: 'wobble_amount_fm', def: true },
+  // The FM knob's depth. (wobble_amount_fm is osc 1's WARP, as presets saved it.)
+  { id: 'wobble.to.fm', label: 'FM', vital: 'wobble_amount_osc_fm', def: true },
   { id: 'wobble.to.vowel', label: 'VOWEL', vital: 'wobble_amount_formant', def: false },
 ] as const;
 
@@ -155,7 +166,10 @@ export const POWER: Readonly<Record<string, string | null>> = {
 
 export const FX_SLOTS = ['dist', 'fold', 'crush', 'ott'] as const;
 
+// The matrix's sources and destinations, and the engine names behind them
+// (Vital's modulation sources; any modulatable parameter as a destination).
 export const MOD_SOURCES = ['WOBBLE', 'ENV 2', 'LFO 1', 'MACRO 1', 'VELOCITY'] as const;
+export const MOD_SOURCE_NAMES = ['wobble', 'env_2', 'lfo_1', 'macro_control_1', 'velocity'] as const;
 export const MOD_DESTINATIONS = [
   'OSC1 WT POS',
   'OSC2 WT POS',
@@ -164,6 +178,15 @@ export const MOD_DESTINATIONS = [
   'OSC1 WARP',
   'SUB LEVEL',
   'FOLD AMOUNT',
+] as const;
+export const MOD_DESTINATION_NAMES = [
+  'osc_1_wave_frame',
+  'osc_2_wave_frame',
+  'filter_1_cutoff',
+  'filter_1_formant_x',
+  'osc_1_distortion_amount',
+  'mono_sub_level',
+  'distortion_fold_drive',
 ] as const;
 
 export const PRESET_NAMES = [

@@ -16,7 +16,15 @@ export const engine = {
   preset: null as string | null,
   /** The engine's own readout per control id: only it knows its units. */
   text: new Map<string, string>(),
+  /** The modulation matrix: every connection, amount -1..1. */
+  routes: [] as EngineRoute[],
 };
+
+export interface EngineRoute {
+  source: string;
+  destination: string;
+  amount: number;
+}
 
 /** Views that show engine state outside the per-frame displays (the preset). */
 export const engineViews = new Set<() => void>();

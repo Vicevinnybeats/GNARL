@@ -75,9 +75,20 @@ namespace vital {
 
     SynthOscillator::DistortionType distortion_types[kNumOscillators];
     bool processed[kNumOscillators];
+    bool gnarl_fm[kNumOscillators];
     for (int i = 0; i < kNumOscillators; ++i) {
       distortion_types[i] = oscillators_[i]->getDistortionType();
       processed[i] = false;
+      gnarl_fm[i] = oscillators_[i]->usesGnarlFm();
+    }
+    // GNARL: an oscillator whose FM knob is up waits for its source. Two
+    // that FM each other would wait forever, so the lower index goes first
+    // and hears the other's previous block.
+    bool fm_waits[kNumOscillators];
+    for (int i = 0; i < kNumOscillators; ++i) {
+      int source = getFirstModulationIndex(i);
+      bool mutual = gnarl_fm[source] && getFirstModulationIndex(source) == i;
+      fm_waits[i] = gnarl_fm[i] && !(mutual && i < source);
     }
    
     int num_processed = 0;
@@ -86,7 +97,8 @@ namespace vital {
       OscillatorModule* module = oscillators_[index];
       int first_source = getFirstModulationIndex(index);
       int second_source = getSecondModulationIndex(index);
-      if ((!SynthOscillator::isFirstModulation(distortion_types[index]) || processed[first_source]) &&
+      if ((!(SynthOscillator::isFirstModulation(distortion_types[index]) || fm_waits[index]) ||
+           processed[first_source]) &&
           (!SynthOscillator::isSecondModulation(distortion_types[index]) || processed[second_source]) &&
           !processed[index]) {
         num_processed++;

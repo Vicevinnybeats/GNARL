@@ -108,7 +108,7 @@ namespace vital {
       // GNARL: the wobble macro (docs/design/phase2-01-wobble.md). Four fixed
       // routes driven by three depth parameters - the WT depth moves both
       // oscillators' wave frames.
-      static constexpr int kNumWobbleRoutes = 5;
+      static constexpr int kNumWobbleRoutes = 6;
       WobbleModule* wobble_;
       LineGenerator wobble_source_;
       ModulationConnectionProcessor* wobble_routes_[kNumWobbleRoutes];

@@ -80,7 +80,8 @@ headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140
 
 python3 tests/test_wobble.py          # renders + measures the wobble macro
 python3 tests/test_vowel.py           # each vowel button produces its vowel
-python3 tests/test_drive_chain.py     # FOLD = Vital's fold; CRUSH bits, hold, block size
+python3 tests/test_drive_chain.py     # FOLD = Vital's fold; CRUSH bits, hold, block size; TUBE; SOFT
+python3 tests/test_fm.py              # FM knob = Vital's FM warp, bit for bit; osc FOLD
 python3 tests/test_measure.py         # Phase 3's instrument on known signals + GNARL renders
 
 # Phase 3: measure a reference locally (JSON only), compare a patch with it
@@ -336,6 +337,13 @@ codebase:
   whole-step flips; it passes or fails by where the steps fall. Test the
   stateful stage alone for exactness, and the smoothed stage against Vital's
   own figure.
+- **A new mode for a choice parameter is a new SWITCH, not a new value.**
+  A host automates a choice as normalised 0-1, so widening
+  `distortion_type` or `osc_N_distortion_type` would move every recorded
+  automation value. TUBE and osc FOLD are on/off parameters that override
+  the mode; the panel shows them as one more option (`flag` in
+  `ui/src/params.ts`). And a warp override must reach
+  `setFourierWaveBuffers` too - it reads the warp type separately.
 - **`utils::toInt` rounds to nearest-even**, it does not truncate. Never
   write `toInt(x + 0.5f)` to round; clamp the index after converting.
 
@@ -397,7 +405,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 |---|---|---|
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
-| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
+| 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); FM knob, osc FOLD, TUBE, CRUSH SOFT, wobble SMOOTH/PHASE and the panel's mod matrix **done and tested**, nothing on the panel dimmed (`docs/design/phase2-08-panel-controls.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
 | 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); no reference measured yet - the producer's step |
 | 4 | AI preset generation | **not to be started** |
 
@@ -407,8 +415,9 @@ Phase 2 candidates, with what already exists in upstream:
 |---|---|
 | Tempo-synced wobble 1/4, 1/8, 1/8T, 1/16 on WT position, cutoff, FM | **engine done** (`tests/test_wobble.py`); UI panel next |
 | Vowel/formant filter with morph | **done** — vowel buttons, model-following panel, wobble→vowel route; `tests/test_vowel.py`, docs/design/phase2-06-vowel-filter.md |
-| Waveshaper / fold / bitcrush chain | **done** — DIST → FOLD → CRUSH in the distortion slot; `tests/test_drive_chain.py`, docs/design/phase2-07-drive-chain.md |
-| OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists |
+| Waveshaper / fold / bitcrush chain | **done** — DIST (SOFT/HARD/TUBE) → FOLD → CRUSH (HARD/SOFT) in the distortion slot; `tests/test_drive_chain.py`, docs/design/phase2-07-drive-chain.md |
+| FM knob beside a warp mode; osc FOLD | **done** — Vital's FM law via the phase-buffer hook; `tests/test_fm.py`, docs/design/phase2-08-panel-controls.md |
+| OTT-style multiband | `MultibandCompressor` with upper+lower ratios exists; the panel binds 3-BAND / 2-BAND |
 | Clean mono sub under the growl | **done** — `mono_sub_*`, `tests/test_sub.py`, docs/design/phase2-05-mono-sub.md |
 | Riddim preset pack | nothing; upstream ships no presets |
 | Hardening: denormals | **done** — see §3 |

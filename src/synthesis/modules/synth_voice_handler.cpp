@@ -126,7 +126,7 @@ namespace vital {
 
     const char* wobble_amount_names[kNumWobbleRoutes] = {
       "wobble_amount_wave_frame", "wobble_amount_wave_frame", "wobble_amount_cutoff", "wobble_amount_fm",
-      "wobble_amount_formant"
+      "wobble_amount_formant", "wobble_amount_osc_fm"
     };
     std::map<std::string, Output*> wobble_amounts;
     for (const char* name : wobble_amount_names) {
@@ -471,7 +471,10 @@ namespace vital {
       "osc_1_wave_frame", "osc_2_wave_frame", "filter_1_cutoff", "osc_1_distortion_amount",
       // The vowel wobble: filter 1's formant X, which Vital's formant model
       // reads in place of the cutoff (docs/design/phase2-06-vowel-filter.md).
-      "filter_1_formant_x"
+      "filter_1_formant_x",
+      // The FM knob's depth (osc 1 <- osc 2), the panel's FM destination.
+      // wobble_amount_fm keeps meaning osc 1's WARP, as presets saved it.
+      "osc_1_fm_amount"
     };
     const Output* source = wobble_->output(WobbleModule::kValue);
     for (int i = 0; i < kNumWobbleRoutes; ++i) {

@@ -10,9 +10,9 @@ Three stages in series, each with its own on/off:
 
 | Tile | Engine | Controls |
 |---|---|---|
-| 01 DIST | Vital's distortion stage (`distortion_on`) | DRIVE, MIX, SOFT/HARD (TUBE is not in the engine) |
+| 01 DIST | Vital's distortion stage (`distortion_on`) | DRIVE, MIX, SOFT/HARD/TUBE (TUBE since phase2-08) |
 | 02 FOLD | `distortion_fold_*` | AMOUNT (drive, dB), MIX, SINE/LINEAR |
-| 03 CRUSH | `distortion_crush_*` | BITS (1–16), RATE (sample hold, 1× to 64×). HARD/SOFT is not in the engine |
+| 03 CRUSH | `distortion_crush_*` | BITS (1–16), RATE (sample hold, 1× to 64×), HARD/SOFT (SOFT since phase2-08) |
 
 Vital has one distortion stage with six modes: soft clip, hard clip,
 linear fold, sine fold, bit crush and down-sample. A riddim chain wants
