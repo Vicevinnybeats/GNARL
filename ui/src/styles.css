@@ -1218,3 +1218,12 @@ body[data-mode='phone'] .toast {
 .presets__file[hidden] {
   display: none;
 }
+
+.webstart__source {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.webstart__source:focus-visible {
+  outline: 1px solid var(--cyan);
+}

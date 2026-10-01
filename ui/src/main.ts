@@ -743,7 +743,12 @@ function webStart(): HTMLElement {
   const button = chipButton(problem ? 'PREVIEW ONLY' : 'TAP TO PLAY');
   button.classList.add('webstart__button');
   const note = el('p', 'webstart__note', problem ?? 'The real GNARL engine, running in this browser.');
-  const root = el('div', 'webstart', logoCanvas('webstart__logo'), button, note);
+  // GPLv3: whoever is handed this page is owed the source, so it says where.
+  const source = el('a', 'webstart__source', 'Free software (GPLv3) - source code');
+  source.href = 'https://github.com/Vicevinnybeats/GNARL';
+  source.target = '_blank';
+  source.rel = 'noreferrer';
+  const root = el('div', 'webstart', logoCanvas('webstart__logo'), button, note, source);
   button.addEventListener('click', () => {
     if (problem) {
       root.remove();

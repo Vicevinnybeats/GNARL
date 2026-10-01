@@ -1,4 +1,5 @@
-/*  Copies the built marketing site into dist/ for Vercel.
+/*  Copies the built marketing site into dist/ for Vercel, and puts the
+ *  phone version at /app (below).
  *
  *  THIS USED TO ASSEMBLE TWO THINGS. The site was at /, and the plugin's
  *  React interface was published as an installable web app at /app -
@@ -15,7 +16,7 @@
  *  so the checks below still run. A deploy that silently produces an empty
  *  directory looks exactly like a deploy that worked.
  */
-import { cpSync, existsSync, mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, rmSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,3 +54,23 @@ for (const required of ['index.html', 'checkout.html', 'app/index.html']) {
 }
 
 console.log('assemble_deploy: site pages present');
+
+//  THE PHONE VERSION AT /app (docs/design/phase2-09-mobile.md, docs/release.md).
+//  It is built in CI - the engine needs Emscripten, which this build does not
+//  have - and published as gnarl-web.html on the latest GitHub release, so
+//  the deploy fetches it from there. No release yet, or GitHub unreachable:
+//  the tombstone page from site/public/app stays, and the log says so. A page
+//  that does not carry the engine is refused rather than served.
+const PHONE_URL = 'https://github.com/Vicevinnybeats/GNARL/releases/latest/download/gnarl-web.html';
+try {
+  const response = await fetch(PHONE_URL, { redirect: 'follow' });
+  const page = response.ok ? await response.text() : '';
+  if (page.includes('__GNARL_WASM__') && page.length > 500_000) {
+    writeFileSync(join(out, 'app', 'index.html'), page);
+    console.log(`assemble_deploy: phone version at /app (${(page.length / 1024).toFixed(0)} kB)`);
+  } else {
+    console.warn(`assemble_deploy: WARNING no phone version (${response.status}); /app stays the tombstone`);
+  }
+} catch (error) {
+  console.warn(`assemble_deploy: WARNING phone version not fetched (${error}); /app stays the tombstone`);
+}

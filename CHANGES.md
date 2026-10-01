@@ -336,3 +336,18 @@ the merge commit forward: `git log 7651809..`.
   saw - as Vital and the plugin do, instead of sending the panel's riddim
   defaults at start; INIT returns to it. The web test checks that start
   sends no values.
+
+## 2026-10-01 - Downloads on the website
+
+- `.github/workflows/release.yml` (new): run by hand with a tag (or on a tag
+  push), it builds `GNARL-Windows.zip` (VST3 + standalone), `GNARL-macOS.zip`
+  (universal VST3, AU + standalone) and `gnarl-web.html` (the phone version),
+  and publishes them as a GitHub Release. READMEs and notes in
+  `docs/release/`; the process and the paid-download options in
+  `docs/release.md`.
+- `site/index.html`: WINDOWS and MACOS buttons link to the latest release's
+  files; the phone button opens `/app`; the beta note and two FAQ answers
+  that described the retired engine are corrected; a source-code link.
+- `tools/assemble_deploy.mjs`: each site deploy puts the latest release's
+  phone version at `/app` (the tombstone stays until there is one).
+- The phone page's start screen names its licence and links the source.

@@ -1,0 +1,138 @@
+#  A RELEASE: the files the website's download buttons point at
+#  (docs/release.md). Run by hand from the Actions tab ("Run workflow"), with
+#  the tag to create, or by pushing a tag v*.
+#
+#  The site links to https://github.com/Vicevinnybeats/GNARL/releases/latest/
+#  download/<file>, so the file NAMES below are a contract with
+#  site/index.html and tools/assemble_deploy.mjs: rename one and a download
+#  button breaks. "latest" means the newest release that is not a
+#  pre-release, so these are published as ordinary releases.
+#
+#  Builds are the JUCE 8 / CMake ones, exactly as build.yml makes them, and
+#  unsigned (docs/release.md says what that means for a Mac).
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to create, e.g. v1.0.6-beta.1'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch the WebView2 SDK
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Web.WebView2 -Version 1.0.2903.40 -OutputDirectory "$env:RUNNER_TEMP\nuget"
+          if ($LASTEXITCODE -ne 0) { throw "nuget failed" }
+      - name: Build VST3 and standalone
+        shell: pwsh
+        run: |
+          cmake -B build-cmake -G "Visual Studio 17 2022" -A x64 "-DJUCE_WEBVIEW2_PACKAGE_LOCATION=$env:RUNNER_TEMP\nuget"
+          if ($LASTEXITCODE -ne 0) { throw "configure failed" }
+          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 gnarl_plugin_Standalone -- /m /nologo /verbosity:minimal
+          if ($LASTEXITCODE -ne 0) { throw "build failed" }
+      #  One folder: the VST3 next to the standalone, as the site's install
+      #  notes describe, plus the notes themselves.
+      - name: Package
+        shell: pwsh
+        run: |
+          $out = "GNARL"
+          New-Item -ItemType Directory $out | Out-Null
+          Copy-Item -Recurse build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3 $out/
+          Copy-Item build-cmake/gnarl_plugin_artefacts/Release/Standalone/GNARL.exe $out/
+          Copy-Item docs/release/README-Windows.txt $out/README.txt
+          Copy-Item LICENSE $out/LICENSE.txt
+          Compress-Archive -Path $out -DestinationPath GNARL-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: GNARL-Windows.zip
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build VST3, AU and standalone (universal)
+        run: |
+          set -o pipefail
+          cmake -B build-cmake -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 gnarl_plugin_AU gnarl_plugin_Standalone 2>&1 | tail -60
+      #  ditto, not zip: it keeps the bundles' symlinks and extended
+      #  attributes, which a plain zip breaks.
+      - name: Package
+        run: |
+          set -e
+          a=build-cmake/gnarl_plugin_artefacts/Release
+          mkdir GNARL
+          cp -R "$a/VST3/GNARL.vst3" "$a/AU/GNARL.component" "$a/Standalone/GNARL.app" GNARL/
+          cp docs/release/README-macOS.txt GNARL/README.txt
+          cp LICENSE GNARL/LICENSE.txt
+          lipo -info GNARL/GNARL.vst3/Contents/MacOS/GNARL
+          ditto -c -k --sequesterRsrc --keepParent GNARL GNARL-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: GNARL-macOS.zip
+
+  #  The phone version: the engine in WebAssembly inside the panel's page
+  #  (docs/design/phase2-09-mobile.md). The website serves it at /app.
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the engine and the page
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.10
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.10
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          wasm/build.sh
+          cd ui
+          npm ci --no-audit --no-fund
+          npm run build
+          cp dist/gnarl-web.html ../gnarl-web.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-web
+          path: gnarl-web.html
+
+  publish:
+    needs: [windows, macos, web]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          ls -la files
+          version=$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('plugin/gnarl.jucer').getroot().get('version'))")
+          gh release create "$TAG" files/GNARL-Windows.zip files/GNARL-macOS.zip files/gnarl-web.html \
+            --target "$GITHUB_SHA" \
+            --title "GNARL $version ($TAG)" \
+            --notes-file docs/release/NOTES.md \
+            --latest
