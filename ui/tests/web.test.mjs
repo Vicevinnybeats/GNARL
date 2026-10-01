@@ -61,6 +61,14 @@ await page.goto(`http://127.0.0.1:${server.address().port}/`);
 check(await page.locator('.webstart').isVisible(), 'the start layer is shown');
 check(!(await page.evaluate(() => document.body.dataset.plugin === 'true')), 'nothing is connected before the tap');
 
+await page.evaluate(() => {
+  window.__startSets = 0;
+  const post = MessagePort.prototype.postMessage;
+  MessagePort.prototype.postMessage = function (m, ...rest) {
+    if (m && m.type === 'set') window.__startSets += 1;
+    return post.call(this, m, ...rest);
+  };
+});
 await page.locator('.webstart__button').tap();
 await page.waitForFunction(() => document.body.dataset.plugin === 'true', null, { timeout: 15000 });
 await page.waitForFunction(() => !document.querySelector('.webstart'), null, { timeout: 5000 });
@@ -86,16 +94,20 @@ const resetPeak = () => page.evaluate(() => (window.__seen.peak = 0));
 // browser build too.
 const dimmed = await page.evaluate(() =>
   [...document.querySelectorAll('.m [data-unbound="true"]')].map((n) => n.dataset.param ?? n.textContent));
-// DRIVE alone is dimmed: the page's default vowel filter is Vital's formant
-// model, which has no drive (bridge.test.mjs checks the same in the plugin).
-check(JSON.stringify(dimmed) === '["vowel.drive"]', `only the formant model's DRIVE is dimmed (${JSON.stringify(dimmed)})`);
+// Nothing is dimmed: the engine opens on Vital's init patch, whose filter
+// is not the formant model (that one has no DRIVE).
+check(dimmed.length === 0, `no dimmed controls on the init patch (${JSON.stringify(dimmed)})`);
 check(await page.evaluate(() => document.querySelector('.advanced')?.hidden !== false), 'no ADVANCED button: there is no classic editor here');
-// The page's defaults became the patch: the wobble shape the page shows is
-// the one the engine got, still lit after the engine's first frames.
+// The engine's own init patch, as Vital and the plugin open: the page sent
+// it nothing at start, and SHAPE lights none of its three - the init
+// wobble is the engine's triangle.
 await page.waitForTimeout(300);
 const shape = await page.evaluate(() =>
   [...document.querySelectorAll('.m [data-param="wobble.shape"] [data-option]')].filter((b) => b.dataset.on === 'true').map((b) => b.textContent));
-check(JSON.stringify(shape) === '["SOFT SQR"]', `SHAPE still shows the page's default after start: ${JSON.stringify(shape)}`);
+const startSets = await page.evaluate(() => window.__startSets);
+const presetShown = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
+check(startSets === 0 && JSON.stringify(shape) === '[]' && presetShown === 'Init',
+  `opens on the engine's init patch: ${startSets} values sent at start, SHAPE ${JSON.stringify(shape)}, preset "${presetShown}"`);
 
 // Silence before a note.
 await page.waitForTimeout(400);

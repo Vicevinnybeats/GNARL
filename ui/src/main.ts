@@ -176,11 +176,8 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
       })
       .catch((error: unknown) => toast(String(error)));
   });
-  init.addEventListener('click', () => {
-    initPatch();
-    // As at start: the page's defaults are the patch (webStart).
-    resetAll();
-  });
+  // Vital's init patch: one saw on osc 1, as the engine opens.
+  init.addEventListener('click', () => initPatch());
 
   engineViews.add(() => {
     if (!root.hidden) void render();
@@ -757,10 +754,9 @@ function webStart(): HTMLElement {
     startWebEngine()
       .then(() => connect())
       .then(() => {
-        // The page's defaults ARE the patch here: there is no saved state to
-        // keep, and the panel has shown them since it loaded. Sent to the
-        // engine as if set by hand. (In the plugin the engine's state wins.)
-        resetAll();
+        // The engine opens on Vital's init patch - one plain saw on osc 1,
+        // the sound Vital and the plugin start with - and the panel shows
+        // the engine, as in the plugin.
         for (const v of presetViews) v();
         root.remove();
       })

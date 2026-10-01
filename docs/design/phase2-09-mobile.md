@@ -13,10 +13,12 @@ doc's last line). Now the same page carries the engine:
 - **Tap to play.** A phone only lets a page make sound from a tap, so the
   page opens behind a start layer. The tap creates the AudioContext, loads
   the engine and connects the panel.
-- **The page's defaults are the patch.** They are sent to the engine as if
-  set by hand, so the first note sounds like what the panel showed before
-  the tap. The plugin is different: there the engine's state wins, because
-  a project has saved one.
+- **It opens on Vital's init patch**, as Vital and the plugin do: one plain
+  saw on osc 1 (`WavetableGroup::loadDefaultGroup` draws the ramp), nothing
+  else on - the "beep" a producer expects when a synth opens. The page sends
+  nothing at start; the panel shows the engine. (The first version sent the
+  panel's own riddim defaults instead; the producer asked for the standard
+  init sound.) INIT in the preset sheet returns to it.
 - **Everything on the panel works.** Keys, pitch and mod wheels, oscillators
   with FM and FOLD, sub, vowel filter, wobble (rate, depth, smooth, phase,
   shape, drawing), envelopes, the drive chain, OTT and the mod matrix.

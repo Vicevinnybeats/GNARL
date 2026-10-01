@@ -58,11 +58,10 @@ class GnarlProcessor extends AudioWorkletProcessor {
         }
         const routes = engine.routes();
         this.lastRoutes = JSON.stringify(routes);
-        this.curveChanged = true;
-        // The preset's name comes once, with the answer: a frame announcing
-        // it would arrive after the page has sent its own values, and the
-        // page treats a new preset as a new wobble shape (bridge.ts).
-        const result = { version: message.version, values, steps, routes, preset: 'Init' };
+        // The patch's name and shape go out with the first frame, as the
+        // plugin's do: the page then shows the engine's own wobble shape.
+        this.announcePreset(this.presetName);
+        const result = { version: message.version, values, steps, routes };
         this.port.postMessage({ type: 'connected', id: message.id, result });
         break;
       }

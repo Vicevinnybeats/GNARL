@@ -329,3 +329,10 @@ the merge commit forward: `git log 7651809..`.
   refusals; `ui/tests/web.test.mjs`: the preset sheet end to end.
 - Panel: a new preset name with no curve no longer resets the wobble shape
   (a save under a new name).
+
+## 2026-10-01 - Mobile version opens on the init patch
+
+- The phone page now opens on the engine's init patch - Vital's single
+  saw - as Vital and the plugin do, instead of sending the panel's riddim
+  defaults at start; INIT returns to it. The web test checks that start
+  sends no values.
