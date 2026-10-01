@@ -1,0 +1,1482 @@
+{
+ "schema": 1,
+ "bpm": 139.67,
+ "scan_bars": 8.0,
+ "source": {
+  "file": "phompy - lily (halloween freebie)",
+  "from": 0.0,
+  "to": null,
+  "isolate": "hpss"
+ },
+ "windows": [
+  {
+   "from": 0.0,
+   "to": 13.75,
+   "rms_dbfs": -19.39,
+   "growl_rate": {
+    "hz": 0.484,
+    "explains": 5,
+    "per_beat": 0.208
+   },
+   "growl_depth": 0.4523,
+   "growl_peaks": [
+    {
+     "hz": 1.159,
+     "db": 0.0,
+     "per_beat": 0.498
+    },
+    {
+     "hz": 2.376,
+     "db": -0.1,
+     "per_beat": 1.021
+    },
+    {
+     "hz": 3.371,
+     "db": -0.9,
+     "per_beat": 1.448
+    },
+    {
+     "hz": 3.577,
+     "db": -2.7,
+     "per_beat": 1.537
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.383,
+    "explains": 2,
+    "per_beat": 0.165
+   },
+   "brightness_depth": 0.2784
+  },
+  {
+   "from": 6.87,
+   "to": 20.62,
+   "rms_dbfs": -15.67,
+   "growl_rate": {
+    "hz": 0.675,
+    "explains": 1,
+    "per_beat": 0.29
+   },
+   "growl_depth": 0.5474,
+   "growl_peaks": [
+    {
+     "hz": 0.675,
+     "db": -6.4,
+     "per_beat": 0.29
+    },
+    {
+     "hz": 2.285,
+     "db": -6.9,
+     "per_beat": 0.982
+    },
+    {
+     "hz": 2.415,
+     "db": -7.9,
+     "per_beat": 1.037
+    },
+    {
+     "hz": 1.617,
+     "db": -11.0,
+     "per_beat": 0.695
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.535,
+    "explains": 3,
+    "per_beat": 0.23
+   },
+   "brightness_depth": 0.6618
+  },
+  {
+   "from": 13.75,
+   "to": 27.49,
+   "rms_dbfs": -15.0,
+   "growl_rate": {
+    "hz": 0.561,
+    "explains": 2,
+    "per_beat": 0.241
+   },
+   "growl_depth": 0.7288,
+   "growl_peaks": [
+    {
+     "hz": 0.561,
+     "db": 0.0,
+     "per_beat": 0.241
+    },
+    {
+     "hz": 1.355,
+     "db": -5.2,
+     "per_beat": 0.582
+    },
+    {
+     "hz": 0.896,
+     "db": -6.8,
+     "per_beat": 0.385
+    },
+    {
+     "hz": 1.622,
+     "db": -9.0,
+     "per_beat": 0.697
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.381,
+    "explains": 1,
+    "per_beat": 0.164
+   },
+   "brightness_depth": 0.557
+  },
+  {
+   "from": 20.62,
+   "to": 34.37,
+   "rms_dbfs": -10.1,
+   "growl_rate": {
+    "hz": 0.455,
+    "explains": 2,
+    "per_beat": 0.195
+   },
+   "growl_depth": 0.3907,
+   "growl_peaks": [
+    {
+     "hz": 2.399,
+     "db": 0.0,
+     "per_beat": 1.031
+    },
+    {
+     "hz": 0.455,
+     "db": -0.5,
+     "per_beat": 0.196
+    },
+    {
+     "hz": 1.139,
+     "db": -2.3,
+     "per_beat": 0.489
+    },
+    {
+     "hz": 2.966,
+     "db": -4.5,
+     "per_beat": 1.274
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.844,
+    "explains": 1,
+    "per_beat": 0.792
+   },
+   "brightness_depth": 1.5382
+  },
+  {
+   "from": 27.49,
+   "to": 41.24,
+   "rms_dbfs": -7.52,
+   "growl_rate": {
+    "hz": 0.589,
+    "explains": 4,
+    "per_beat": 0.253
+   },
+   "growl_depth": 0.5982,
+   "growl_peaks": [
+    {
+     "hz": 2.334,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 1.162,
+     "db": -8.2,
+     "per_beat": 0.499
+    },
+    {
+     "hz": 0.589,
+     "db": -8.2,
+     "per_beat": 0.253
+    },
+    {
+     "hz": 4.663,
+     "db": -9.9,
+     "per_beat": 2.003
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.167,
+    "explains": 7,
+    "per_beat": 0.501
+   },
+   "brightness_depth": 0.6743
+  },
+  {
+   "from": 34.37,
+   "to": 48.11,
+   "rms_dbfs": -7.43,
+   "growl_rate": {
+    "hz": 0.59,
+    "explains": 3,
+    "per_beat": 0.253
+   },
+   "growl_depth": 0.5916,
+   "growl_peaks": [
+    {
+     "hz": 2.331,
+     "db": 0.0,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 1.156,
+     "db": -4.8,
+     "per_beat": 0.497
+    },
+    {
+     "hz": 2.905,
+     "db": -6.9,
+     "per_beat": 1.248
+    },
+    {
+     "hz": 0.894,
+     "db": -9.4,
+     "per_beat": 0.384
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.171,
+    "explains": 5,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.6931
+  },
+  {
+   "from": 41.24,
+   "to": 54.99,
+   "rms_dbfs": -7.87,
+   "growl_rate": {
+    "hz": 0.585,
+    "explains": 5,
+    "per_beat": 0.251
+   },
+   "growl_depth": 0.5995,
+   "growl_peaks": [
+    {
+     "hz": 2.332,
+     "db": 0.0,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 0.585,
+     "db": -6.5,
+     "per_beat": 0.251
+    },
+    {
+     "hz": 4.665,
+     "db": -9.3,
+     "per_beat": 2.004
+    },
+    {
+     "hz": 1.174,
+     "db": -9.8,
+     "per_beat": 0.504
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.171,
+    "explains": 4,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.2007
+  },
+  {
+   "from": 48.11,
+   "to": 61.86,
+   "rms_dbfs": -7.94,
+   "growl_rate": {
+    "hz": 1.176,
+    "explains": 2,
+    "per_beat": 0.505
+   },
+   "growl_depth": 0.4569,
+   "growl_peaks": [
+    {
+     "hz": 2.334,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 1.176,
+     "db": -0.4,
+     "per_beat": 0.505
+    },
+    {
+     "hz": 2.543,
+     "db": -2.0,
+     "per_beat": 1.092
+    },
+    {
+     "hz": 0.409,
+     "db": -3.1,
+     "per_beat": 0.176
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.24,
+    "explains": 1,
+    "per_beat": 0.533
+   },
+   "brightness_depth": 2.6167
+  },
+  {
+   "from": 54.99,
+   "to": 68.73,
+   "rms_dbfs": -7.52,
+   "growl_rate": {
+    "hz": 0.581,
+    "explains": 5,
+    "per_beat": 0.25
+   },
+   "growl_depth": 0.546,
+   "growl_peaks": [
+    {
+     "hz": 2.334,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 0.581,
+     "db": -4.3,
+     "per_beat": 0.249
+    },
+    {
+     "hz": 1.164,
+     "db": -4.6,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 4.66,
+     "db": -9.2,
+     "per_beat": 2.002
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.17,
+    "explains": 7,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.7449
+  },
+  {
+   "from": 61.86,
+   "to": 75.61,
+   "rms_dbfs": -7.51,
+   "growl_rate": {
+    "hz": 1.166,
+    "explains": 3,
+    "per_beat": 0.501
+   },
+   "growl_depth": 0.5066,
+   "growl_peaks": [
+    {
+     "hz": 1.166,
+     "db": 0.0,
+     "per_beat": 0.501
+    },
+    {
+     "hz": 2.329,
+     "db": -0.4,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 2.912,
+     "db": -5.1,
+     "per_beat": 1.251
+    },
+    {
+     "hz": 2.575,
+     "db": -5.6,
+     "per_beat": 1.106
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.171,
+    "explains": 4,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.7676
+  },
+  {
+   "from": 68.73,
+   "to": 82.48,
+   "rms_dbfs": -7.96,
+   "growl_rate": {
+    "hz": 0.581,
+    "explains": 5,
+    "per_beat": 0.25
+   },
+   "growl_depth": 0.539,
+   "growl_peaks": [
+    {
+     "hz": 2.333,
+     "db": 0.0,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 1.172,
+     "db": -4.6,
+     "per_beat": 0.503
+    },
+    {
+     "hz": 0.581,
+     "db": -5.2,
+     "per_beat": 0.25
+    },
+    {
+     "hz": 4.663,
+     "db": -8.7,
+     "per_beat": 2.003
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.172,
+    "explains": 4,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.1945
+  },
+  {
+   "from": 75.61,
+   "to": 89.35,
+   "rms_dbfs": -8.05,
+   "growl_rate": {
+    "hz": 0.409,
+    "explains": 4,
+    "per_beat": 0.176
+   },
+   "growl_depth": 0.5085,
+   "growl_peaks": [
+    {
+     "hz": 1.172,
+     "db": 0.0,
+     "per_beat": 0.503
+    },
+    {
+     "hz": 0.409,
+     "db": -0.2,
+     "per_beat": 0.176
+    },
+    {
+     "hz": 2.539,
+     "db": -2.3,
+     "per_beat": 1.091
+    },
+    {
+     "hz": 0.735,
+     "db": -2.3,
+     "per_beat": 0.316
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.168,
+    "explains": 1,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 2.4945
+  },
+  {
+   "from": 82.48,
+   "to": 96.23,
+   "rms_dbfs": -7.59,
+   "growl_rate": {
+    "hz": 0.584,
+    "explains": 4,
+    "per_beat": 0.251
+   },
+   "growl_depth": 0.5707,
+   "growl_peaks": [
+    {
+     "hz": 2.335,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 1.164,
+     "db": -5.8,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 0.584,
+     "db": -7.6,
+     "per_beat": 0.251
+    },
+    {
+     "hz": 4.664,
+     "db": -7.9,
+     "per_beat": 2.004
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.169,
+    "explains": 7,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.6776
+  },
+  {
+   "from": 89.35,
+   "to": 103.1,
+   "rms_dbfs": -7.47,
+   "growl_rate": {
+    "hz": 1.167,
+    "explains": 2,
+    "per_beat": 0.501
+   },
+   "growl_depth": 0.5883,
+   "growl_peaks": [
+    {
+     "hz": 1.167,
+     "db": 0.0,
+     "per_beat": 0.501
+    },
+    {
+     "hz": 2.331,
+     "db": -1.6,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 2.547,
+     "db": -3.8,
+     "per_beat": 1.094
+    },
+    {
+     "hz": 2.131,
+     "db": -4.2,
+     "per_beat": 0.916
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.172,
+    "explains": 4,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.7568
+  },
+  {
+   "from": 96.23,
+   "to": 109.97,
+   "rms_dbfs": -7.91,
+   "growl_rate": {
+    "hz": 0.584,
+    "explains": 5,
+    "per_beat": 0.251
+   },
+   "growl_depth": 0.5417,
+   "growl_peaks": [
+    {
+     "hz": 2.331,
+     "db": 0.0,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 1.176,
+     "db": -6.2,
+     "per_beat": 0.505
+    },
+    {
+     "hz": 0.584,
+     "db": -6.5,
+     "per_beat": 0.251
+    },
+    {
+     "hz": 4.663,
+     "db": -7.5,
+     "per_beat": 2.003
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.171,
+    "explains": 4,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.2145
+  },
+  {
+   "from": 103.1,
+   "to": 116.85,
+   "rms_dbfs": -8.01,
+   "growl_rate": {
+    "hz": 1.171,
+    "explains": 2,
+    "per_beat": 0.503
+   },
+   "growl_depth": 0.5196,
+   "growl_peaks": [
+    {
+     "hz": 1.171,
+     "db": 0.0,
+     "per_beat": 0.503
+    },
+    {
+     "hz": 2.534,
+     "db": -1.2,
+     "per_beat": 1.089
+    },
+    {
+     "hz": 2.336,
+     "db": -2.3,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 1.632,
+     "db": -2.3,
+     "per_beat": 0.701
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.211,
+    "explains": 1,
+    "per_beat": 0.52
+   },
+   "brightness_depth": 2.5297
+  },
+  {
+   "from": 109.97,
+   "to": 123.72,
+   "rms_dbfs": -7.56,
+   "growl_rate": {
+    "hz": 0.579,
+    "explains": 4,
+    "per_beat": 0.249
+   },
+   "growl_depth": 0.56,
+   "growl_peaks": [
+    {
+     "hz": 2.335,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 1.166,
+     "db": -5.0,
+     "per_beat": 0.501
+    },
+    {
+     "hz": 0.579,
+     "db": -5.8,
+     "per_beat": 0.249
+    },
+    {
+     "hz": 0.303,
+     "db": -8.9,
+     "per_beat": 0.13
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.172,
+    "explains": 5,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.7529
+  },
+  {
+   "from": 116.85,
+   "to": 130.59,
+   "rms_dbfs": -7.54,
+   "growl_rate": {
+    "hz": 1.164,
+    "explains": 2,
+    "per_beat": 0.5
+   },
+   "growl_depth": 0.6301,
+   "growl_peaks": [
+    {
+     "hz": 1.164,
+     "db": 0.0,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 2.333,
+     "db": -2.7,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 2.562,
+     "db": -5.0,
+     "per_beat": 1.101
+    },
+    {
+     "hz": 3.284,
+     "db": -5.1,
+     "per_beat": 1.411
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.169,
+    "explains": 5,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.7913
+  },
+  {
+   "from": 123.72,
+   "to": 137.47,
+   "rms_dbfs": -8.15,
+   "growl_rate": {
+    "hz": 0.58,
+    "explains": 5,
+    "per_beat": 0.249
+   },
+   "growl_depth": 0.5822,
+   "growl_peaks": [
+    {
+     "hz": 2.331,
+     "db": 0.0,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 1.171,
+     "db": -4.9,
+     "per_beat": 0.503
+    },
+    {
+     "hz": 0.58,
+     "db": -6.4,
+     "per_beat": 0.249
+    },
+    {
+     "hz": 4.667,
+     "db": -9.6,
+     "per_beat": 2.005
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.175,
+    "explains": 3,
+    "per_beat": 0.505
+   },
+   "brightness_depth": 0.4306
+  },
+  {
+   "from": 130.59,
+   "to": 144.34,
+   "rms_dbfs": -11.47,
+   "growl_rate": {
+    "hz": 0.381,
+    "explains": 4,
+    "per_beat": 0.164
+   },
+   "growl_depth": 0.4667,
+   "growl_peaks": [
+    {
+     "hz": 2.307,
+     "db": 0.0,
+     "per_beat": 0.991
+    },
+    {
+     "hz": 0.381,
+     "db": -4.8,
+     "per_beat": 0.164
+    },
+    {
+     "hz": 4.666,
+     "db": -5.6,
+     "per_beat": 2.004
+    },
+    {
+     "hz": 2.007,
+     "db": -9.2,
+     "per_beat": 0.862
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.497,
+    "explains": 2,
+    "per_beat": 0.214
+   },
+   "brightness_depth": 0.4192
+  },
+  {
+   "from": 137.47,
+   "to": 151.21,
+   "rms_dbfs": -19.77,
+   "growl_rate": {
+    "hz": 0.493,
+    "explains": 2,
+    "per_beat": 0.212
+   },
+   "growl_depth": 0.4137,
+   "growl_peaks": [
+    {
+     "hz": 1.16,
+     "db": 0.0,
+     "per_beat": 0.498
+    },
+    {
+     "hz": 2.247,
+     "db": -0.2,
+     "per_beat": 0.965
+    },
+    {
+     "hz": 3.365,
+     "db": -0.3,
+     "per_beat": 1.445
+    },
+    {
+     "hz": 2.377,
+     "db": -0.4,
+     "per_beat": 1.021
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.567,
+    "explains": 3,
+    "per_beat": 0.244
+   },
+   "brightness_depth": 0.2988
+  },
+  {
+   "from": 144.34,
+   "to": 158.09,
+   "rms_dbfs": -16.81,
+   "growl_rate": {
+    "hz": 0.661,
+    "explains": 1,
+    "per_beat": 0.284
+   },
+   "growl_depth": 0.5543,
+   "growl_peaks": [
+    {
+     "hz": 0.661,
+     "db": -4.5,
+     "per_beat": 0.284
+    },
+    {
+     "hz": 2.296,
+     "db": -6.6,
+     "per_beat": 0.987
+    },
+    {
+     "hz": 1.619,
+     "db": -9.8,
+     "per_beat": 0.695
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.554,
+    "explains": 1,
+    "per_beat": 0.238
+   },
+   "brightness_depth": 0.6369
+  },
+  {
+   "from": 151.21,
+   "to": 164.96,
+   "rms_dbfs": -15.09,
+   "growl_rate": {
+    "hz": 0.563,
+    "explains": 1,
+    "per_beat": 0.242
+   },
+   "growl_depth": 0.6777,
+   "growl_peaks": [
+    {
+     "hz": 0.563,
+     "db": 0.0,
+     "per_beat": 0.242
+    },
+    {
+     "hz": 0.91,
+     "db": -5.5,
+     "per_beat": 0.391
+    },
+    {
+     "hz": 1.616,
+     "db": -6.3,
+     "per_beat": 0.694
+    },
+    {
+     "hz": 1.357,
+     "db": -6.5,
+     "per_beat": 0.583
+    }
+   ],
+   "brightness_rate": {
+    "hz": 0.655,
+    "explains": 2,
+    "per_beat": 0.281
+   },
+   "brightness_depth": 0.5975
+  },
+  {
+   "from": 158.09,
+   "to": 171.83,
+   "rms_dbfs": -10.05,
+   "growl_rate": {
+    "hz": 0.452,
+    "explains": 3,
+    "per_beat": 0.194
+   },
+   "growl_depth": 0.618,
+   "growl_peaks": [
+    {
+     "hz": 0.452,
+     "db": 0.0,
+     "per_beat": 0.194
+    },
+    {
+     "hz": 1.158,
+     "db": -0.3,
+     "per_beat": 0.497
+    },
+    {
+     "hz": 2.43,
+     "db": -1.8,
+     "per_beat": 1.044
+    },
+    {
+     "hz": 0.725,
+     "db": -2.3,
+     "per_beat": 0.311
+    }
+   ],
+   "brightness_rate": {
+    "hz": 2.078,
+    "explains": 1,
+    "per_beat": 0.893
+   },
+   "brightness_depth": 1.4596
+  },
+  {
+   "from": 164.96,
+   "to": 178.71,
+   "rms_dbfs": -7.63,
+   "growl_rate": {
+    "hz": 0.578,
+    "explains": 4,
+    "per_beat": 0.248
+   },
+   "growl_depth": 0.527,
+   "growl_peaks": [
+    {
+     "hz": 2.333,
+     "db": 0.0,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 1.164,
+     "db": -5.3,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 0.578,
+     "db": -6.2,
+     "per_beat": 0.248
+    },
+    {
+     "hz": 9.333,
+     "db": -10.6,
+     "per_beat": 4.009
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.169,
+    "explains": 7,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.787
+  },
+  {
+   "from": 171.83,
+   "to": 185.58,
+   "rms_dbfs": -7.52,
+   "growl_rate": {
+    "hz": 1.165,
+    "explains": 2,
+    "per_beat": 0.5
+   },
+   "growl_depth": 0.5991,
+   "growl_peaks": [
+    {
+     "hz": 1.165,
+     "db": 0.0,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 2.339,
+     "db": -1.5,
+     "per_beat": 1.005
+    },
+    {
+     "hz": 2.908,
+     "db": -4.3,
+     "per_beat": 1.249
+    },
+    {
+     "hz": 0.371,
+     "db": -4.3,
+     "per_beat": 0.159
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.168,
+    "explains": 6,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.7809
+  },
+  {
+   "from": 178.71,
+   "to": 192.45,
+   "rms_dbfs": -7.95,
+   "growl_rate": {
+    "hz": 0.579,
+    "explains": 3,
+    "per_beat": 0.249
+   },
+   "growl_depth": 0.5497,
+   "growl_peaks": [
+    {
+     "hz": 2.331,
+     "db": 0.0,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 0.579,
+     "db": -5.6,
+     "per_beat": 0.249
+    },
+    {
+     "hz": 1.174,
+     "db": -6.1,
+     "per_beat": 0.504
+    },
+    {
+     "hz": 4.662,
+     "db": -10.3,
+     "per_beat": 2.003
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.173,
+    "explains": 4,
+    "per_beat": 0.504
+   },
+   "brightness_depth": 0.2287
+  },
+  {
+   "from": 185.58,
+   "to": 199.33,
+   "rms_dbfs": -8.04,
+   "growl_rate": {
+    "hz": 0.411,
+    "explains": 3,
+    "per_beat": 0.177
+   },
+   "growl_depth": 0.5313,
+   "growl_peaks": [
+    {
+     "hz": 1.167,
+     "db": 0.0,
+     "per_beat": 0.501
+    },
+    {
+     "hz": 0.411,
+     "db": -1.8,
+     "per_beat": 0.177
+    },
+    {
+     "hz": 2.54,
+     "db": -1.9,
+     "per_beat": 1.091
+    },
+    {
+     "hz": 1.627,
+     "db": -2.0,
+     "per_beat": 0.699
+    }
+   ],
+   "brightness_rate": null,
+   "brightness_depth": 2.5128
+  },
+  {
+   "from": 192.45,
+   "to": 206.2,
+   "rms_dbfs": -7.61,
+   "growl_rate": {
+    "hz": 1.158,
+    "explains": 2,
+    "per_beat": 0.497
+   },
+   "growl_depth": 0.5016,
+   "growl_peaks": [
+    {
+     "hz": 2.336,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 0.576,
+     "db": -2.3,
+     "per_beat": 0.247
+    },
+    {
+     "hz": 1.158,
+     "db": -4.5,
+     "per_beat": 0.498
+    },
+    {
+     "hz": 0.297,
+     "db": -9.0,
+     "per_beat": 0.128
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.168,
+    "explains": 7,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.8337
+  },
+  {
+   "from": 199.33,
+   "to": 213.07,
+   "rms_dbfs": -7.59,
+   "growl_rate": {
+    "hz": 1.159,
+    "explains": 2,
+    "per_beat": 0.498
+   },
+   "growl_depth": 0.5844,
+   "growl_peaks": [
+    {
+     "hz": 1.159,
+     "db": 0.0,
+     "per_beat": 0.498
+    },
+    {
+     "hz": 2.342,
+     "db": -2.6,
+     "per_beat": 1.006
+    },
+    {
+     "hz": 1.732,
+     "db": -5.0,
+     "per_beat": 0.744
+    },
+    {
+     "hz": 2.931,
+     "db": -5.0,
+     "per_beat": 1.259
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.169,
+    "explains": 6,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.8787
+  },
+  {
+   "from": 206.2,
+   "to": 219.95,
+   "rms_dbfs": -8.04,
+   "growl_rate": {
+    "hz": 0.579,
+    "explains": 3,
+    "per_beat": 0.249
+   },
+   "growl_depth": 0.4937,
+   "growl_peaks": [
+    {
+     "hz": 2.333,
+     "db": 0.0,
+     "per_beat": 1.002
+    },
+    {
+     "hz": 0.579,
+     "db": -4.0,
+     "per_beat": 0.249
+    },
+    {
+     "hz": 1.164,
+     "db": -5.0,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 9.336,
+     "db": -10.5,
+     "per_beat": 4.011
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.17,
+    "explains": 5,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.2152
+  },
+  {
+   "from": 213.07,
+   "to": 226.82,
+   "rms_dbfs": -8.14,
+   "growl_rate": {
+    "hz": 1.167,
+    "explains": 2,
+    "per_beat": 0.501
+   },
+   "growl_depth": 0.5166,
+   "growl_peaks": [
+    {
+     "hz": 0.408,
+     "db": 0.0,
+     "per_beat": 0.175
+    },
+    {
+     "hz": 1.167,
+     "db": -0.2,
+     "per_beat": 0.501
+    },
+    {
+     "hz": 0.739,
+     "db": -2.3,
+     "per_beat": 0.318
+    },
+    {
+     "hz": 1.685,
+     "db": -3.6,
+     "per_beat": 0.724
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.165,
+    "explains": 1,
+    "per_beat": 0.5
+   },
+   "brightness_depth": 2.325
+  },
+  {
+   "from": 219.95,
+   "to": 233.69,
+   "rms_dbfs": -7.65,
+   "growl_rate": {
+    "hz": 0.581,
+    "explains": 3,
+    "per_beat": 0.25
+   },
+   "growl_depth": 0.503,
+   "growl_peaks": [
+    {
+     "hz": 2.335,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 0.581,
+     "db": -4.5,
+     "per_beat": 0.25
+    },
+    {
+     "hz": 1.164,
+     "db": -5.7,
+     "per_beat": 0.5
+    },
+    {
+     "hz": 9.338,
+     "db": -10.8,
+     "per_beat": 4.012
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.169,
+    "explains": 7,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.7958
+  },
+  {
+   "from": 226.82,
+   "to": 240.57,
+   "rms_dbfs": -7.52,
+   "growl_rate": {
+    "hz": 1.159,
+    "explains": 2,
+    "per_beat": 0.498
+   },
+   "growl_depth": 0.5658,
+   "growl_peaks": [
+    {
+     "hz": 1.159,
+     "db": 0.0,
+     "per_beat": 0.498
+    },
+    {
+     "hz": 2.342,
+     "db": -3.2,
+     "per_beat": 1.006
+    },
+    {
+     "hz": 0.801,
+     "db": -3.9,
+     "per_beat": 0.344
+    },
+    {
+     "hz": 1.76,
+     "db": -4.2,
+     "per_beat": 0.756
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.168,
+    "explains": 6,
+    "per_beat": 0.502
+   },
+   "brightness_depth": 0.8218
+  },
+  {
+   "from": 233.69,
+   "to": 247.44,
+   "rms_dbfs": -7.93,
+   "growl_rate": {
+    "hz": 0.584,
+    "explains": 6,
+    "per_beat": 0.251
+   },
+   "growl_depth": 0.4946,
+   "growl_peaks": [
+    {
+     "hz": 2.331,
+     "db": 0.0,
+     "per_beat": 1.001
+    },
+    {
+     "hz": 0.584,
+     "db": -3.7,
+     "per_beat": 0.251
+    },
+    {
+     "hz": 1.168,
+     "db": -5.9,
+     "per_beat": 0.502
+    },
+    {
+     "hz": 9.336,
+     "db": -9.9,
+     "per_beat": 4.011
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.17,
+    "explains": 6,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.247
+  },
+  {
+   "from": 240.57,
+   "to": 254.31,
+   "rms_dbfs": -8.11,
+   "growl_rate": {
+    "hz": 0.414,
+    "explains": 2,
+    "per_beat": 0.178
+   },
+   "growl_depth": 0.4351,
+   "growl_peaks": [
+    {
+     "hz": 1.152,
+     "db": 0.0,
+     "per_beat": 0.495
+    },
+    {
+     "hz": 1.67,
+     "db": -1.3,
+     "per_beat": 0.717
+    },
+    {
+     "hz": 0.414,
+     "db": -1.7,
+     "per_beat": 0.178
+    },
+    {
+     "hz": 2.528,
+     "db": -1.8,
+     "per_beat": 1.086
+    }
+   ],
+   "brightness_rate": null,
+   "brightness_depth": 2.3489
+  },
+  {
+   "from": 247.44,
+   "to": 261.19,
+   "rms_dbfs": -7.74,
+   "growl_rate": {
+    "hz": 2.335,
+    "explains": 2,
+    "per_beat": 1.003
+   },
+   "growl_depth": 0.4924,
+   "growl_peaks": [
+    {
+     "hz": 2.335,
+     "db": 0.0,
+     "per_beat": 1.003
+    },
+    {
+     "hz": 0.574,
+     "db": -1.1,
+     "per_beat": 0.247
+    },
+    {
+     "hz": 1.149,
+     "db": -8.0,
+     "per_beat": 0.494
+    },
+    {
+     "hz": 4.656,
+     "db": -11.6,
+     "per_beat": 2.0
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.171,
+    "explains": 5,
+    "per_beat": 0.503
+   },
+   "brightness_depth": 0.8006
+  },
+  {
+   "from": 254.31,
+   "to": 268.06,
+   "rms_dbfs": -7.67,
+   "growl_rate": {
+    "hz": 2.342,
+    "explains": 2,
+    "per_beat": 1.006
+   },
+   "growl_depth": 0.427,
+   "growl_peaks": [
+    {
+     "hz": 1.15,
+     "db": 0.0,
+     "per_beat": 0.494
+    },
+    {
+     "hz": 2.342,
+     "db": -1.4,
+     "per_beat": 1.006
+    },
+    {
+     "hz": 1.775,
+     "db": -2.8,
+     "per_beat": 0.763
+    },
+    {
+     "hz": 4.662,
+     "db": -4.2,
+     "per_beat": 2.003
+    }
+   ],
+   "brightness_rate": {
+    "hz": 1.166,
+    "explains": 5,
+    "per_beat": 0.501
+   },
+   "brightness_depth": 0.8322
+  }
+ ]
+}

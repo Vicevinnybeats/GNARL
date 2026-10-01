@@ -13,7 +13,7 @@
 import { drawnListeners, drawnSteps } from './draw';
 import { engine, engineViews } from './engine';
 import type { EngineLicence, EngineRoute } from './engine';
-import { CHOICES, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
+import { CHOICES, PARAM_BY_ID, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
 import { apply, get, onGesture, refresh, subscribe } from './store';
 import { setNoteSink } from './voice';
 import vowelMap from './vowels.json';
@@ -251,7 +251,7 @@ function applyFilterModel(bound: ReadonlySet<string>): void {
       }
     }
     if (b && entry) {
-      engine.text.set(id, tidyText(entry[1]));
+      engine.text.set(id, readout(id, entry[1], entry[0]));
       apply(id, b.fromHost(entry[0]));
       refresh(id);
     }
@@ -388,7 +388,7 @@ function receiveValues(values: Record<string, Entry>): void {
     }
     const b = byName.get(name);
     if (!b || !isActive(b)) continue;
-    if (b.text) engine.text.set(b.id, tidyText(text));
+    if (b.text) engine.text.set(b.id, readout(b.id, text, host));
     const before = get(b.id);
     apply(b.id, b.fromHost(host));
     // Same value, new text (the engine's rounding): redraw the readout.
@@ -406,6 +406,19 @@ function receiveValues(values: Record<string, Entry>): void {
  * secs") - which is right for a DAW's automation lane and too long under a
  * knob. Three significant figures; seconds under one become ms.
  */
+/**
+ * The readout under a knob: the engine's own text, tidied - except where the
+ * engine gives a bare number for what the panel shows as a percentage
+ * (Vital's distortion_mix, compressor_mix, filter blend, formant X and wave
+ * frame have no unit), which would read "1" beside FOLD's "100 %". Those
+ * show how far along the control is, as the panel's other % knobs do.
+ */
+function readout(id: string, text: string, host: number): string {
+  const tidy = tidyText(text);
+  if (PARAM_BY_ID.get(id)?.unit === '%' && /^-?\d+(\.\d+)?$/.test(tidy)) return `${Math.round(host * 100)} %`;
+  return tidy;
+}
+
 export function tidyText(text: string): string {
   const m = /^(-?\d+(?:\.\d+)?(?:e-?\d+)?)\s*(.*)$/.exec(text.trim());
   if (!m) return text;

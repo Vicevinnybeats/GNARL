@@ -98,16 +98,22 @@ const dimmed = await page.evaluate(() =>
 // is not the formant model (that one has no DRIVE).
 check(dimmed.length === 0, `no dimmed controls on the init patch (${JSON.stringify(dimmed)})`);
 check(await page.evaluate(() => document.querySelector('.advanced')?.hidden !== false), 'no ADVANCED button: there is no classic editor here');
-// The engine's own init patch, as Vital and the plugin open: the page sent
-// it nothing at start, and SHAPE lights none of its three - the init
-// wobble is the engine's triangle.
+// What the panel shows, which is the engine's current state: the lit wobble
+// rate and whether the sub's switch is on.
+const panelState = () => page.evaluate(() => ({
+  rate: document.querySelector('.m [data-param="wobble.rate"] .chip[data-on="true"]')?.textContent ?? null,
+  sub: document.querySelector('.m [data-param="sub.on"]')?.getAttribute('aria-pressed') === 'true',
+  filter: document.querySelector('.m [data-param="vowel.on"]')?.getAttribute('aria-pressed') === 'true',
+}));
+// The page opens on a wobble, Riddim Wobble (factory.json's first): loaded
+// whole by the worklet, so the page itself sent no values at start.
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Wobble', null, { timeout: 5000 });
 await page.waitForTimeout(300);
-const shape = await page.evaluate(() =>
-  [...document.querySelectorAll('.m [data-param="wobble.shape"] [data-option]')].filter((b) => b.dataset.on === 'true').map((b) => b.textContent));
 const startSets = await page.evaluate(() => window.__startSets);
 const presetShown = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
-check(startSets === 0 && JSON.stringify(shape) === '[]' && presetShown === 'Init',
-  `opens on the engine's init patch: ${startSets} values sent at start, SHAPE ${JSON.stringify(shape)}, preset "${presetShown}"`);
+const opening = await panelState();
+check(startSets === 0 && presetShown === 'Riddim Wobble' && opening.rate === '1/8' && opening.sub && opening.filter,
+  `opens on a wobble: preset "${presetShown}", engine ${JSON.stringify(opening)}, ${startSets} values sent by the page`);
 
 // Silence before a note.
 await page.waitForTimeout(400);
@@ -235,6 +241,11 @@ await page.waitForTimeout(200);
 v = await engineValue('delay_style');
 check(/stereo/i.test(v?.[1] ?? ''), `DELAY's style button steps MONO -> STEREO: ${JSON.stringify(v)}`);
 await page.locator('.m .fxrack__nav .chip', { hasText: 'DRIVE' }).tap();
+// Vital gives distortion_mix and compressor_mix as bare 0..1 numbers; the
+// panel shows them as its other % knobs do.
+const readouts = await page.evaluate(() => ['dist.mix', 'ott.depth'].map((id) =>
+  document.querySelector(`.m [data-param="${id}"] .knob__readout`)?.textContent));
+check(readouts.every((r) => /^\d+ %$/.test(r ?? '')), `DIST MIX and OTT DEPTH read as percentages: ${JSON.stringify(readouts)}`);
 const distBefore = await page.locator('.m .fx--dist .chips--cycle .chip[data-on="true"]').textContent();
 await page.locator('.m .fx--dist .chips--cycle .chip[data-on="true"]').tap();
 await page.waitForTimeout(200);
@@ -291,12 +302,12 @@ check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(awai
 // its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 5, `five factory sounds: ${JSON.stringify(factoryNames)}`);
+check(factoryNames.length === 6 && factoryNames[0] === 'Riddim Wobble', `six factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
 await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Triplet Growl' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Triplet Growl', null, { timeout: 5000 });
 await page.waitForTimeout(300);
-const growl = await page.evaluate(() => ({ rate: window.__seen.values.wobble_rate?.[1], sub: window.__seen.values.mono_sub_on?.[0] }));
-check(!(await sheetOpen()) && growl.sub === 1, `Triplet Growl loads (wobble ${growl.rate}, sub on) and closes the sheet`);
+const growl = await panelState();
+check(!(await sheetOpen()) && growl.rate === '1/8T' && growl.sub, `Triplet Growl loads (wobble ${growl.rate}, sub ${growl.sub}) and closes the sheet`);
 await page.locator('.m .preset__name').tap();
 await page.locator('.m .presets__actions button', { hasText: 'INIT' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });

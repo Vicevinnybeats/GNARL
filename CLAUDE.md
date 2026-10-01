@@ -88,10 +88,12 @@ python3 tests/test_drive_chain.py     # FOLD = Vital's fold; CRUSH bits, hold, b
 python3 tests/test_fm.py              # FM knob = Vital's FM warp, bit for bit; osc FOLD
 python3 tests/test_measure.py         # Phase 3's instrument on known signals + GNARL renders
 python3 tests/test_ddl.py             # the delay's STEPS: echo times, old presets, block size
+python3 tests/test_isolate.py         # measuring under drums: --isolate hpss, --bpm auto (needs librosa)
 
 # Phase 3: measure a reference locally (JSON only), compare a patch with it
 python3 tools/measure.py ref.wav --bpm 140 --from 61 --to 69 --json references/x.json
 python3 tools/compare.py references/x.json patch.vital --bpm 140 --note F1
+python3 tools/measure.py track.mp3 --bpm auto --isolate hpss --scan 8 --json references/x-scan.json
 (cd ui && npm run build && npm test)  # the panel's bridge, in Chromium, against a fake plugin
 
 # The mobile version (wasm/README.md): engine to WebAssembly, then the page
@@ -427,7 +429,7 @@ The one thing it gates is `SynthBase::presetSavingAllowed()`:
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
 | 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); FM knob, osc FOLD, TUBE, CRUSH SOFT, wobble SMOOTH/PHASE and the panel's mod matrix **done and tested**, nothing on the panel dimmed (`docs/design/phase2-08-panel-controls.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test; effects rack: Vital's chorus, flanger, phaser, EQ, delay, reverb bound on three pages, matrix to OSC LEVEL with bipolar amounts (`docs/design/phase2-10-fx.md`); delay line: `delay_steps` and the LED counter **done and tested** (`tests/test_ddl.py`, `docs/design/phase2-11-ddl.md`); **mobile version built and tested**: the real engine in WebAssembly in the phone page (`docs/design/phase2-09-mobile.md`), not yet played on a phone |
-| 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); no reference measured yet - the producer's step |
+| 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); **five references measured** (phompy, `references/`), with drums removed by HPSS and whole tracks scanned (`tools/isolate.py`, docs/design/phase3-02-isolate.md); the phone page opens on a patch designed against them |
 | 4 | AI preset generation | **not to be started** |
 | — | Releases and downloads | **public releases from `v1.0.6-beta.1`; latest `v1.0.6-beta.4`** (the delay line) (GitHub Releases: Windows and macOS zips, the phone version); the site's download buttons and `/app` use the latest release (`docs/release.md`, `.github/workflows/release.yml`). A release reaches `/app` on the site's next deploy |
 | 7 | Licence activation | backend done (`backend/`, not deployed); **client ported into the fork and tested** (`src/plugin/licence/`, `tests/licence_tests.cpp`, docs/design/phase7-01-licence.md); off until an endpoint is configured |

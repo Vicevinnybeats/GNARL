@@ -1030,9 +1030,12 @@ function webStart(): HTMLElement {
     startWebEngine()
       .then(() => connect())
       .then(() => {
-        // The engine opens on Vital's init patch - one plain saw on osc 1,
-        // the sound Vital and the plugin start with - and the panel shows
-        // the engine, as in the plugin.
+        // The page opens on a wobble: the first starting sound, Riddim
+        // Wobble, designed against measured reference drops (docs/design/
+        // phase3-02-isolate.md). INIT in the preset sheet is still Vital's
+        // plain saw, which the plugin opens on.
+        const opening = FACTORY_SOUNDS[0];
+        if (opening) loadFactory(opening);
         for (const v of presetViews) v();
         root.remove();
       })

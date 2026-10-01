@@ -398,3 +398,15 @@ the merge commit forward: `git log 7651809..`.
 - The panel's DELAY LINE: a seven-segment LED counting STEPS (of 1/16, 1/8T
   or 1/8) or MS, with up/down buttons and drag; UNIT and STEP LENGTH drive
   Vital's delay sync and tempo on both taps (docs/design/phase2-11-ddl.md).
+
+## 2026-10-01 - Reading wobbles in reference tracks; a wobble to open on
+
+- `tools/measure.py`: `--isolate hpss|demucs` (tools/isolate.py) measures the
+  bass without the drums, `--bpm auto` finds the tempo, `--scan N` measures
+  every N-bar window of a whole track, and any format ffmpeg reads.
+  `tests/test_isolate.py` (docs/design/phase3-02-isolate.md).
+- Five reference tracks measured; JSON only in `references/`.
+- The phone page opens on Riddim Wobble, a starting sound designed against
+  those measurements. INIT is still Vital's plain saw.
+- The panel shows DIST MIX and OTT DEPTH as percentages: Vital's engine gives
+  them as bare 0..1 numbers, which read "1" beside FOLD's "100 %".

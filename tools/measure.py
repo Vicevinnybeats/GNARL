@@ -2,6 +2,7 @@
 """Measure a WAV: the numbers Phase 3 compares (CLAUDE.md §7).
 
     python3 tools/measure.py track.wav [--bpm 140] [--from 30 --to 60] [--json out.json]
+    python3 tools/measure.py track.mp3 --bpm auto --isolate hpss --scan 8 --json out.json
 
 Prints a summary and, with --json, writes every number. Run it on a
 reference track LOCALLY and commit only the JSON - never the audio
@@ -29,6 +30,13 @@ What it measures, and how each avoids a mistake this project already made:
 - BRIGHTNESS: spectral centroid over time (mean, spread) and the spectrum
   of its movement, which is where a filter wobble shows even when the level
   barely moves.
+
+- ISOLATE (optional, tools/isolate.py): --isolate hpss removes the drums
+  before measuring (librosa); --isolate demucs measures Demucs's bass stem.
+  --bpm auto asks librosa's beat tracker.
+- SCAN: --scan N measures every N-bar window (hop N/2 bars) across the whole
+  track - the rate, depth and level of each - to find the drops without
+  choosing --from and --to by ear. Any format ffmpeg reads.
 
 tests/test_measure.py checks every one of these on signals whose answers
 are known, including each past mistake put back.
@@ -296,19 +304,87 @@ def summary(m):
     return '\n'.join(lines)
 
 
+def read_audio(path):
+    """A WAV directly; anything else through ffmpeg, to a temporary WAV
+    that is deleted at once - the audio is never kept (CLAUDE.md §7)."""
+    if path.lower().endswith('.wav'):
+        return wavio.read(path)
+    import subprocess, tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        wav = os.path.join(tmp, 'decoded.wav')
+        subprocess.run(['ffmpeg', '-v', 'error', '-i', path, '-c:a', 'pcm_f32le', wav], check=True)
+        return wavio.read(wav)
+
+
+def scan(x, sr, bpm, bars):
+    """Every `bars`-bar window, hop half that: rate, depth and level."""
+    window = int(bars * 4 * 60 / bpm * sr)
+    hop = window // 2
+    out = []
+    for start in range(0, max(1, len(x) - window + 1), hop):
+        part = x[start:start + window]
+        mid = part.mean(axis=1)
+        rms = float(np.sqrt(np.mean(mid ** 2)))
+        if rms < 1e-4:
+            continue
+        mod = modulation(mid, sr, bpm)['growl_band']
+        bright = brightness(mid, sr, bpm).get('movement', {})
+        out.append({'from': round(start / sr, 2), 'to': round((start + len(part)) / sr, 2),
+                    'rms_dbfs': round(20 * math.log10(rms), 2),
+                    'growl_rate': mod['rate'], 'growl_depth': mod['depth'], 'growl_peaks': mod['peaks'][:4],
+                    'brightness_rate': bright.get('rate'), 'brightness_depth': bright.get('depth')})
+    return out
+
+
+def scan_summary(windows):
+    lines = []
+    for w in windows:
+        def text(r):
+            return '-' if not r else (f"{r['per_beat']}/beat" if 'per_beat' in r else f"{r['hz']} Hz")
+        lines.append(f"{w['from']:7.1f}-{w['to']:6.1f} s  {w['rms_dbfs']:6.1f} dBFS  "
+                     f"growl {text(w['growl_rate']):>11} (depth {w['growl_depth']:.2f})  "
+                     f"brightness {text(w['brightness_rate']):>11} (depth {w['brightness_depth'] or 0:.2f})")
+    return '\n'.join(lines)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
-    ap.add_argument('wav')
-    ap.add_argument('--bpm', type=float)
+    ap.add_argument('wav', help='a WAV, or anything ffmpeg reads')
+    ap.add_argument('--bpm', help="the tempo, or 'auto'")
     ap.add_argument('--from', dest='start', type=float, default=0.0, help='seconds')
     ap.add_argument('--to', dest='end', type=float, help='seconds')
+    ap.add_argument('--isolate', choices=['hpss', 'demucs'], help='remove the drums first (tools/isolate.py)')
+    ap.add_argument('--scan', type=float, metavar='BARS', help='measure every BARS-bar window instead')
     ap.add_argument('--json', help='write every number here')
     args = ap.parse_args()
-    x, sr = wavio.read(args.wav)
+    x, sr = read_audio(args.wav)
+    if x.ndim == 1:
+        x = x[:, None]
     x = x[int(args.start * sr):int(args.end * sr) if args.end else None]
-    m = measure(x, sr, args.bpm)
-    m['source'] = {'file': os.path.basename(args.wav), 'from': args.start, 'to': args.end}
-    print(summary(m))
+    import isolate
+    # The tempo from the whole mix: the drums are what a beat tracker hears.
+    raw_mid = x.mean(axis=1)
+    if args.isolate == 'hpss':
+        x = isolate.hpss(x, sr)
+    elif args.isolate == 'demucs':
+        x = isolate.demucs_bass(x, sr)
+    bpm = None
+    if args.bpm == 'auto':
+        bpm = round(isolate.auto_bpm(raw_mid, sr), 2)
+        print(f'tempo (librosa beat tracker, folded into {isolate.TEMPO_RANGE[0]:.0f}-{isolate.TEMPO_RANGE[1]:.0f}): {bpm} bpm')
+    elif args.bpm:
+        bpm = float(args.bpm)
+    source = {'file': os.path.basename(args.wav), 'from': args.start, 'to': args.end, 'isolate': args.isolate}
+    if args.scan:
+        if not bpm:
+            raise SystemExit('--scan needs --bpm')
+        m = {'schema': SCHEMA, 'bpm': bpm, 'scan_bars': args.scan, 'source': source,
+             'windows': scan(x, sr, bpm, args.scan)}
+        print(scan_summary(m['windows']))
+    else:
+        m = measure(x, sr, bpm)
+        m['source'] = source
+        print(summary(m))
     if args.json:
         json.dump(m, open(args.json, 'w'), indent=1)
 

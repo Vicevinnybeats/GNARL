@@ -1,6 +1,17 @@
 {
-  "_about": "The phone version's five starting sounds (main.ts presetSheet, docs/design/phase2-09-mobile.md). Each is the init patch plus these settings, in the engine's own units as a preset stores them, and a wobble shape (sine, square, or the engine's init triangle). Measured by tools/factory_sounds.mjs - level, peak, wobble rate - not listened to: they are starting points for the producer to judge.",
+  "_about": "The phone version's starting sounds; the first is the one the page opens on (main.ts presetSheet, docs/design/phase2-09-mobile.md). Each is the init patch plus these settings, in the engine's own units as a preset stores them, and a wobble shape (sine, square, or the engine's init triangle). Measured by tools/factory_sounds.mjs - level, peak, wobble rate - not listened to: they are starting points for the producer to judge.",
   "sounds": [
+    {
+      "name": "Riddim Wobble",
+      "shape": "square",
+      "settings": {
+        "volume": 5180, "osc_1_unison_voices": 3, "osc_1_unison_detune": 1.0, "osc_1_stereo_spread": 0.2,
+        "osc_1_distortion_type": 2, "osc_1_distortion_amount": 0.5, "filter_1_on": 1, "filter_1_model": 0,
+        "filter_1_blend": 1.0, "filter_1_cutoff": 84, "filter_1_resonance": 0.5, "wobble_rate": 1,
+        "wobble_amount_cutoff": 0.5, "wobble_amount_fm": 0.3, "distortion_on": 1, "distortion_drive": 16,
+        "compressor_on": 1, "compressor_mix": 0.6, "mono_sub_on": 1, "mono_sub_level": 0.9
+      }
+    },
     {
       "name": "Triplet Growl",
       "shape": "square",
