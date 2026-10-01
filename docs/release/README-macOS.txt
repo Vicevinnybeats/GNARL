@@ -23,3 +23,9 @@ Licence
   share and modify it under those terms. Source code and the copyright
   notices of everyone whose work it contains:
   https://github.com/Vicevinnybeats/GNARL
+
+PRESETS
+
+The Presets folder holds GNARL's built-in sounds as .vital files. In GNARL
+they are also in the preset list: click the patch name at the top. To open
+one from the folder, use ADVANCED and the preset browser there.

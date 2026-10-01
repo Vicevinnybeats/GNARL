@@ -55,16 +55,27 @@ function presetPicker(): HTMLElement {
   // browser (ADVANCED) has the presets, so the arrows are off rather than
   // lying. In the web build the arrows step through the patches saved in
   // this browser and the name opens the preset sheet (web/presets.ts).
+  // In the plugin the sheet has the starting sounds and INIT (Vital's own
+  // browser, behind ADVANCED, saves and opens files), and the arrows step
+  // through the starting sounds.
   const web = hasWebEngine();
-  const sheet = web ? presetSheet() : null;
+  const plugin = isPlugin();
+  const sheet = web || plugin ? presetSheet(web) : null;
   const show = (): void => {
     name.textContent = engine.connected ? (engine.preset ?? '') : (PRESET_NAMES[presetIndex] ?? '');
-    prev.disabled = next.disabled = engine.connected && !web;
-    name.disabled = !(web && engine.connected);
+    prev.disabled = next.disabled = false;
+    name.disabled = !((web || plugin) && engine.connected);
   };
   const step = (by: number): void => {
     if (web && engine.connected) {
       void stepSaved(by);
+      return;
+    }
+    if (plugin && engine.connected) {
+      const at = FACTORY_SOUNDS.findIndex((s) => s.name === engine.preset);
+      const n = FACTORY_SOUNDS.length;
+      const target = FACTORY_SOUNDS[at < 0 ? (by > 0 ? 0 : n - 1) : (at + by + n) % n];
+      if (target) loadFactory(target);
       return;
     }
     presetIndex = (presetIndex + by + PRESET_NAMES.length) % PRESET_NAMES.length;
@@ -118,7 +129,7 @@ async function openPatch(json: string): Promise<boolean> {
  * patch as one, INIT. Choosing a patch closes it; so do x, Escape and a tap
  * outside (presetPicker).
  */
-function presetSheet(): { root: HTMLElement; toggle(): void; close(): void } {
+function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close(): void } {
   const nameInput = el('input', 'presets__input');
   nameInput.type = 'text';
   nameInput.id = 'preset-name';
@@ -154,6 +165,14 @@ function presetSheet(): { root: HTMLElement; toggle(): void; close(): void } {
     actions,
   );
   root.hidden = true;
+  // Saving, the saved list and files are the web build's (IndexedDB); the
+  // plugin has Vital's browser for those.
+  if (!web) {
+    form.hidden = true;
+    list.hidden = true;
+    for (const node of root.querySelectorAll<HTMLElement>('.presets__label')) node.hidden = node.textContent === 'SAVED';
+    open.hidden = exportButton.hidden = true;
+  }
   const close = (): void => {
     root.hidden = true;
   };
@@ -175,6 +194,7 @@ function presetSheet(): { root: HTMLElement; toggle(): void; close(): void } {
         return el('li', 'presets__item', load);
       }),
     );
+    if (!web) return;
     const saved = await listPresets();
     list.replaceChildren(
       ...(saved.length === 0

@@ -11,6 +11,12 @@
  */
 
 import factory from './factory.json';
+import alienRiddim from '../../../presets/Alien Riddim.vital?raw';
+import riddimSub from '../../../presets/Riddim Sub.vital?raw';
+
+// The full patches the starting sounds name (presets/*.vital). A new one is
+// added here and in factory.json.
+const PATCHES: Readonly<Record<string, string>> = { 'Alien Riddim': alienRiddim, 'Riddim Sub': riddimSub };
 
 interface Stored {
   name: string;
@@ -122,18 +128,23 @@ export function initPatch(): void {
   window.__JUCE__?.backend.emitEvent('gnarlPresetInit', { name: 'Init' });
 }
 
-/** A starting sound: the init patch plus a few settings (factory.json). */
+/**
+ * A starting sound (factory.json): a full patch (presets/*.vital), or the
+ * init patch plus a few settings and a wobble shape.
+ */
 export interface FactorySound {
   name: string;
-  shape: string;
-  settings: Record<string, number>;
+  patch?: string;
+  shape?: string;
+  settings?: Record<string, number>;
 }
 
-// JSON infers a union of the five objects; each is a FactorySound.
+// JSON infers a union of the entries; each is a FactorySound.
 export const FACTORY_SOUNDS = factory.sounds as unknown as readonly FactorySound[];
 
 export function loadFactory(sound: FactorySound): void {
-  window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', sound);
+  const patch = sound.patch === undefined ? undefined : PATCHES[sound.patch];
+  window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });
 }
 
 /** Why a load was refused, in the page's words. */

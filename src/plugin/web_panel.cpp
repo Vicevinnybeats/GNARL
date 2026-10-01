@@ -30,6 +30,14 @@
 //                                               remove it with remove: true
 //                  gnarlClassic {}              show Vital's editor
 //                  gnarlLicenceKey {key}        store a licence key and check it
+//                  gnarlPresetFactory {name, patch} or {name, shape, settings}
+//                                               a starting sound: a full
+//                                               patch (presets/*.vital), or
+//                                               the init patch, each setting
+//                                               by name in engine units, and
+//                                               the wobble shape (ui/src/web/
+//                                               factory.json)
+//                  gnarlPresetInit {}           the init patch
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
@@ -51,6 +59,8 @@ namespace {
   const Identifier kRoutes("gnarlRoutes");
   const Identifier kLicence("gnarlLicence");
   const Identifier kLicenceKey("gnarlLicenceKey");
+  const Identifier kPresetFactory("gnarlPresetFactory");
+  const Identifier kPresetInit("gnarlPresetInit");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -100,6 +110,8 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kWobbleShape, [this](const var& event) { setWobbleShape(event); })
       .withEventListener(kRoute, [this](const var& event) { route(event); })
       .withEventListener(kLicenceKey, [this](const var& event) { setLicenceKey(event); })
+      .withEventListener(kPresetFactory, [this](const var& event) { loadFactory(event); })
+      .withEventListener(kPresetInit, [this](const var&) { loadInit(); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -251,6 +263,49 @@ void WebPanel::setWobbleShape(const var& event) {
     return;
   }
 
+  curve_changed_ = true;
+}
+
+// The init patch, as Vital's own "Initialize Preset" loads it.
+void WebPanel::loadInit() {
+  synth_.loadInitPreset();
+  synth_.setPresetName("Init");
+  curve_changed_ = true;
+}
+
+// A starting sound, built exactly as the phone's worklet builds it (ui/src/
+// web/worklet.js, 'factory'): the init patch, each setting set by name in
+// the engine's units the way a knob sets it, then the wobble shape. A name
+// the engine does not know is skipped, as an old preset's would be.
+void WebPanel::loadFactory(const var& event) {
+  // A full patch (presets/*.vital, bundled into the page) loads as a preset
+  // file does. A malformed one is refused and the current patch stays.
+  if (event["patch"].isString()) {
+    // The path a DAW restoring a project takes: the same .vital JSON, the
+    // same LoadSave::jsonToState, which refuses what it cannot read.
+    std::string patch = event["patch"].toString().toStdString();
+    synth_.setStateInformation(patch.data(), static_cast<int>(patch.size()));
+    synth_.setPresetName(event["name"].toString());
+    curve_changed_ = true;
+    return;
+  }
+
+  synth_.loadInitPreset();
+  if (DynamicObject* settings = event["settings"].getDynamicObject()) {
+    vital::control_map& controls = synth_.getControls();
+    for (const NamedValueSet::NamedValue& setting : settings->getProperties()) {
+      std::string name = setting.name.toString().toStdString();
+      if (controls.count(name))
+        synth_.valueChangedInternal(name, (float) setting.value);
+    }
+  }
+  String shape = event["shape"].toString();
+  if (shape == "sine" || shape == "square") {
+    DynamicObject::Ptr kind = new DynamicObject();
+    kind->setProperty("kind", shape);
+    setWobbleShape(var(kind.get()));
+  }
+  synth_.setPresetName(event["name"].toString());
   curve_changed_ = true;
 }
 

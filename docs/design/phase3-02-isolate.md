@@ -94,7 +94,13 @@ An earlier pass measured a window picked by hand from the middle of each
 drop, and read the 1/8 level line as the rate; measured at the drops, the
 brightness says 1/4.
 
-## The opening sound: Riddim Wobble
+## The opening sound: Riddim Wobble (withdrawn)
+
+**Withdrawn**: the producer called it wrong - the measurements above average
+whole bars, kick and snare included, where the unit that matters is one wob
+of the bass alone. The phone now opens on Alien Riddim, rebuilt from the
+producer's own patch (phase2-12-presets.md). What follows is the record.
+
 
 The phone page now opens on **Riddim Wobble** (`factory.json`'s first): a
 FORMANT-warped saw, three narrow unison voices (stereo spread 20%), a

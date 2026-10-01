@@ -14,6 +14,12 @@
 //                                         offset=N starts the note N samples
 //                                         into that block, as a host does when
 //                                         a note falls between block starts
+//   GNARL_PROBE_STATE=patch.vital ./probe ... --render OUT.f32
+//                                         first hands the plugin a patch as
+//                                         its state (IComponent::setState), as
+//                                         a DAW restoring a project does -
+//                                         the path the panel's starting
+//                                         sounds take (WebPanel::loadFactory)
 //
 // --render drives the plugin exactly as a host does - setupProcessing, bus
 // activation, a transport, note events - so two builds of the plugin can be
@@ -28,6 +34,7 @@
 #include <dlfcn.h>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <string>
 #include <algorithm>
 #include "pluginterfaces/base/ipluginbase.h"
@@ -38,6 +45,10 @@
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstprocesscontext.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
+#include "pluginterfaces/base/ibstream.h"
+#include <fstream>
+#include <iterator>
+#include <vector>
 #include <vector>
 
 using namespace Steinberg;
@@ -220,6 +231,40 @@ static int render(IComponent* component, const char* path, const char* settings)
   return 0;
 }
 
+// A read-only IBStream over bytes in memory: enough for setState.
+class MemoryStream : public IBStream {
+ public:
+  explicit MemoryStream(std::vector<char> data) : data_(std::move(data)) {}
+  tresult PLUGIN_API queryInterface(const TUID iid, void** obj) override {
+    if (FUnknownPrivate::iidEqual(iid, IBStream::iid) || FUnknownPrivate::iidEqual(iid, FUnknown::iid)) {
+      *obj = this;
+      return kResultOk;
+    }
+    *obj = nullptr;
+    return kNoInterface;
+  }
+  uint32 PLUGIN_API addRef() override { return 1; }
+  uint32 PLUGIN_API release() override { return 1; }
+  tresult PLUGIN_API read(void* buffer, int32 bytes, int32* read_bytes) override {
+    int32 n = std::max<int32>(0, std::min<int32>(bytes, (int32) data_.size() - (int32) pos_));
+    std::memcpy(buffer, data_.data() + pos_, n);
+    pos_ += n;
+    if (read_bytes) *read_bytes = n;
+    return kResultOk;
+  }
+  tresult PLUGIN_API write(void*, int32, int32*) override { return kNotImplemented; }
+  tresult PLUGIN_API seek(int64 pos, int32 mode, int64* result) override {
+    int64 base = mode == kIBSeekSet ? 0 : mode == kIBSeekCur ? (int64) pos_ : (int64) data_.size();
+    pos_ = (size_t) std::max<int64>(0, std::min<int64>(base + pos, (int64) data_.size()));
+    if (result) *result = (int64) pos_;
+    return kResultOk;
+  }
+  tresult PLUGIN_API tell(int64* pos) override { if (pos) *pos = (int64) pos_; return kResultOk; }
+ private:
+  std::vector<char> data_;
+  size_t pos_ = 0;
+};
+
 int main(int argc, char** argv) {
   if (argc < 2) { printf("usage: probe /abs/path/plugin.so [--params | --render OUT.f32]\n"); return 2; }
   bool list_params = argc > 2 && std::strcmp(argv[2], "--params") == 0;
@@ -275,6 +320,11 @@ int main(int argc, char** argv) {
       controller_cp->connect(component_cp);
     }
 
+    if (const char* state_path = std::getenv("GNARL_PROBE_STATE")) {
+      std::ifstream in(state_path, std::ios::binary);
+      MemoryStream stream(std::vector<char>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>()));
+      printf("setState(%s): %s\n", state_path, component->setState(&stream) == kResultOk ? "ok" : "REFUSED");
+    }
     if (render_path) {
       status = render(component, render_path, render_settings);
     }

@@ -59,6 +59,9 @@ class WebPanel : public Component, private Timer {
     // The licence banner's state (Phase 7), and a key the page typed in.
     var licence() const;
     void setLicenceKey(const var& event);
+    // The starting sounds (ui/src/web/factory.json) and the init patch.
+    void loadFactory(const var& event);
+    void loadInit();
 
     void timerCallback() override;
     var valueEntry(ValueBridge* bridge, float value) const;

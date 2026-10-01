@@ -267,6 +267,44 @@ check(notesAfter === notesBefore, `typing a key plays no notes (${notesAfter - n
 licenceChip = await chipState();
 check(!licenceChip.shown, 'once the plugin answers licensed, the chip is gone');
 
+// The plugin's preset sheet: the starting sounds and INIT, without the web
+// build's saving; a sound is sent whole as gnarlPresetFactory, and the
+// arrows step through the starting sounds.
+const presetLog = (id) => page.evaluate((i) => window.__fake.log.filter(([e]) => e === i).map(([, p]) => p), id);
+await page.locator('.app .preset__name').click();
+const sheet = await page.evaluate(() => {
+  const root = document.querySelector('.app .presets');
+  const visible = (s) => [...root.querySelectorAll(s)].filter((n) => n.offsetParent !== null).length;
+  return { open: root && !root.hidden, factory: visible('.presets__list--factory .presets__load'),
+           form: visible('.presets__form'), open_file: [...root.querySelectorAll('.presets__actions button')]
+             .filter((n) => n.offsetParent !== null).map((n) => n.textContent) };
+});
+check(sheet.open && sheet.factory === 7 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
+  `in the plugin the name opens the starting sounds and INIT only: ${JSON.stringify(sheet)}`);
+await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Triplet Growl' }).click();
+await page.waitForTimeout(100); // the fake plugin logs on a timer
+const factorySent = await presetLog('gnarlPresetFactory');
+check(factorySent.length === 1 && factorySent[0].name === 'Triplet Growl' && factorySent[0].settings.wobble_rate === 2 &&
+  factorySent[0].shape === 'square' && (await page.locator('.app .presets').isHidden()),
+  `a starting sound goes to the plugin whole, and the sheet closes: ${JSON.stringify(factorySent.map((s) => s.name))}`);
+await page.locator('.app .preset__step').last().click();
+await page.waitForTimeout(100);
+const stepped = (await presetLog('gnarlPresetFactory')).map((s) => s.name);
+check(stepped.length === 2, `an arrow loads a starting sound in the plugin: ${JSON.stringify(stepped)}`);
+// A full patch goes to the plugin whole, as the .vital text.
+await page.locator('.app .preset__name').click();
+await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).click();
+await page.waitForTimeout(100);
+const sub = (await presetLog('gnarlPresetFactory')).at(-1);
+let subPatch = null;
+try { subPatch = JSON.parse(sub.patch); } catch { /* checked below */ }
+check(sub.name === 'Riddim Sub' && subPatch?.settings?.osc_1_transpose === -24,
+  `Riddim Sub goes to the plugin as a whole patch (osc 1 at ${subPatch?.settings?.osc_1_transpose})`);
+await page.locator('.app .preset__name').click();
+await page.locator('.app .presets__actions button', { hasText: 'INIT' }).click();
+await page.waitForTimeout(100);
+check((await presetLog('gnarlPresetInit')).length === 1, 'INIT asks the plugin for the init patch');
+
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
 const before = await sets();

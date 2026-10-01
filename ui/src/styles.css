@@ -1273,6 +1273,10 @@ body[data-mode='phone'] .toast {
 .presets[hidden] {
   display: none;
 }
+/* And everything inside it the plugin hides (the web build's saving). */
+.presets [hidden] {
+  display: none;
+}
 .presets__head {
   display: flex;
   align-items: center;

@@ -20,6 +20,11 @@ export const factory = JSON.parse(readFileSync(join(root, 'ui/src/web/factory.js
 // As the worklet's 'factory' message: the page and this tool must agree.
 const SHAPES = { sine: 0, square: 1 };
 export function applyFactory(engine, sound) {
+  if (sound.patch) {
+    const result = engine.load(readFileSync(join(root, 'presets', `${sound.patch}.vital`), 'utf8'));
+    if (result !== 0) throw new Error(`${sound.name}: the engine refused presets/${sound.patch}.vital (${result})`);
+    return;
+  }
   engine.reset();
   for (const [name, value] of Object.entries(sound.settings)) {
     const index = engine.index(name);

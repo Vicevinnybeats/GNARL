@@ -411,3 +411,13 @@ the merge commit forward: `git log 7651809..`.
   drops of those tracks. INIT is still Vital's plain saw.
 - The panel shows DIST MIX and OTT DEPTH as percentages: Vital's engine gives
   them as bare 0..1 numbers, which read "1" beside FOLD's "100 %".
+
+## 2026-10-01 - Built-in presets in the plugin; Alien Riddim and Riddim Sub
+
+- `presets/*.vital`: full patches built by `tools/build_presets.mjs` - Alien
+  Riddim and Riddim Sub, rebuilt from the producer's screenshots of two
+  patches. The phone opens on Alien Riddim; Riddim Wobble is withdrawn.
+- The plugin's panel has the preset sheet (starting sounds, INIT, arrows);
+  `WebPanel` loads a full patch through `setStateInformation`.
+- `tools/vst3_probe.cpp`: `GNARL_PROBE_STATE` hands the plugin a patch first.
+- The downloads include a `Presets` folder (docs/design/phase2-12-presets.md).

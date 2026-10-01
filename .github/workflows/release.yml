@@ -55,6 +55,9 @@ jobs:
           Copy-Item build-cmake/gnarl_plugin_artefacts/Release/Standalone/GNARL.exe $out/
           Copy-Item docs/release/README-Windows.txt $out/README.txt
           Copy-Item LICENSE $out/LICENSE.txt
+          # GNARL's built-in presets as files too, for Vital's browser
+          # (ADVANCED) and for dragging onto the plugin (phase2-12-presets.md).
+          Copy-Item -Recurse presets $out/Presets
           Compress-Archive -Path $out -DestinationPath GNARL-Windows.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -83,6 +86,7 @@ jobs:
           cp -R "$a/VST3/GNARL.vst3" "$a/AU/GNARL.component" "$a/Standalone/GNARL.app" GNARL/
           cp docs/release/README-macOS.txt GNARL/README.txt
           cp LICENSE GNARL/LICENSE.txt
+          cp -R presets GNARL/Presets
           lipo -info GNARL/GNARL.vst3/Contents/MacOS/GNARL
           ditto -c -k --sequesterRsrc --keepParent GNARL GNARL-macOS.zip
       - uses: actions/upload-artifact@v4
