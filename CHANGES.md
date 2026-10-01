@@ -389,3 +389,12 @@ the merge commit forward: `git log 7651809..`.
 - The mod matrix reaches OSC1 LEVEL and OSC2 LEVEL, and its amount bar is
   bipolar: a negative amount is a tremolo that cuts rather than boosts.
 - Fixed: the FX mode buttons (DIST, FOLD, CRUSH, OTT) never changed mode.
+
+## 2026-10-01 - The delay line
+
+- New parameter `delay_steps` (1..16, default 1, appended): the tempo-synced
+  delay time is that many note values. Existing presets load it at 1 and
+  keep their delay exactly.
+- The panel's DELAY LINE: a seven-segment LED counting STEPS (of 1/16, 1/8T
+  or 1/8) or MS, with up/down buttons and drag; UNIT and STEP LENGTH drive
+  Vital's delay sync and tempo on both taps (docs/design/phase2-11-ddl.md).

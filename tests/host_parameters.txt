@@ -798,3 +798,4 @@
 797	54677	Wobble FM Depth
 798	54678	Wobble Phase
 799	54679	Wobble Smooth
+800	55352	Delay Steps

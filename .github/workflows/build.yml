@@ -86,6 +86,8 @@ jobs:
           sudo apt-get install -y -qq python3-numpy python3-scipy
           python3 tests/test_wobble.py
           python3 tests/test_measure.py
+          # The delay's STEPS (phase2-11-ddl.md).
+          python3 tests/test_ddl.py
 
       #  The vowel buttons produce their vowels (phase2-06-vowel-filter.md);
       #  the drive chain's fold and crush stages (phase2-07-drive-chain.md);
@@ -124,6 +126,7 @@ jobs:
           python3 tests/test_vowel.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_drive_chain.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_fm.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
+          python3 tests/test_ddl.py build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_sub.py build-cmake/gnarl_render_artefacts/Release/gnarl-render --plugin ./vst3_probe \
             "$PWD/build-cmake/gnarl_plugin_artefacts/Release/VST3/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
 

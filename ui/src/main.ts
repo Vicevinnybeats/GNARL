@@ -26,7 +26,7 @@ import {
   PRESET_NAMES,
   WOBBLE_DESTINATIONS,
 } from './params';
-import { get, resetAll, subscribe } from './store';
+import { gesture, get, resetAll, set, subscribe } from './store';
 import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle, wheel } from './widgets';
 import type { Display } from './widgets';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
@@ -631,6 +631,10 @@ interface FxSlot {
   title: string;
   knobs: readonly string[];
   choices: readonly string[];
+  /** Built before the knobs: the delay line's LED. */
+  lead?: () => HTMLElement;
+  /** The choices go in the header even beside two knobs. */
+  header?: boolean;
 }
 
 // Every effect the panel shows, in pages: the drive chain GNARL built
@@ -660,7 +664,14 @@ const FX_PAGES: readonly { label: string; slots: readonly FxSlot[] }[] = [
   {
     label: 'SPACE',
     slots: [
-      { slot: 'delay', title: 'DELAY', knobs: ['delay.feedback', 'delay.mix'], choices: ['delay.time', 'delay.style'] },
+      {
+        slot: 'delay',
+        title: 'DELAY LINE',
+        knobs: ['delay.feedback', 'delay.mix'],
+        choices: ['delay.style'],
+        lead: delayLine,
+        header: true,
+      },
       { slot: 'reverb', title: 'REVERB', knobs: ['reverb.size', 'reverb.decay', 'reverb.mix'], choices: [] },
     ],
   },
@@ -670,7 +681,7 @@ function fxPanel(index: number, fx: FxSlot): HTMLElement {
   const number = index < 10 ? `0${index}` : `${index}`;
   const choices = fx.choices.map((id) => choiceRow(id, { cls: 'chips--cycle' }));
   // Beside three knobs a button does not fit the row: it goes in the header.
-  const inHeader = fx.knobs.length > 2 && choices.length > 0;
+  const inHeader = (fx.header === true || fx.knobs.length > 2) && choices.length > 0;
   return panel(
     {
       title: `${number} ${fx.title}`,
@@ -678,7 +689,149 @@ function fxPanel(index: number, fx: FxSlot): HTMLElement {
       cls: `fx fx--${fx.slot}`,
       ...(inHeader ? { aside: el('div', 'fx__aside', ...choices) } : {}),
     },
-    el('div', 'fx__row', ...fx.knobs.map((id) => knob(id)), ...(inHeader ? [] : choices)),
+    el(
+      'div',
+      'fx__row',
+      ...(fx.lead ? [fx.lead()] : []),
+      ...fx.knobs.map((id) => knob(id)),
+      ...(inHeader ? [] : choices),
+    ),
+  );
+}
+
+/*
+ * The delay line's counter (docs/design/phase2-11-ddl.md), after a hardware
+ * step delay's: a four-digit LED with the delay's length in STEPS of the step
+ * length, or in MS; up and down buttons that repeat while held; drag the LED
+ * up or down. The unlit segments stay faintly visible, as an LED's do.
+ */
+const SEGMENTS: Readonly<Record<string, readonly number[]>> = {
+  // a b c d e f g, as 0..6
+  '0': [0, 1, 2, 3, 4, 5],
+  '1': [1, 2],
+  '2': [0, 1, 6, 4, 3],
+  '3': [0, 1, 6, 2, 3],
+  '4': [5, 6, 1, 2],
+  '5': [0, 5, 6, 2, 3],
+  '6': [0, 5, 6, 4, 3, 2],
+  '7': [0, 1, 2],
+  '8': [0, 1, 2, 3, 4, 5, 6],
+  '9': [0, 1, 2, 3, 5, 6],
+};
+// x, y, width, height of segments a..g in a 10 x 18 cell.
+const SEGMENT_RECTS = [
+  [2, 0.4, 6, 1.6], [7.9, 2, 1.6, 6.3], [7.9, 9.7, 1.6, 6.3], [2, 16, 6, 1.6],
+  [0.5, 9.7, 1.6, 6.3], [0.5, 2, 1.6, 6.3], [2, 8.2, 6, 1.6],
+] as const;
+const LED_DIGITS = 4;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function delayLine(): HTMLElement {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${LED_DIGITS * 12 - 2} 18`);
+  svg.setAttribute('class', 'ddl__digits');
+  const segments: SVGRectElement[][] = [];
+  for (let d = 0; d < LED_DIGITS; d += 1) {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('transform', `translate(${d * 12} 0) skewX(-6)`);
+    segments.push(
+      SEGMENT_RECTS.map(([x, y, w, h]) => {
+        const r = document.createElementNS(SVG_NS, 'rect');
+        r.setAttribute('x', `${x}`);
+        r.setAttribute('y', `${y}`);
+        r.setAttribute('width', `${w}`);
+        r.setAttribute('height', `${h}`);
+        r.setAttribute('rx', '0.6');
+        g.append(r);
+        return r;
+      }),
+    );
+    svg.append(g);
+  }
+  const led = el('div', 'ddl__led');
+  led.append(svg);
+  led.title = 'Drag up or down';
+  const up = el('button', 'ddl__step', '\u25b2');
+  const down = el('button', 'ddl__step', '\u25bc');
+  up.type = down.type = 'button';
+  up.setAttribute('aria-label', 'Longer');
+  down.setAttribute('aria-label', 'Shorter');
+
+  const ms = (): boolean => get('delay.unit') === 1;
+  const id = (): string => (ms() ? 'delay.ms' : 'delay.steps');
+  const limits = (): [number, number] => (ms() ? [2, 4000] : [1, 16]);
+  const put = (value: number): void => {
+    const [lo, hi] = limits();
+    set(id(), Math.min(hi, Math.max(lo, Math.round(value))));
+  };
+
+  const draw = (): void => {
+    const text = `${Math.round(get(id()))}`.padStart(LED_DIGITS, ' ').slice(-LED_DIGITS);
+    [...text].forEach((ch, d) => {
+      const lit = new Set(SEGMENTS[ch] ?? []);
+      segments[d]?.forEach((r, s) => r.setAttribute('class', lit.has(s) ? 'on' : ''));
+    });
+    led.setAttribute('aria-label', ms() ? `${text.trim()} milliseconds` : `${text.trim()} steps`);
+  };
+  subscribe((changed) => (changed === 'delay.unit' || changed === 'delay.steps' || changed === 'delay.ms') && draw());
+  draw();
+
+  // Held, a button repeats, and after a while in MS moves 10 at a time.
+  const hold = (button: HTMLButtonElement, sign: number): void => {
+    let timer = 0;
+    let count = 0;
+    const stop = (): void => {
+      window.clearTimeout(timer);
+      if (count > 0) gesture(id(), false);
+      count = 0;
+    };
+    const tick = (): void => {
+      put(get(id()) + sign * (ms() && count > 12 ? 10 : 1));
+      count += 1;
+      timer = window.setTimeout(tick, count === 1 ? 380 : 70);
+    };
+    button.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      button.setPointerCapture(e.pointerId);
+      gesture(id(), true);
+      tick();
+    });
+    button.addEventListener('pointerup', stop);
+    button.addEventListener('pointercancel', stop);
+  };
+  hold(up, 1);
+  hold(down, -1);
+
+  // A drag: 8 px a step, or in MS an octave of time every 120 px.
+  let from: { y: number; value: number } | null = null;
+  led.addEventListener('pointerdown', (e) => {
+    led.setPointerCapture(e.pointerId);
+    from = { y: e.clientY, value: get(id()) };
+    gesture(id(), true);
+  });
+  led.addEventListener('pointermove', (e) => {
+    if (!from || !led.hasPointerCapture(e.pointerId)) return;
+    const dy = from.y - e.clientY;
+    put(ms() ? from.value * Math.pow(2, dy / 120) : from.value + dy / 8);
+  });
+  const end = (): void => {
+    if (from) gesture(id(), false);
+    from = null;
+  };
+  led.addEventListener('pointerup', end);
+  led.addEventListener('pointercancel', end);
+
+  return el(
+    'div',
+    'ddl',
+    led,
+    el('div', 'ddl__steps', up, down),
+    el(
+      'div',
+      'ddl__modes',
+      choiceRow('delay.unit', { cls: 'chips--cycle' }),
+      choiceRow('delay.length', { cls: 'chips--cycle' }),
+    ),
   );
 }
 

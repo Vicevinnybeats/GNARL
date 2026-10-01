@@ -114,6 +114,11 @@ export const PARAMS: readonly Param[] = [
   P('eq.freq', 'FREQ', 0.56, 'eq_band_cutoff'),
   P('eq.high', 'HIGH', 0.5, 'eq_high_gain', '%', 0, 1, { bipolar: true }),
   P('delay.feedback', 'FEEDBK', 0.75, 'delay_feedback', '%', 0, 1, { bipolar: true }),
+  // The delay line's LED (docs/design/phase2-11-ddl.md): STEPS of the step
+  // length, or a free time in ms. delay.ms is bridged by hand (bridge.ts),
+  // since the engine stores a frequency, 2^x Hz, and both taps take it.
+  P('delay.steps', 'STEPS', 1, 'delay_steps', 'x', 1, 16, { step: 1 }),
+  P('delay.ms', 'MS', 250, null, 'raw', 2, 4000, { step: 1 }),
   P('delay.mix', 'MIX', 0.33, 'delay_dry_wet'),
   P('reverb.size', 'SIZE', 0.5, 'reverb_size'),
   P('reverb.decay', 'DECAY', 0.5, 'reverb_decay_time'),
@@ -174,8 +179,12 @@ export const CHOICES: readonly Choice[] = [
   // option is the init patch's rate. A value with no button lights none.
   { id: 'flanger.rate', options: ['4/1', '1/1', '1/4', '1/8'], def: 0, vital: 'flanger_tempo', values: [4, 6, 8, 9] },
   { id: 'phaser.rate', options: ['8/1', '1/1', '1/4', '1/8'], def: 0, vital: 'phaser_tempo', values: [3, 6, 8, 9] },
-  // delay_tempo runs 4..12, so its host value is (index - 4) / 8.
-  { id: 'delay.time', options: ['1/4', '1/8', '1/16'], def: 1, vital: 'delay_tempo', values: [8, 9, 10], min: 4 },
+  // The delay line's UNIT and STEP LENGTH, bridged by hand onto Vital's
+  // delay_sync and delay_tempo (bridge.ts): MS is the free time, 1/16 is
+  // tempo-synced 1/16, 1/8T is 1/8 in triplet mode, and 1/8 is
+  // the init patch's delay.
+  { id: 'delay.unit', options: ['STEPS', 'MS'], def: 0, vital: null },
+  { id: 'delay.length', options: ['1/16', '1/8T', '1/8'], def: 2, vital: null },
   // Vital's delay styles 0 Mono, 1 Stereo, 2 Ping Pong.
   { id: 'delay.style', options: ['MONO', 'STEREO', 'PING'], def: 0, vital: 'delay_style', values: [0, 1, 2] },
 ];

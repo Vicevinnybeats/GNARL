@@ -427,6 +427,13 @@ namespace vital {
     // would move every existing automation of it.
     { "distortion_tube", 0x01000B, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Tube", strings::kOffOnNames },
+
+    // GNARL: the delay's STEPS, as a step-sequenced delay line counts them
+    // (docs/design/phase2-11-ddl.md). The tempo-synced delay time is this
+    // many of delay_tempo's note value; 1, the default, is the time Vital
+    // gives. 16 steps of 1/16 is one bar. The free-time (ms) mode ignores it.
+    { "delay_steps", 0x01000C, 1.0, 16.0, 1.0, 0.0, 1.0,
+      ValueDetails::kIndexed, false, "", "Delay Steps", nullptr },
   };
 
   const ValueDetails ValueDetailsLookup::env_parameter_list[] = {

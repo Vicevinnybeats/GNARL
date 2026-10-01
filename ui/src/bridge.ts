@@ -260,6 +260,73 @@ function applyFilterModel(bound: ReadonlySet<string>): void {
   if (vowels) apply('vowel.vowel', currentVowel(vowels.options));
 }
 
+/* ------------------------------------------------------- the delay line */
+
+// The delay line's UNIT, STEP LENGTH and MS (docs/design/phase2-11-ddl.md)
+// are three page controls over Vital's delay_sync, delay_tempo and
+// delay_frequency - each set on both taps alike, since the STEREO and PING
+// styles read the second (aux) tap's time for the right channel.
+const DELAY_NAMES = ['delay_sync', 'delay_tempo', 'delay_frequency', 'delay_aux_sync', 'delay_aux_tempo', 'delay_aux_frequency'];
+const DELAY_IDS = ['delay.unit', 'delay.length', 'delay.ms'];
+// TempoChooser's modes, and the step lengths as (mode, delay_tempo index).
+const SYNC_FREE = 0;
+const STEP_LENGTHS = [
+  { sync: 1, tempo: 10 }, // 1/16
+  { sync: 3, tempo: 9 }, // 1/8 in triplet mode: 1/8T
+  { sync: 1, tempo: 9 }, // 1/8: Vital's init delay, so a new patch reads true
+];
+// delay_tempo's lowest index (4/1), and delay_frequency's range: 2^x Hz for
+// x in -2..9, so 4 s down to 1.95 ms (synth_parameters.cpp).
+const TEMPO_MIN = 4;
+const FREQUENCY_MIN = -2;
+const FREQUENCY_SPAN = 11;
+
+const msFromHost = (host: number): number => 1000 / Math.pow(2, FREQUENCY_MIN + host * FREQUENCY_SPAN);
+const hostFromMs = (ms: number): number =>
+  Math.min(1, Math.max(0, (Math.log2(1000 / ms) - FREQUENCY_MIN) / FREQUENCY_SPAN));
+
+function sendDelayBoth(name: string, value: number): void {
+  send('gnarlSet', { name: `delay_${name}`, value });
+  send('gnarlSet', { name: `delay_aux_${name}`, value });
+}
+
+function sendStepLength(length: number): void {
+  const at = STEP_LENGTHS[length] ?? STEP_LENGTHS[0];
+  if (!at) return;
+  sendDelayBoth('sync', hostOfIndex('delay_sync', at.sync));
+  sendDelayBoth('tempo', (at.tempo - TEMPO_MIN) / Math.max(1, (steps['delay_tempo'] ?? 9) - 1));
+}
+
+function sendDelay(id: string, value: number): void {
+  if (id === 'delay.ms') {
+    sendDelayBoth('frequency', hostFromMs(value));
+  } else if (id === 'delay.unit') {
+    if (value === 1) sendDelayBoth('sync', hostOfIndex('delay_sync', SYNC_FREE));
+    else {
+      // Back to STEPS from MS: the step length lit, or 1/16.
+      const length = Math.max(0, get('delay.length'));
+      apply('delay.length', length);
+      sendStepLength(length);
+    }
+  } else if (id === 'delay.length') {
+    // Choosing a step length means counting steps.
+    apply('delay.unit', 0);
+    sendStepLength(value);
+  }
+}
+
+function applyDelay(): void {
+  const sync = indexOf('delay_sync');
+  const tempoHost = lastEntry.get('delay_tempo')?.[0];
+  const tempo = tempoHost === undefined ? -1 : TEMPO_MIN + Math.round(tempoHost * Math.max(1, (steps['delay_tempo'] ?? 9) - 1));
+  apply('delay.unit', sync === SYNC_FREE ? 1 : 0);
+  // A synced time that is neither step length (a preset's 1/4) lights none.
+  // In MS the step length is kept, for the way back to STEPS.
+  if (sync !== SYNC_FREE) apply('delay.length', STEP_LENGTHS.findIndex((at) => at.sync === sync && at.tempo === tempo));
+  const frequency = lastEntry.get('delay_frequency');
+  if (frequency) apply('delay.ms', msFromHost(frequency[0]));
+}
+
 /* ------------------------------------------------------------ the wobble */
 
 // One DEPTH knob, three destination toggles and an on/off on the page; three
@@ -305,8 +372,10 @@ function receiveValues(values: Record<string, Entry>): void {
   let wobble = false;
   let filter = false;
   let flags = false;
+  let delay = false;
   for (const [name, [host, text]] of Object.entries(values)) {
     lastEntry.set(name, [host, text]);
+    if (DELAY_NAMES.includes(name)) delay = true;
     if (FLAG_NAMES.includes(name)) flags = true;
     if (FILTER_NAMES.includes(name)) {
       filter = true;
@@ -328,6 +397,7 @@ function receiveValues(values: Record<string, Entry>): void {
   if (wobble) applyWobbleRoutes();
   if (filter) applyFilterModel(boundNames);
   if (flags) applyFlagChoices();
+  if (delay) applyDelay();
 }
 
 /**
@@ -373,6 +443,7 @@ function receiveFrame(frame: Frame): void {
 function markUnbound(bound: ReadonlySet<string>): void {
   const idle = (id: string): boolean =>
     !PAGE_ONLY.has(id) && !bound.has(id) && !WOBBLE_BOUND.has(id) && !FILTER_IDS.includes(id) && id !== 'vowel.vowel' &&
+    !DELAY_IDS.includes(id) &&
     !FLAG_CHOICES.some((c) => c.id === id);
   for (const node of document.querySelectorAll<HTMLElement>('[data-param]')) {
     const id = node.dataset.param ?? '';
@@ -437,7 +508,7 @@ export async function connect(): Promise<void> {
   });
 
   buildBindings();
-  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES])];
+  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
   if (result.preset !== undefined) lastPreset = engine.preset = result.preset;
@@ -470,6 +541,7 @@ export async function connect(): Promise<void> {
     else if (WOBBLE_BOUND.has(id) || id === 'wobble.on') sendWobbleRoutes();
     else if (id === 'vowel.vowel') sendVowel(CHOICES.find((c) => c.id === id)?.options[value] ?? '');
     else if (FLAG_CHOICES.some((c) => c.id === id)) sendFlagChoice(id, value);
+    else if (DELAY_IDS.includes(id)) sendDelay(id, value);
     const b = activeBinding(id);
     if (!b || !boundNames.has(b.name)) return;
     const host = b.toHost(value);

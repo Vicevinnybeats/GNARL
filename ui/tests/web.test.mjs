@@ -168,6 +168,8 @@ const lastRoute = page.locator('.m .route').last();
 for (let k = 0; k < 12 && (await lastRoute.locator('.route__dest').textContent()) !== 'OSC1 LEVEL'; k += 1) {
   await lastRoute.locator('.route__dest').tap();
 }
+// The engine echoes each change and the matrix redraws: let it settle.
+await page.waitForTimeout(400);
 const amountBox = await page.locator('.m .route').last().locator('.amount').boundingBox();
 await page.mouse.click(amountBox.x + amountBox.width * 0.25, amountBox.y + amountBox.height / 2);
 await page.waitForTimeout(300);
@@ -193,10 +195,41 @@ for (const [pageName, slots] of Object.entries(FX_ON)) {
     check(v?.[0] === 1, `${pageName}: the ${slot.toUpperCase()} switch turns ${slot}_on on in the engine (${JSON.stringify(v)})`);
   }
 }
-await page.locator('.m .fx--delay .chips--cycle[data-param="delay.time"] .chip[data-on="true"]').tap();
+// The delay line (docs/design/phase2-11-ddl.md): the LED counts steps of
+// the step length, or ms; both taps follow.
+const led = () => page.locator('.m .ddl__led').getAttribute('aria-label');
+const lengthShown = () => page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').textContent();
+check((await led()) === '1 steps' && (await lengthShown()) === '1/8',
+  `the init patch's delay reads as it is: ${await led()} of ${await lengthShown()}`);
+for (let k = 0; k < 2; k += 1) await page.locator('.m .ddl__step').first().tap();
 await page.waitForTimeout(200);
-let v = await engineValue('delay_tempo');
-check(/1\/16/.test(v?.[1] ?? ''), `DELAY's time button steps 1/8 -> 1/16 in the engine: ${JSON.stringify(v)}`);
+let v = await engineValue('delay_steps');
+check((await led()) === '3 steps' && v?.[1] === '3', `two taps on up: the LED says ${await led()}, the engine ${JSON.stringify(v)}`);
+await page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+let tempos = [await engineValue('delay_tempo'), await engineValue('delay_aux_tempo')];
+check(tempos.every((x) => x?.[1] === '1/16'), `STEP LENGTH 1/8 -> 1/16, both taps: ${JSON.stringify(tempos)}`);
+await page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+let syncs = [await engineValue('delay_sync'), await engineValue('delay_aux_sync')];
+tempos = [await engineValue('delay_tempo'), await engineValue('delay_aux_tempo')];
+check(syncs.every((x) => /trip/i.test(x?.[1] ?? '')) && tempos.every((x) => x?.[1] === '1/8'),
+  `-> 1/8T: ${JSON.stringify(syncs)} ${JSON.stringify(tempos)}`);
+await page.locator('.m .chips--cycle[data-param="delay.unit"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+syncs = [await engineValue('delay_sync'), await engineValue('delay_aux_sync')];
+check((await led()) === '250 milliseconds' && syncs.every((x) => x?.[0] === 0),
+  `UNIT -> MS: the LED says ${await led()}, free time on both taps ${JSON.stringify(syncs)}`);
+await page.locator('.m .ddl__step').first().tap();
+await page.waitForTimeout(200);
+const freqs = [await engineValue('delay_frequency'), await engineValue('delay_aux_frequency')];
+const msOf = (host) => 1000 / 2 ** (-2 + host * 11);
+check((await led()) === '251 milliseconds' && freqs.every((x) => Math.abs(msOf(x?.[0] ?? 0) - 251) < 0.01),
+  `up in MS: 251 ms, and the engine's frequencies are ${freqs.map((x) => msOf(x?.[0] ?? 0).toFixed(3)).join(', ')} ms`);
+await page.locator('.m .chips--cycle[data-param="delay.unit"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+syncs = [await engineValue('delay_sync')];
+check((await led()) === '3 steps' && /trip/i.test(syncs[0]?.[1] ?? ''), `back to STEPS: ${await led()} of 1/8T`);
 await page.locator('.m .fx--delay .chips--cycle[data-param="delay.style"] .chip[data-on="true"]').tap();
 await page.waitForTimeout(200);
 v = await engineValue('delay_style');

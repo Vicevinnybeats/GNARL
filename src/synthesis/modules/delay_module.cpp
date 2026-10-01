@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by GNARL: the delay's STEPS (delay_steps).
  */
 
 #include "delay_module.h"
@@ -33,9 +35,25 @@ namespace vital {
     delay_->useOutput(output());
 
     Output* free_frequency = createMonoModControl("delay_frequency");
-    Output* frequency = createTempoSyncSwitch("delay", free_frequency->owner, beats_per_second_, false);
+    Output* synced_frequency = createTempoSyncSwitch("delay", free_frequency->owner, beats_per_second_, false);
     Output* free_frequency_aux = createMonoModControl("delay_aux_frequency");
-    Output* frequency_aux = createTempoSyncSwitch("delay_aux", free_frequency_aux->owner, beats_per_second_, false);
+    Output* synced_frequency_aux = createTempoSyncSwitch("delay_aux", free_frequency_aux->owner,
+                                                         beats_per_second_, false);
+
+    // GNARL: STEPS lengthen both taps' synced times alike (delay_module.h).
+    Value* steps = createBaseControl("delay_steps");
+    DelayStepsScale* steps_scale = new DelayStepsScale();
+    steps_scale->plug(synced_frequency, DelayStepsScale::kFrequency);
+    steps_scale->plug(steps, DelayStepsScale::kSteps);
+    steps_scale->plug(data_->controls["delay_sync"], DelayStepsScale::kSync);
+    addMonoProcessor(steps_scale);
+    DelayStepsScale* steps_scale_aux = new DelayStepsScale();
+    steps_scale_aux->plug(synced_frequency_aux, DelayStepsScale::kFrequency);
+    steps_scale_aux->plug(steps, DelayStepsScale::kSteps);
+    steps_scale_aux->plug(data_->controls["delay_aux_sync"], DelayStepsScale::kSync);
+    addMonoProcessor(steps_scale_aux);
+    Output* frequency = steps_scale->output();
+    Output* frequency_aux = steps_scale_aux->output();
     Output* feedback = createMonoModControl("delay_feedback");
     Output* wet = createMonoModControl("delay_dry_wet");
 

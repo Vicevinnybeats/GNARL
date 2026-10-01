@@ -27,7 +27,7 @@ at the patch's value and is in Vital's editor (ADVANCED, plugin only).
 | FLANGER | DEPTH, FEEDBK (bipolar), MIX | rate 4/1, 1/1, 1/4, 1/8 |
 | PHASER | FEEDBK, CENTER, MIX | rate 8/1, 1/1, 1/4, 1/8 |
 | EQ | LOW, MID (gain), FREQ (mid), HIGH | |
-| DELAY | FEEDBK (bipolar), MIX | time 1/4, 1/8, 1/16; MONO, STEREO, PING |
+| DELAY LINE | LED (steps or ms), FEEDBK (bipolar), MIX | UNIT, STEP LENGTH; MONO, STEREO, PING (phase2-11-ddl.md) |
 | REVERB | SIZE, DECAY, MIX | |
 
 The numbers name a slot, not the signal order. The engine runs chorus, OTT,
@@ -79,7 +79,7 @@ until a gain moves, because every gain defaults to 0 dB.
 
 `ui/tests/web.test.mjs` checks, against the real engine in Chromium:
 - each new switch sets its `*_on`;
-- DELAY's buttons step 1/8 -> 1/16 and MONO -> STEREO (the engine's text);
+- DELAY's style button steps MONO -> STEREO (the engine's text);
 - DIST's mode button steps;
 - a matrix route to OSC1 LEVEL, pulled left of centre, arrives at -0.5.
 
@@ -93,7 +93,5 @@ back, the three new button checks fail.
 
 ## Not done
 
-- The DDL-1-style delay (steps and unit, as Reason's) is parked at the
-  producer's request; Vital's delay is what the SPACE page binds.
 - Effect order is not on the panel (Vital's editor has it).
 - LFO 1's rate and shape are not on the panel.

@@ -20,8 +20,39 @@
 #include "synth_module.h"
 
 #include "delay.h"
+#include "operators.h"
 
 namespace vital {
+
+  // GNARL: the delay's STEPS. Divides a tempo-synced delay frequency by the
+  // step count, so the delay time is that many note values; a free (Hz)
+  // frequency passes untouched. Block-rate, as the frequency it scales.
+  class DelayStepsScale : public Operator {
+    public:
+      enum {
+        kFrequency,
+        kSteps,
+        kSync,
+        kNumInputs
+      };
+
+      // 16 steps of 1/16 is a bar, the longest a step delay line counts.
+      static constexpr mono_float kMaxSteps = 16.0f;
+
+      DelayStepsScale() : Operator(kNumInputs, 1, true) { }
+
+      virtual Processor* clone() const override { return new DelayStepsScale(*this); }
+
+      void process(int num_samples) override {
+        poly_float frequency = input(kFrequency)->at(0);
+        poly_float steps = utils::clamp(utils::round(input(kSteps)->at(0)), 1.0f, kMaxSteps);
+        poly_mask free_mask = poly_float::equal(input(kSync)->at(0), TempoChooser::kFrequencyMode);
+        output()->buffer[0] = utils::maskLoad(frequency / steps, frequency, free_mask);
+      }
+
+    private:
+      JUCE_LEAK_DETECTOR(DelayStepsScale)
+  };
 
   class DelayModule : public SynthModule {
     public:
