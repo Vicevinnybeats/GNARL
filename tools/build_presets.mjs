@@ -56,7 +56,7 @@ export const PRESETS = [
   },
   {
     name: 'Alien Riddim',
-    about: 'A square and a randomised sine an octave down, through two comb filters, chorus, soft clip, flanger and phaser; LFO 1 at 1/4 with two humps.',
+    about: 'A square and a randomised sine an octave down, through two comb filters, chorus, soft clip, flanger and phaser; one wob per key: LFO 1 plays its two-hump shape once over a second.',
     waves: ['square', 'sine'],
     settings: {
       volume: 5650,
@@ -71,8 +71,13 @@ export const PRESETS = [
       filter_1_mix: 0.67, filter_1_blend: 1.5,
       filter_2_on: 1, filter_2_model: 6, filter_2_style: 0, filter_2_cutoff: 36, filter_2_resonance: 0.5,
       filter_2_mix: 0.61, filter_2_blend: 1.0,
-      env_1_attack: 0, env_1_hold: 0.5, env_1_sustain: 1, env_1_release: 0.25,
-      lfo_1_sync: 1, lfo_1_tempo: 8, lfo_1_sync_type: 0,
+      // ONE wob per key, about a second (the producer: "one single wob, not
+      // continuous, like a 1 second wob"). LFO 1 in Envelope mode (2) plays
+      // its shape once instead of looping, over 1 s (free time: 2^0 Hz); the
+      // amp envelope holds full level for 0.9 s (0.974^4, Vital's quartic
+      // time curve) and falls in about 40 ms, so a held key gives one wob.
+      env_1_attack: 0, env_1_hold: 0.974, env_1_decay: 0.45, env_1_sustain: 0, env_1_release: 0.25,
+      lfo_1_sync: 0, lfo_1_frequency: 0, lfo_1_sync_type: 2,
       polyphony: 8, pitch_bend_range: 12,
       // Effects, as the EFFECTS tab shows them.
       chorus_on: 1, chorus_voices: 4, chorus_sync: 1, chorus_tempo: 0, chorus_feedback: -0.1, chorus_dry_wet: 0.67,

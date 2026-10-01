@@ -37,6 +37,18 @@ flanger (4/1), phaser (frozen). **LFO 1's routes are a guess** - filter 1
 and 2 cutoffs, flanger and phaser centres - from the modulation rings in the
 screenshots; the MATRIX tab would settle it.
 
+## One wob per key (revised)
+
+The producer, after playing it: Alien Riddim "has to be one single wob and
+not continuously ... like a 1 second wob". LFO 1 now plays its shape ONCE
+(Envelope mode) over 1 s, and the amp envelope holds for 0.9 s and falls in
+about 40 ms. A 3 s held F3, every 100 ms: level -14.9 to -18.3 dB through
+0.8 s, -26 dB at 0.9 s, -72 dB at 1.0 s; brightness swinging 437-1222 Hz,
+darkest at 0.2 and 0.6 s (the two humps drawn in the patch's LFO). Peak
+-3.2 dBFS. Whether one wob should hold one hump or two is the producer's
+call; an exported example of one wob from their patch would settle it in
+numbers.
+
 ## Measured
 
 Rendered at F3 (the patches are transposed down, as in Vital: the sub

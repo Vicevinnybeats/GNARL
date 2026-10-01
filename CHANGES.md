@@ -421,3 +421,8 @@ the merge commit forward: `git log 7651809..`.
   `WebPanel` loads a full patch through `setStateInformation`.
 - `tools/vst3_probe.cpp`: `GNARL_PROBE_STATE` hands the plugin a patch first.
 - The downloads include a `Presets` folder (docs/design/phase2-12-presets.md).
+
+## 2026-10-01 - Alien Riddim: one wob per key
+
+- LFO 1 plays once (Envelope mode) over 1 s and the amp envelope holds 0.9 s,
+  so a key gives one wob of about a second instead of a continuous wobble.
