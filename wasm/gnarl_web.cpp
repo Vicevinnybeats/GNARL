@@ -17,7 +17,9 @@
 
 #include <emscripten/emscripten.h>
 
+#include "json/json.h"
 #include "line_generator.h"
+#include "load_save.h"
 #include "modulation_connection_processor.h"
 #include "sample_source.h"
 #include "sound_engine.h"
@@ -55,6 +57,8 @@ namespace {
   std::unique_ptr<WavetableCreator> wavetable_creators[vital::kNumOscillators];
   std::vector<Control> controls;
   std::vector<vital::ModulationConnection*> connections;
+  std::string preset_name = "Init";
+  std::string preset_json;
 
   float output[2 * vital::kMaxBufferSize];
   float scratch[kScratchFloats];
@@ -160,6 +164,14 @@ namespace {
     return -1;
   }
 
+  float amountOf(const std::string& name) {
+    for (Control& control : controls) {
+      if (control.name == name)
+        return control.value->value();
+    }
+    return 0.0f;
+  }
+
   vital::Value* amountControl(int index) {
     std::string name = "modulation_" + std::to_string(index + 1) + "_amount";
     for (Control& control : controls) {
@@ -167,6 +179,171 @@ namespace {
         return control.value;
     }
     return nullptr;
+  }
+
+  // SynthBase::clearModulations.
+  void clearModulations() {
+    for (vital::ModulationConnection* connection : connections) {
+      vital::modulation_change change = createChange(connection);
+      change.disconnecting = true;
+      engine->disconnectModulation(change);
+      connection->source_name = "";
+      connection->destination_name = "";
+    }
+    connections.clear();
+    vital::ModulationConnectionBank& bank = engine->getModulationBank();
+    for (int i = 0; i < static_cast<int>(bank.numConnections()); ++i)
+      bank.atIndex(i)->modulation_processor->lineMapGenerator()->initLinear();
+    engine->disableUnnecessaryModSources();
+  }
+
+  // A connection in a given slot: a preset's modulation N is slot N, because
+  // its amount is the host parameter modulation_N+1_amount.
+  bool connectAt(int index, const std::string& source, const std::string& destination) {
+    if (engine->getModulationSource(source) == nullptr || engine->getMonoModulationDestination(destination) == nullptr)
+      return false;
+    vital::ModulationConnection* connection = engine->getModulationBank().atIndex(index);
+    connection->source_name = source;
+    connection->destination_name = destination;
+    vital::modulation_change change = createChange(connection);
+    if (change.poly_destination && change.poly_destination->router() == change.modulation_processor) {
+      connection->source_name = "";
+      connection->destination_name = "";
+      return false;
+    }
+    engine->connectModulation(change);
+    connections.push_back(connection);
+    return true;
+  }
+
+  // LoadSave::stateToJson, without SynthBase.
+  json saveState(const std::string& name) {
+    json settings;
+    for (Control& control : controls)
+      settings[control.name] = control.value->value();
+    settings["sample"] = engine->getSample()->stateToJson();
+
+    json modulations;
+    vital::ModulationConnectionBank& bank = engine->getModulationBank();
+    for (int i = 0; i < vital::kMaxModulationConnections; ++i) {
+      vital::ModulationConnection* connection = bank.atIndex(i);
+      json modulation;
+      modulation["source"] = connection->source_name;
+      modulation["destination"] = connection->destination_name;
+      LineGenerator* mapping = connection->modulation_processor->lineMapGenerator();
+      if (!mapping->linear())
+        modulation["line_mapping"] = mapping->stateToJson();
+      modulations.push_back(modulation);
+    }
+    settings["modulations"] = modulations;
+
+    json wavetables;
+    for (int i = 0; i < vital::kNumOscillators; ++i)
+      wavetables.push_back(wavetable_creators[i]->stateToJson());
+    settings["wavetables"] = wavetables;
+
+    json lfos;
+    for (int i = 0; i < vital::kNumLfos; ++i)
+      lfos.push_back(engine->getLfoSource(i)->stateToJson());
+    settings["lfos"] = lfos;
+    settings["wobble_shape"] = engine->getWobbleSource()->stateToJson();
+
+    json data;
+    data["synth_version"] = ProjectInfo::versionString;
+    data["preset_name"] = name;
+    data["author"] = "";
+    data["comments"] = "Saved by GNARL's mobile version.";
+    data["preset_style"] = "";
+    for (int i = 0; i < vital::kNumMacros; ++i)
+      data["macro" + std::to_string(i + 1)] = "";
+    data["settings"] = settings;
+    return data;
+  }
+
+  // The version as a number per dot-separated part, for "older than us".
+  int compareVersions(const std::string& a, const std::string& b) {
+    return LoadSave::compareVersionStrings(a, b);
+  }
+
+  // LoadSave::jsonToState for a patch in the current format. 0 loaded; 1 not
+  // a patch; 2 from a newer GNARL; 3 from an older version, whose migration
+  // (LoadSave::updateFromOldVersion) only the plugin has.
+  int loadState(json& data) {
+    if (!data.is_object() || !data.count("settings") || !data["settings"].is_object() ||
+        !data.count("synth_version") || !data["synth_version"].is_string())
+      return 1;
+    std::string version = data["synth_version"];
+    int compared = compareVersions(version, ProjectInfo::versionString);
+    if (compared > 0)
+      return 2;
+    json& settings = data["settings"];
+    if (compared < 0 || settings.count("sub_octave"))
+      return 3;
+
+    engine->allSoundsOff();
+    for (Control& control : controls) {
+      if (settings.count(control.name) && settings[control.name].is_number())
+        control.value->set(settings[control.name].get<float>());
+      else
+        control.value->set(control.details.default_value);
+    }
+    engine->setModWheelAllChannels(amountOf("mod_wheel"));
+
+    clearModulations();
+    if (settings.count("modulations") && settings["modulations"].is_array()) {
+      int index = 0;
+      for (json& modulation : settings["modulations"]) {
+        if (index >= vital::kMaxModulationConnections)
+          break;
+        int slot = index++;
+        if (!modulation.is_object() || !modulation["source"].is_string() || !modulation["destination"].is_string())
+          continue;
+        std::string source = modulation["source"];
+        std::string destination = modulation["destination"];
+        LineGenerator* mapping = engine->getModulationBank().atIndex(slot)->modulation_processor->lineMapGenerator();
+        if (!source.empty() && !destination.empty())
+          connectAt(slot, source, destination);
+        if (modulation.count("line_mapping"))
+          mapping->jsonToState(modulation["line_mapping"]);
+        else
+          mapping->initLinear();
+      }
+    }
+
+    if (settings.count("sample") && settings["sample"].is_object())
+      engine->getSample()->jsonToState(settings["sample"]);
+    if (settings.count("wavetables") && settings["wavetables"].is_array()) {
+      int i = 0;
+      for (json& wavetable : settings["wavetables"]) {
+        if (i >= vital::kNumOscillators)
+          break;
+        wavetable_creators[i]->jsonToState(wavetable);
+        wavetable_creators[i]->render();
+        i++;
+      }
+    }
+    if (settings.count("lfos") && settings["lfos"].is_array()) {
+      int i = 0;
+      for (json& lfo : settings["lfos"]) {
+        if (i >= vital::kNumLfos)
+          break;
+        engine->getLfoSource(i)->jsonToState(lfo);
+        engine->getLfoSource(i)->render();
+        i++;
+      }
+    }
+    LineGenerator* wobble = engine->getWobbleSource();
+    if (settings.count("wobble_shape") && settings["wobble_shape"].is_object())
+      wobble->jsonToState(settings["wobble_shape"]);
+    else
+      wobble->initTriangle();
+    wobble->render();
+    engine->checkOversampling();
+
+    preset_name = data.count("preset_name") && data["preset_name"].is_string() ? data["preset_name"].get<std::string>() : "";
+    if (preset_name.empty())
+      preset_name = "Untitled";
+    return 0;
   }
 
   // SynthBase::updateMemoryOutput, without the audio memory nothing reads.
@@ -250,6 +427,22 @@ extern "C" {
     engine->setSampleRate(sample_rate);
     engine->updateAllModulationSwitches();
     return static_cast<int>(controls.size());
+  }
+
+  // SynthBase::initEngine on the running engine: the init patch.
+  EMSCRIPTEN_KEEPALIVE void gnarl_reset() {
+    engine->allSoundsOff();
+    clearModulations();
+    for (int i = 0; i < vital::kNumOscillators; ++i)
+      wavetable_creators[i]->init();
+    engine->getSample()->init();
+    for (int i = 0; i < vital::kNumLfos; ++i)
+      engine->getLfoSource(i)->initTriangle();
+    engine->getWobbleSource()->initTriangle();
+    for (Control& control : controls)
+      control.value->set(control.details.default_value);
+    engine->checkOversampling();
+    preset_name = "Init";
   }
 
   // A 256-byte buffer the page writes a name into before the calls that take one.
@@ -453,5 +646,47 @@ extern "C" {
     memcpy(name_buffer + source_size + 1, connection->destination_name.c_str(), destination_size + 1);
     vital::Value* amount_value = amountControl(connectionIndex(connection));
     return amount_value ? amount_value->value() : 0.0f;
+  }
+
+  // The patch as a .vital file's JSON (LoadSave::stateToJson's format), named
+  // from the name buffer. The text stays valid until the next call. Builds a
+  // few hundred kB of JSON: a pause the page asks for, between blocks.
+  EMSCRIPTEN_KEEPALIVE const char* gnarl_save() {
+    try {
+      preset_name = name_buffer[0] ? name_buffer : "Untitled";
+      preset_json = saveState(preset_name).dump();
+    }
+    catch (const std::exception&) {
+      preset_json.clear();
+    }
+    return preset_json.c_str();
+  }
+
+  // A buffer of `size` bytes for the page to write a patch into.
+  EMSCRIPTEN_KEEPALIVE char* gnarl_load_buffer(int size) {
+    preset_json.assign(static_cast<size_t>(std::max(0, size)) + 1, '\0');
+    return &preset_json[0];
+  }
+
+  // Loads the patch in the load buffer: 0 loaded; 1 not a patch; 2 from a
+  // newer GNARL; 3 needs the plugin's migration. A file that breaks the
+  // parser or the wavetable reader is caught here (this file and the
+  // wavetable code are built with exceptions; the engine is not), and the
+  // engine goes back to the init patch rather than half of one.
+  EMSCRIPTEN_KEEPALIVE int gnarl_load() {
+    try {
+      json data = json::parse(preset_json.c_str(), nullptr, false);
+      if (data.is_discarded())
+        return 1;
+      return loadState(data);
+    }
+    catch (const std::exception&) {
+      gnarl_reset();
+      return 1;
+    }
+  }
+
+  EMSCRIPTEN_KEEPALIVE const char* gnarl_preset_name() {
+    return preset_name.c_str();
   }
 }

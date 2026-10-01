@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the preset-saving licence gate, the wobble source.
  */
 
 #pragma once
@@ -93,6 +95,11 @@ class SynthBase : public MidiManager::Listener {
     void renderAudioForResynthesis(float* data, int samples, int note);
     bool saveToFile(File preset);
     bool saveToActiveFile();
+    // GNARL: the licence gate on preset FILES (docs/design/phase7-01-
+    // licence.md). Never on audio and never on the host's session state,
+    // which does not go through saveToFile. Everything but the licensed
+    // plugin build answers yes.
+    virtual bool presetSavingAllowed() { return true; }
     void clearActiveFile() { active_file_ = File(); }
     File getActiveFile() { return active_file_; }
 

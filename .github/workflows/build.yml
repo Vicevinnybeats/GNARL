@@ -114,7 +114,10 @@ jobs:
         run: |
           sudo apt-get install -y -qq ninja-build
           cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3
+          cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3 gnarl_licence_tests
+          # The licence policy and client (Phase 7): grace, timeouts, the
+          # three-answer contract. No network, no plugin.
+          build-cmake/gnarl_licence_tests_artefacts/Release/gnarl_licence_tests
           python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
             build-cmake/gnarl_render_artefacts/Release/gnarl-render
           python3 tests/test_wobble.py build-cmake/gnarl_render_artefacts/Release/gnarl-render

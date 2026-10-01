@@ -135,6 +135,16 @@ export async function startWebEngine(): Promise<void> {
           case 'gnarlRoute':
             port.postMessage({ type: 'route', source: p.source, destination: p.destination, amount: p.amount, remove: p.remove });
             break;
+          // Presets, the web build's own (web/presets.ts).
+          case 'gnarlPresetSave':
+            port.postMessage({ type: 'save', name: p.name });
+            break;
+          case 'gnarlPresetLoad':
+            port.postMessage({ type: 'load', json: p.json });
+            break;
+          case 'gnarlPresetInit':
+            port.postMessage({ type: 'init', name: p.name });
+            break;
           default:
             // gnarlGesture: no host to record automation. gnarlClassic: no
             // classic editor in the browser.

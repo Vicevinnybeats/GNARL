@@ -20,8 +20,21 @@ doc's last line). Now the same page carries the engine:
 - **Everything on the panel works.** Keys, pitch and mod wheels, oscillators
   with FM and FOLD, sub, vowel filter, wobble (rate, depth, smooth, phase,
   shape, drawing), envelopes, the drive chain, OTT and the mod matrix.
-  ADVANCED is hidden, because there is no classic editor in a browser. The
-  preset arrows stay disabled, because there is no preset loader yet.
+  ADVANCED is hidden, because there is no classic editor in a browser.
+- **Presets.** Tap the patch name for the preset sheet:
+  - **SAVE** under a name;
+  - the saved list (tap to load, x to delete);
+  - **OPEN FILE** reads a `.vital`;
+  - **EXPORT** hands this patch back as one;
+  - **INIT** returns to the starting patch.
+
+  The arrows step through the saved patches.
+  - The format is the plugin's own (`gnarl_save` / `gnarl_load`), so a
+    phone patch opens in the plugin and the other way round.
+  - Saved patches stay in this browser (IndexedDB; a patch is about 180 kB,
+    mostly wavetables), or for the visit where a browser keeps no storage.
+  - A patch from an older version is refused, with the reason: the plugin
+    opens it and, saved there once, it opens here.
 - **No server.** One HTML file, about 1.5 MB, which fetches nothing. It can
   be hosted anywhere that serves HTML over https. It was published as a
   private Artifact for the producer to try.
@@ -65,15 +78,18 @@ Emscripten.
 
 | What | Browser vs desktop |
 |---|---|
-| init patch | −109.1 dB |
-| unison 7, FORMANT warp, mono sub, wobble 1/8T on cutoff | −128 to −135 dB |
-| osc FOLD, TUBE, formant filter, reverb | −104 to −122 dB |
-| FM knob, CRUSH, OTT | −81 to −82 dB |
+| init patch | −138.5 dB |
+| unison 7, FORMANT warp, mono sub, wobble 1/8T on cutoff | −131 to −140 dB |
+| osc FOLD, TUBE, formant filter, reverb, FM knob, CRUSH | −99 to −129 dB |
+| OTT | −82 dB |
+| a desktop-saved patch with its own wavetable (spectral sine → square morph), a drawn LFO on its position and a drawn wobble, loaded by the browser | gain +0.012 dB; swept frames −41.5 dB once the gain is matched (the maths library, wasm/README.md) |
+| the same with time-domain morphing | −131.4 dB |
+| that patch saved by the browser, rendered by the desktop | bit-identical to the original |
 | osc 2 an octave up | −59 dB over 2 s, growing from −71 to −56 dB through the note: a pitch drift from float rounding, well under a hundredth of a cent |
 | pitch wheel at +1 | 65.406 → 73.416 Hz, 2.0000 semitones (bend range 2) |
 | mod wheel → cutoff | at 0, bit-identical to no route; at 1, the 5th harmonic falls from −15 to −46 dBc |
 | blocks 32 vs 128 (heavy patch, no chorus or CRUSH) | browser −44.2 dB, desktop −44.4 dB |
-| speed, heavy patch (7+5 unison voices, every effect) | 4.1× real time (one core of the CI machine) |
+| speed, heavy patch (7+5 unison voices, every effect) | 4.4× real time (one core of the CI machine) |
 | speed, the page's default patch | 5.0× real time for one note, 2.7× for three |
 
 `ui/tests/web.test.mjs` opens the page in Chromium at phone size, taps to
@@ -102,6 +118,15 @@ The negative control: with the engine's pitch-wheel line removed,
   page; a phone opens it from a URL.
 - **An AudioWorklet has no `TextEncoder` or `TextDecoder`.** `engine-core.js`
   encodes UTF-8 itself.
+- **Upstream's kissfft fallback is wrong, and the FFT's rounding is audible
+  in wavetables.** The first browser build used it (the only path without
+  JUCE); a custom wavetable came out 0.3 dB louder than the desktop's. The
+  browser build now carries a copy of JUCE's fallback FFT, the one Windows
+  and Linux run (wasm/README.md). A consequence for the desktop too: the
+  Projucer Linux builds ask JUCE to load FFTW if a machine has `libfftw3f`
+  (`JUCE_DSP_USE_SHARED_FFTW=1` in their Makefiles), and on such a machine
+  their wavetables can differ the same way. The CMake / JUCE 8 builds do not
+  ask, so they always run the fallback.
 
 ## Not done
 
@@ -112,8 +137,11 @@ The negative control: with the engine's pitch-wheel line removed,
 - **CPU on a phone is unmeasured.** The numbers above are a server core. If
   it crackles, the first lever is oversampling (2× by default, as Vital's
   init).
-- **Presets.** There is no loader in the browser (wasm/README.md), so the
-  arrows are disabled and nothing is saved between visits.
+- **Older patches** need the plugin's migration (`updateFromOldVersion`)
+  and are refused. Porting it is the next step if producers' existing Vital
+  patches should open on the phone directly.
+- **Saving pauses audio for a moment** on a slow phone: the worklet builds
+  the patch's JSON between blocks. Measured nowhere yet.
 - **Hosting.** Before the page is public it needs its GPLv3 notice and a
   link to the source on the page (LICENSING.md). The site's `/app` tombstone
   is the natural home. Vercel builds the site without Emscripten, so that

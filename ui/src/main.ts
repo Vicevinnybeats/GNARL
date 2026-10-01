@@ -12,8 +12,9 @@
 
 import './fonts.css';
 import './styles.css';
-import { connect, isPlugin, sendRoute, showClassic } from './bridge';
+import { connect, isPlugin, sendLicenceKey, sendRoute, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
+import { deletePreset, exportPatch, initPatch, listPresets, loadPatch, loadProblem, savePatch } from './web/presets';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -48,28 +49,151 @@ let presetIndex = 0;
 const presetViews = new Set<() => void>();
 
 function presetPicker(): HTMLElement {
-  const name = el('span', 'preset__name');
-  // In the plugin the name is the engine's loaded preset; there is no preset
-  // browser behind the arrows yet, so they are off rather than lying.
+  const name = el('button', 'preset__name');
+  name.type = 'button';
+  // In the plugin the name is the engine's loaded preset, and Vital's own
+  // browser (ADVANCED) has the presets, so the arrows are off rather than
+  // lying. In the web build the arrows step through the patches saved in
+  // this browser and the name opens the preset sheet (web/presets.ts).
+  const web = hasWebEngine();
+  const sheet = web ? presetSheet() : null;
   const show = (): void => {
     name.textContent = engine.connected ? (engine.preset ?? '') : (PRESET_NAMES[presetIndex] ?? '');
-    prev.disabled = next.disabled = engine.connected;
+    prev.disabled = next.disabled = engine.connected && !web;
+    name.disabled = !(web && engine.connected);
   };
   const step = (by: number): void => {
+    if (web && engine.connected) {
+      void stepSaved(by);
+      return;
+    }
     presetIndex = (presetIndex + by + PRESET_NAMES.length) % PRESET_NAMES.length;
     for (const v of presetViews) v();
   };
-  const prev = el('button', 'preset__step', '‹');
-  const next = el('button', 'preset__step', '›');
+  const prev = el('button', 'preset__step', '\u2039');
+  const next = el('button', 'preset__step', '\u203a');
   prev.type = next.type = 'button';
   prev.setAttribute('aria-label', 'Previous preset');
   next.setAttribute('aria-label', 'Next preset');
   prev.addEventListener('click', () => step(-1));
   next.addEventListener('click', () => step(1));
+  name.addEventListener('click', () => sheet?.toggle());
   presetViews.add(show);
   engineViews.add(show);
   show();
-  return el('div', 'preset', prev, name, next);
+  return el('div', 'preset', prev, name, next, ...(sheet ? [sheet.root] : []));
+}
+
+/** Load the saved patch `by` places from the current one, by name order. */
+async function stepSaved(by: number): Promise<void> {
+  const saved = await listPresets();
+  if (saved.length === 0) {
+    toast('No saved patches yet. Tap the name to save this one.');
+    return;
+  }
+  const at = saved.findIndex((p) => p.name === engine.preset);
+  const target = saved[(at + by + saved.length * 2) % saved.length] ?? saved[0];
+  if (target) await openPatch(target.json);
+}
+
+async function openPatch(json: string): Promise<void> {
+  const { result } = await loadPatch(json);
+  if (result !== 0) toast(loadProblem(result));
+}
+
+/*
+ * The web build's preset sheet: save under a name, the saved list (tap to
+ * load, x to delete), OPEN a .vital file, EXPORT this patch as one, INIT.
+ */
+function presetSheet(): { root: HTMLElement; toggle(): void } {
+  const nameInput = el('input', 'presets__input');
+  nameInput.type = 'text';
+  nameInput.id = 'preset-name';
+  nameInput.placeholder = 'Patch name';
+  nameInput.maxLength = 60;
+  nameInput.autocomplete = 'off';
+  nameInput.spellcheck = false;
+  const save = chipButton('SAVE');
+  save.type = 'submit';
+  const form = el('form', 'presets__form', nameInput, save);
+  const list = el('ul', 'presets__list');
+  const file = el('input', 'presets__file');
+  file.type = 'file';
+  file.accept = '.vital,application/json';
+  file.hidden = true;
+  const open = chipButton('OPEN FILE');
+  const exportButton = chipButton('EXPORT');
+  const init = chipButton('INIT');
+  const actions = el('div', 'presets__actions', open, exportButton, init, file);
+  const root = el('div', 'presets', form, list, actions);
+  root.hidden = true;
+
+  // Typing a name must not play notes (the computer keyboard plays C2..C3).
+  for (const type of ['keydown', 'keyup'] as const) nameInput.addEventListener(type, (e) => e.stopPropagation());
+
+  const render = async (): Promise<void> => {
+    const saved = await listPresets();
+    list.replaceChildren(
+      ...(saved.length === 0
+        ? [el('li', 'presets__empty', 'Saved patches appear here.')]
+        : saved.map((p) => {
+            const load = el('button', 'presets__load', p.name);
+            load.type = 'button';
+            load.dataset.on = p.name === engine.preset ? 'true' : 'false';
+            load.addEventListener('click', () => void openPatch(p.json));
+            const remove = el('button', 'presets__delete', '\u00d7');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', `Delete ${p.name}`);
+            remove.addEventListener('click', () => void deletePreset(p.name).then(render));
+            return el('li', 'presets__item', load, remove);
+          })),
+    );
+  };
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const patchName = nameInput.value.trim() || engine.preset || 'Untitled';
+    savePatch(patchName)
+      .then(({ stored }) => {
+        toast(stored ? `Saved ${patchName}.` : `Saved ${patchName} for this visit (this browser keeps no storage).`);
+        return render();
+      })
+      .catch((error: unknown) => toast(String(error)));
+  });
+  open.addEventListener('click', () => file.click());
+  file.addEventListener('change', () => {
+    const chosen = file.files?.[0];
+    file.value = '';
+    if (chosen) void chosen.text().then(openPatch);
+  });
+  exportButton.addEventListener('click', () => {
+    const patchName = engine.preset || 'GNARL';
+    savePatch(patchName)
+      .then(({ json }) => exportPatch(patchName, json))
+      .then(render)
+      .catch((error: unknown) => toast(String(error)));
+  });
+  init.addEventListener('click', () => {
+    initPatch();
+    // As at start: the page's defaults are the patch (webStart).
+    resetAll();
+  });
+
+  engineViews.add(() => {
+    if (!root.hidden) void render();
+    if (document.activeElement !== nameInput) nameInput.value = engine.preset ?? '';
+  });
+
+  return {
+    root,
+    toggle(): void {
+      root.hidden = !root.hidden;
+      if (!root.hidden) {
+        nameInput.value = engine.preset ?? '';
+        void render();
+      }
+    },
+  };
 }
 
 function aiButton(label: string): HTMLButtonElement {
@@ -121,6 +245,57 @@ function wheels(): HTMLElement {
   return el('div', 'wheels', wheel('pitch', { spring: true }), wheel('modwheel', { accent: 'violet' }));
 }
 
+/*
+ * The licence chip (Phase 7, docs/design/phase7-01-licence.md). Shown only
+ * when the plugin has something to say - offline, expired, not yet entered,
+ * a development build - and never because of anything about audio, which
+ * no licence state can stop. Tapping it shows the sentence and, where a key
+ * would help, a field for one. The key goes to the machine's settings, never
+ * into a preset.
+ */
+function licenceChip(): HTMLElement {
+  const button = el('button', 'licence__chip', 'LICENCE');
+  button.type = 'button';
+  const message = el('p', 'licence__message');
+  const input = el('input', 'licence__input');
+  input.type = 'text';
+  input.id = 'licence-key';
+  input.placeholder = 'GNARL-XXXX-XXXX-XXXX';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  const save = chipButton('CHECK KEY');
+  save.type = 'submit';
+  const form = el('form', 'licence__form', input, save);
+  const pop = el('div', 'licence__pop', message, form);
+  pop.hidden = true;
+  const root = el('div', 'licence', button, pop);
+  root.hidden = true;
+
+  button.addEventListener('click', () => (pop.hidden = !pop.hidden));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    sendLicenceKey(input.value);
+    input.value = '';
+    message.textContent = 'Checking...';
+  });
+  // Typing a key must not play notes (the computer keyboard plays C2..C3).
+  input.addEventListener('keydown', (e) => e.stopPropagation());
+  input.addEventListener('keyup', (e) => e.stopPropagation());
+
+  engineViews.add(() => {
+    const licence = engine.licence;
+    root.hidden = !licence || licence.message === '';
+    if (!licence) return;
+    root.dataset.status = licence.status;
+    button.textContent = licence.saving ? 'LICENCE' : 'NOT SAVING';
+    message.textContent = licence.message;
+    // No key to enter in a development build: nothing would check it.
+    form.hidden = licence.status === 'unenforced';
+    if (licence.status === 'licensed') pop.hidden = true;
+  });
+  return root;
+}
+
 function header(): HTMLElement {
   return el(
     'header',
@@ -129,6 +304,7 @@ function header(): HTMLElement {
     presetPicker(),
     aiButton('AI PRESET'),
     advancedButton(),
+    licenceChip(),
     el('div', 'top__spacer'),
     wheels(),
     scope(250, 34),
@@ -546,7 +722,7 @@ function phone(): HTMLElement {
     el(
       'div',
       'm__side',
-      el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), masterKnob()),
+      el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), licenceChip(), masterKnob()),
       el('div', 'm__preset', presetPicker(), aiButton('AI')),
       scope(320, 64),
       el('div', 'play', wheels(), keyboard()),

@@ -293,3 +293,39 @@ the merge commit forward: `git log 7651809..`.
   the page is uploaded as `GNARL-mobile-web`. `tools/web_render.mjs` renders
   with the browser build.
 - See docs/design/phase2-09-mobile.md and wasm/README.md.
+
+## 2026-10-01 - Phase 7: the licence check in the fork
+
+- `src/plugin/licence/`: the retired engine's licence policy and client,
+  ported (CMake / JUCE 8 build only, `GNARL_LICENSING`). Enforcement is off
+  until `-DGNARL_LICENCE_ENDPOINT` is given; every build today reports
+  "Development build" and saves normally.
+- The one gate: `SynthBase::presetSavingAllowed()`, asked by `saveToFile`.
+  Audio and the host's project state are never gated.
+- Changed from the archive: the timeout is enforced on the message thread (a
+  hung verifier used to go unreported); the last successful check is saved
+  with the key so the grace period survives a restart; Linux settings live
+  in `~/.config/GNARL`.
+- The panel: a licence chip with the banner's sentence and a key field
+  (`gnarlLicence` / `gnarlLicenceKey`).
+- `tests/licence_tests.cpp` (`gnarl_licence_tests`, 43 checks, in CI); the
+  bridge test covers the chip.
+- See docs/design/phase7-01-licence.md.
+
+## 2026-10-01 - Mobile version: presets; the browser build's FFT
+
+- The browser engine saves and loads patches in the plugin's format
+  (`gnarl_save` / `gnarl_load` in `wasm/gnarl_web.cpp`); the phone page has a
+  preset sheet (save, saved list, open a `.vital`, export, init) and its
+  arrows step through saved patches (IndexedDB). Older-version patches are
+  refused with the reason. The host and JSON code are built with WebAssembly
+  exceptions, so a malformed file cannot trap the audio worklet.
+- The browser build now carries JUCE's fallback FFT (`wasm/shim/
+  juce_dsp_fft.h`), the one Windows and Linux run, instead of upstream's
+  kissfft fallback, which is wrong and never ran anywhere. Wavetables now
+  come out as on the desktop; every browser-vs-desktop figure improved (init
+  -109 -> -138 dB).
+- `tests/test_web.py`: presets both ways against the desktop renderer, and
+  refusals; `ui/tests/web.test.mjs`: the preset sheet end to end.
+- Panel: a new preset name with no curve no longer resets the wobble shape
+  (a save under a new name).

@@ -34,12 +34,17 @@ flags=(-std=c++17 -O2 -ffast-math -msimd128 -msse2 -DNO_AUTH=1 -DHEADLESS=1
        "-DGNARL_VERSION=\"$version\"" "${includes[@]}")
 
 mkdir -p wasm/build
+# The engine without exceptions, as on the desktop. The host and the
+# wavetable / JSON code with WebAssembly exceptions (Safari 15.2+, Chrome
+# 95+): a preset file the page loads goes through nlohmann::json and the
+# wavetable reader, which throw on bad input, and gnarl_load catches that
+# instead of trapping the audio worklet.
 em++ "${flags[@]}" -c src/unity_build/synthesis.cpp -o wasm/build/synthesis.o &
-em++ "${flags[@]}" -c wasm/common_web.cpp -o wasm/build/common.o &
-em++ "${flags[@]}" -c wasm/gnarl_web.cpp -o wasm/build/gnarl_web.o &
+em++ "${flags[@]}" -fwasm-exceptions -c wasm/common_web.cpp -o wasm/build/common.o &
+em++ "${flags[@]}" -fwasm-exceptions -c wasm/gnarl_web.cpp -o wasm/build/gnarl_web.o &
 wait
 
-em++ -O2 -msimd128 -flto=none wasm/build/synthesis.o wasm/build/common.o wasm/build/gnarl_web.o \
+em++ -O2 -msimd128 -fwasm-exceptions wasm/build/synthesis.o wasm/build/common.o wasm/build/gnarl_web.o \
   -o wasm/build/gnarl.wasm \
   -sSTANDALONE_WASM=1 --no-entry -sFILESYSTEM=0 \
   -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=64MB -sSTACK_SIZE=1MB

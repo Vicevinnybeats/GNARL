@@ -12,6 +12,9 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: denormal flush and exact block splits in the
+ * renderer, the wobble source, the preset-saving licence gate.
  */
 
 #include "synth_base.h"
@@ -577,6 +580,9 @@ void SynthBase::renderAudioForResynthesis(float* data, int samples, int note) {
 }
 
 bool SynthBase::saveToFile(File preset) {
+  if (!presetSavingAllowed())
+    return false;
+
   preset = preset.withFileExtension(String(vital::kPresetExtension));
 
   File parent = preset.getParentDirectory();

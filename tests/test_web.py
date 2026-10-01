@@ -31,6 +31,16 @@ libraries draw different phases from the same seed. The checks:
    changes nothing.
 6. Speed: a heavy patch (two unison oscillators, every effect) renders
    faster than real time with room to spare (printed; asserted > 1.5x).
+7. Presets (the mobile version's save and load): a patch with its own
+   wavetable (two keyframes, sine to square), a drawn LFO routed to the
+   wavetable position and a drawn wobble, saved by the desktop, loads in the
+   browser: within 0.05 dB of gain and -35 dB after matching it with
+   spectral morphing, which rounds through the maths library (see the
+   check); -100 dB with time-domain morphing. Saved again by the browser, it loads
+   in the desktop renderer and sounds as the original (-100 dB). A file that
+   is not a patch, one from a newer GNARL and one from an older version are
+   refused with their own answers, and the engine still plays the init patch
+   bit for bit afterwards.
 """
 
 import json, os, subprocess, sys, tempfile
@@ -75,10 +85,11 @@ def native(path, note='C2', seconds=2, block=128):
     return wavio.read(out)[0]
 
 
-def web(path, note='C2', seconds=2, block=128):
+def web(path, note='C2', seconds=2, block=128, by_name=False):
     out = f'{path}.web{block}.wav'
     run = subprocess.run(['node', WEB, path, '-o', out, '-l', str(seconds), '-m', note, '-b', '140',
-                          '--block', str(block)], check=True, capture_output=True, text=True)
+                          '--block', str(block)] + (['--by-name'] if by_name else []),
+                         check=True, capture_output=True, text=True)
     return wavio.read(out)[0], run.stdout.strip()
 
 
@@ -172,8 +183,10 @@ def main():
           f'{native_smooth:.1f} dB (with them: {web_all:.1f} / {native_all:.1f})')
 
     # 5. The wheels.
-    plain = web(patch(base, 'wheel0'), 'C2')[0]
-    bent = web(patch(base, 'wheel1', pitch_wheel=1.0), 'C2')[0]
+    # Set as the panel sets it (by name), not loaded: Vital's loader restores
+    # the mod wheel from a preset but not the pitch wheel, and so does ours.
+    plain = web(patch(base, 'wheel0'), 'C2', by_name=True)[0]
+    bent = web(patch(base, 'wheel1', pitch_wheel=1.0), 'C2', by_name=True)[0]
     f_plain, f_bent = f0(plain, 50, 80), f0(bent, 55, 90)
     semis = 12 * np.log2(f_bent / f_plain)
     check(abs(semis - 2.0) < 0.01, f'pitch wheel up: {f_plain:.3f} -> {f_bent:.3f} Hz, {semis:.4f} semitones (range 2)')
@@ -201,6 +214,89 @@ def main():
     check(same and h1 < h0 - 20 and level(mod1) > -45,
           f'mod wheel -> cutoff: at 0 the route is bit-identical to none ({same}); at 1 the 5th harmonic falls '
           f'{h0:.1f} -> {h1:.1f} dBc at {level(mod1):.1f} dBFS (darker, still sounding)')
+
+    # 7. Presets.
+    import base64
+    rich = json.loads(json.dumps(base))
+    rs = rich['settings']
+    n = np.arange(2048)
+    sine = np.sin(2 * np.pi * n / 2048).astype('<f4')
+    square = np.where(n < 1024, 0.9, -0.9).astype('<f4')
+    keyframes = [{'position': 0, 'wave_data': base64.b64encode(sine.tobytes()).decode()},
+                 {'position': 256, 'wave_data': base64.b64encode(square.tobytes()).decode()}]
+    rs['wavetables'][0]['groups'][0]['components'][0]['keyframes'] = keyframes
+    rs['wavetables'][0]['name'] = 'Sine to square'
+    rs['lfos'][0] = {'name': 'Steps', 'num_points': 5, 'points': [0, 1, 0.25, 0.2, 0.5, 0.8, 0.75, 0, 1, 1],
+                     'powers': [0, 0, 0, 0, 0], 'smooth': False}
+    rs['modulations'][0] = {'source': 'lfo_1', 'destination': 'osc_1_wave_frame'}
+    rs['modulation_1_amount'] = 0.7
+    rs['wobble_shape'] = {'name': 'Drawn', 'num_points': 5, 'points': [0, 0, 0.25, 1, 0.5, 0.3, 0.75, 0.9, 1, 0],
+                          'powers': [0, 0, 0, 0, 0], 'smooth': False}
+    rs['wobble_amount_cutoff'] = 0.5
+    rs['filter_1_on'] = 1.0
+    rich_path = os.path.join(TMP, 'rich.vital')
+    json.dump(rich, open(rich_path, 'w'))
+    # Through the desktop's own loader and saver first, so the file is one the
+    # plugin wrote, not one this test wrote.
+    desktop_saved = os.path.join(TMP, 'rich_desktop.vital')
+    subprocess.run([RENDER, '--headless', '--save', desktop_saved, '-o', os.path.join(TMP, 'y.wav'), '-l', '0.1',
+                    rich_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    a_native = native(desktop_saved, 'C2')
+    b_web = web(desktop_saved, 'C2')[0]
+    plain_init = native(patch(base, 'init_again'), 'C2')
+    # The keyframes morph SPECTRALLY (Vital's default), and a sine keyframe's
+    # silent bins have phases that are FFT rounding noise: the browser's
+    # maths library (musl) rounds atan2/sin/cos differently from glibc, the
+    # loudest morphed frame lands a hair differently, and the whole table's
+    # normalisation with it - one uniform gain. Swept by the LFO through the
+    # morphed frames, a few frames also differ in shape by the same cause:
+    # -41 dB once the gain is matched (docs/design/phase2-09-mobile.md). A
+    # static keyframe position differs by the gain alone.
+    n = min(len(a_native), len(b_web))
+    gain = float(np.sum(a_native[:n] * b_web[:n]) / np.sum(b_web[:n] ** 2))
+    d_shape = rel_db(a_native, gain * b_web)
+    d_rich = rel_db(plain_init, a_native)
+    check(abs(20 * np.log10(gain)) < 0.05 and d_shape < -35 and d_rich > -20,
+          f'a desktop-saved patch with its own wavetable, LFO, route and wobble loads in the browser: gain '
+          f'{20 * np.log10(gain):+.3f} dB, then {d_shape:.1f} dB (and it is not the init sound: {d_rich:.1f} dB from it)')
+    timed = json.load(open(desktop_saved))
+    timed['settings']['wavetables'][0]['groups'][0]['components'][0]['interpolation_style'] = 0
+    timed_path = os.path.join(TMP, 'rich_time.vital')
+    json.dump(timed, open(timed_path, 'w'))
+    d_time = rel_db(native(timed_path, 'C2'), web(timed_path, 'C2')[0])
+    check(d_time < -100, f'the same patch morphing in the time domain: browser vs desktop {d_time:.1f} dB, no gain to match')
+
+    web_saved = os.path.join(TMP, 'rich_web.vital')
+    subprocess.run(['node', WEB, desktop_saved, '-o', os.path.join(TMP, 'z.wav'), '-l', '0.1', '--save', web_saved],
+                   check=True, capture_output=True)
+    saved = json.load(open(web_saved))
+    c_native = native(web_saved, 'C2')
+    d_back = rel_db(a_native, c_native)
+    check(d_back < -100 and saved['synth_version'] == base['synth_version'] and 'wobble_shape' in saved['settings'],
+          f'saved by the browser, it loads in the desktop renderer and sounds as the original: {d_back:.1f} dB '
+          f'(version {saved["synth_version"]})')
+
+    probe = """
+const fs = require('fs');
+const create = new Function(fs.readFileSync(process.argv[1], 'utf8') + '; return createGnarlEngine;')();
+const e = create(fs.readFileSync(process.argv[2]), 44100);
+const answers = [e.load('not json {'), e.load('{"a":1}'), e.load(JSON.stringify({synth_version: '9.0.0', settings: {}})),
+  e.load(JSON.stringify({synth_version: '0.9.0', settings: {}}))];
+e.reset();
+let sum = 0;
+e.note(36, true);
+for (let i = 0; i < 200; i += 1) for (const v of e.process(128)) sum += v * v;
+console.log(JSON.stringify({ answers, sum, name: e.presetName() }));
+"""
+    after = subprocess.run(['node', '-e', probe, os.path.join(ROOT, 'ui/src/web/engine-core.js'),
+                            os.path.join(ROOT, 'wasm/build/gnarl.wasm')], capture_output=True, text=True, check=True)
+    fresh = subprocess.run(['node', '-e', probe.replace("const answers = [", "const answers = []; [", 1),
+                            os.path.join(ROOT, 'ui/src/web/engine-core.js'), os.path.join(ROOT, 'wasm/build/gnarl.wasm')],
+                           capture_output=True, text=True, check=True)
+    got, clean = json.loads(after.stdout), json.loads(fresh.stdout)
+    check(got['answers'] == [1, 1, 2, 3] and got['sum'] == clean['sum'] and got['sum'] > 0,
+          f'refused: garbage, not a patch, newer, older -> {got["answers"]}; afterwards the init patch plays '
+          f'bit-identically to a fresh engine ({got["sum"] == clean["sum"]})')
 
     # 6. Speed.
     _, speed = web(heavy, 'F1', seconds=4)

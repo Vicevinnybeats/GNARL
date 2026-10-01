@@ -146,6 +146,51 @@ target_link_libraries(gnarl_render PRIVATE
   juce::juce_dsp
   juce::juce_events)
 
+# ----------------------------------------------------------------- licence
+#
+# Phase 7 (docs/design/phase7-01-licence.md, backend/). In this build only;
+# the Projucer builds compile none of it. Enforcement is OFF until an endpoint
+# is given, and turning it on is exactly this one setting:
+#
+#   cmake -B build -DGNARL_LICENCE_ENDPOINT=https://gnarl-licence.<sub>.workers.dev/activate
+#
+# GNARL_PERSONAL_BUILD: somebody's own instrument - no check, no banner.
+
+set(GNARL_LICENCE_ENDPOINT "" CACHE STRING "The licence Worker's /activate URL; empty = not enforced")
+option(GNARL_PERSONAL_BUILD "A build with no licensing by design" OFF)
+set(GNARL_LICENCE_SOURCES
+  src/plugin/licence/licence_client.cpp
+  src/plugin/licence/licence_manager.cpp
+  src/plugin/licence/licence_state.cpp)
+set(GNARL_LICENCE_DEFINES
+  GNARL_LICENSING=1
+  "GNARL_LICENCE_ENDPOINT=\"${GNARL_LICENCE_ENDPOINT}\""
+  GNARL_PERSONAL_BUILD=$<BOOL:${GNARL_PERSONAL_BUILD}>)
+if(GNARL_LICENCE_ENDPOINT AND NOT GNARL_PERSONAL_BUILD)
+  set(GNARL_USE_CURL 1)
+else()
+  set(GNARL_USE_CURL 0)
+endif()
+
+# The policy and the client, tested without a plugin or a network
+# (tests/licence_tests.cpp): the verifier and the clock are injected.
+juce_add_console_app(gnarl_licence_tests
+  PRODUCT_NAME "gnarl-licence-tests"
+  VERSION 1.0.6
+  COMPANY_NAME "Gnarl Audio")
+juce_generate_juce_header(gnarl_licence_tests)
+target_sources(gnarl_licence_tests PRIVATE tests/licence_tests.cpp ${GNARL_LICENCE_SOURCES})
+target_include_directories(gnarl_licence_tests PRIVATE src/plugin)
+target_compile_definitions(gnarl_licence_tests PRIVATE
+  JUCE_USE_CURL=0
+  JUCE_WEB_BROWSER=0
+  JUCE_STANDALONE_APPLICATION=1)
+target_link_libraries(gnarl_licence_tests PRIVATE
+  juce::juce_core
+  juce::juce_cryptography
+  juce::juce_data_structures
+  juce::juce_events)
+
 # -------------------------------------------------------------------- plugin
 #
 # STAGE 2: the VST3 with the existing (Vital-derived) editor. Every identity
@@ -184,6 +229,7 @@ juce_add_plugin(gnarl_plugin
   # statically, so no loader DLL ships beside the plugin), WebKit on macOS.
   NEEDS_WEB_BROWSER TRUE
   NEEDS_WEBVIEW2 ${WIN32}
+  NEEDS_CURL ${GNARL_USE_CURL}
   FORMATS ${GNARL_PLUGIN_FORMATS})
 
 juce_generate_juce_header(gnarl_plugin)
@@ -241,7 +287,8 @@ else()
 endif()
 set(GNARL_UI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 set(GNARL_UI_HTML ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-ui.html)
-file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css)
+file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css
+     ${GNARL_UI_DIR}/src/web/*.ts ${GNARL_UI_DIR}/src/web/*.js)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp
@@ -267,6 +314,7 @@ juce_add_binary_data(gnarl_ui_data
 
 target_sources(gnarl_plugin PRIVATE
   src/plugin/web_panel.cpp
+  ${GNARL_LICENCE_SOURCES}
   src/unity_build/common.cpp
   src/unity_build/interface_editor_components.cpp
   src/unity_build/interface_editor_sections.cpp
@@ -283,7 +331,10 @@ target_compile_definitions(gnarl_plugin PUBLIC
   JucePlugin_PreferredChannelConfigurations=0,2
   JUCE_OPENGL3=1
   JUCE_USE_XRANDR=0
-  JUCE_USE_CURL=0
+  # Networking on Linux is libcurl: needed only to reach a licence endpoint.
+  # macOS and Windows use the system's own.
+  JUCE_USE_CURL=${GNARL_USE_CURL}
+  ${GNARL_LICENCE_DEFINES}
   # The web panel (src/plugin/web_panel.cpp). GNARL_WEB_UI keeps it out of the
   # Projucer / JUCE 6 builds, which have no web view bridge.
   GNARL_WEB_UI=1
@@ -305,6 +356,7 @@ target_link_libraries(gnarl_plugin
     juce::juce_audio_processors
     juce::juce_audio_utils
     juce::juce_core
+    juce::juce_cryptography
     juce::juce_data_structures
     juce::juce_dsp
     juce::juce_events

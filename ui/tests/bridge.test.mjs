@@ -78,7 +78,8 @@ function fakeJuce(init) {
           log.push([id, payload]);
           if (id === '__juce__invoke' && payload.name === 'gnarlConnect') {
             const names = payload.params[0];
-            const result = { version: '1.0.6', values: {}, steps: {}, routes: routes.map((r) => ({ ...r })) };
+            const result = { version: '1.0.6', values: {}, steps: {}, routes: routes.map((r) => ({ ...r })),
+              licence: { status: 'expired', message: 'Audio still works. Connect to the internet to restore preset saving.', saving: false, hasKey: true } };
             for (const n of names) {
               result.values[n] = entry(n);
               if (init.steps[n]) result.steps[n] = init.steps[n];
@@ -87,6 +88,10 @@ function fakeJuce(init) {
           } else if (id === 'gnarlSet') {
             values[payload.name] = payload.value;
             emitToPage('gnarlValues', { [payload.name]: entry(payload.name) });
+          } else if (id === 'gnarlLicenceKey') {
+            // As web_panel.cpp: the key is stored and checked; the answer
+            // arrives as a new banner state.
+            emitToPage('gnarlLicence', { status: 'licensed', message: '', saving: true, hasKey: true });
           } else if (id === 'gnarlRoute') {
             const i = routes.findIndex((r) => r.source === payload.source && r.destination === payload.destination);
             if (payload.remove) {
@@ -237,6 +242,30 @@ check(wheelLog[0] === 'begin' && wheelLog.at(-1) === 'end' && wheelLog.at(-2) ==
 const modHeld = await dragWheel('modwheel', -40);
 e = await engine();
 check(modHeld > 0.1 && near(e.mod_wheel, modHeld), `MOD: stays where it is let go (${e.mod_wheel})`);
+
+// The licence chip (Phase 7): shown for an expired licence, saying saving is
+// off; a key typed into it goes to the plugin; a licensed answer hides it.
+const chipState = () => page.evaluate(() => {
+  const root = document.querySelector('.app .licence');
+  return { shown: !root.hidden, text: root.querySelector('.licence__chip').textContent,
+    status: root.dataset.status, message: root.querySelector('.licence__message').textContent };
+});
+let licenceChip = await chipState();
+check(licenceChip.shown && licenceChip.text === 'NOT SAVING' && licenceChip.status === 'expired' && licenceChip.message.startsWith('Audio still works'),
+  `an expired licence shows the chip: ${JSON.stringify(licenceChip)}`);
+check(!(await page.locator('.app .licence__pop').isVisible()), 'the licence popover stays closed until the chip is tapped');
+await page.click('.app .licence__chip');
+check(await page.locator('.app .licence__pop').isVisible(), 'and opens when it is');
+await page.fill('.app #licence-key', 'GNARL-TEST-0001');
+const notesBefore = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlNote').length);
+await page.click('.app .licence__form button[type="submit"]');
+await settle();
+const keySent = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlLicenceKey').map(([, p]) => p.key));
+const notesAfter = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlNote').length);
+check(JSON.stringify(keySent) === '["GNARL-TEST-0001"]', `the typed key is sent to the plugin: ${JSON.stringify(keySent)}`);
+check(notesAfter === notesBefore, `typing a key plays no notes (${notesAfter - notesBefore})`);
+licenceChip = await chipState();
+check(!licenceChip.shown, 'once the plugin answers licensed, the chip is gone');
 
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);

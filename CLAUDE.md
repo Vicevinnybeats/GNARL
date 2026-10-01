@@ -103,7 +103,8 @@ python3 tests/test_sub.py --plugin /tmp/probe "$PWD/plugin/builds/linux_vst/buil
 # The CMake + JUCE 8 renderer and VST3 (docs/design/phase2-03-juce8.md),
 # and the gates they must pass: identical to the JUCE 6 builds
 cmake -B build-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3
+cmake --build build-cmake --target gnarl_render gnarl_plugin_VST3 gnarl_licence_tests
+build-cmake/gnarl_licence_tests_artefacts/Release/gnarl_licence_tests   # Phase 7's policy
 python3 tools/compare_renders.py headless/builds/linux/build/gnarl-render \
   build-cmake/gnarl_render_artefacts/Release/gnarl-render
 python3 tools/compare_plugins.py /tmp/probe \
@@ -403,7 +404,10 @@ GPLv3; customers receive the source and may redistribute it; the site and
 backend are separate programs and are not GPL; presets shipped as separate
 files can carry their own licence.
 
-GNARL's own licence check (Phase 7, `backend/`):
+GNARL's own licence check (Phase 7: `backend/`, and the client in
+`src/plugin/licence/`, docs/design/phase7-01-licence.md). It is in the
+CMake / JUCE 8 build only, and off until `-DGNARL_LICENCE_ENDPOINT` is set.
+The one thing it gates is `SynthBase::presetSavingAllowed()`:
 
 - **It never silences the plugin.** If verification fails, audio keeps
   playing; saving and paid features disable and a banner appears.
@@ -424,6 +428,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 | 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); FM knob, osc FOLD, TUBE, CRUSH SOFT, wobble SMOOTH/PHASE and the panel's mod matrix **done and tested**, nothing on the panel dimmed (`docs/design/phase2-08-panel-controls.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test; **mobile version built and tested**: the real engine in WebAssembly in the phone page (`docs/design/phase2-09-mobile.md`), not yet played on a phone |
 | 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); no reference measured yet - the producer's step |
 | 4 | AI preset generation | **not to be started** |
+| 7 | Licence activation | backend done (`backend/`, not deployed); **client ported into the fork and tested** (`src/plugin/licence/`, `tests/licence_tests.cpp`, docs/design/phase7-01-licence.md); off until an endpoint is configured |
 
 Phase 2 candidates, with what already exists in upstream:
 

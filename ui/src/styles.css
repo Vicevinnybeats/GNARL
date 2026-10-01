@@ -154,8 +154,19 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
+.preset {
+  position: relative;
+}
 .preset__name {
   flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  font-family: var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
   font-size: 12px;
   font-weight: 500;
@@ -175,6 +186,8 @@ body {
 }
 
 .ai {
+  flex: none;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1022,4 +1035,186 @@ body[data-mode='phone'] .toast {
   font-size: 11px;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* ---------------------------------------------------------------- licence */
+
+/* The licence chip and its popover (main.ts licenceChip). Amber for a state
+   that needs a hand (expired, invalid, unlicensed), dim for one that is only
+   news (offline, development build). Never red: nothing has stopped. */
+.licence {
+  position: relative;
+  --licence: #e8b24a;
+}
+.licence[data-status='offline'],
+.licence[data-status='unenforced'] {
+  --licence: var(--text-dim);
+}
+.licence__pop[hidden] {
+  display: none;
+}
+.licence__chip {
+  white-space: nowrap;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--licence);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--licence);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+.licence__chip:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+.licence__pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 280px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: rgba(14, 8, 34, 0.97);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.licence__message {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.licence__form {
+  display: flex;
+  gap: 6px;
+}
+.licence__form[hidden] {
+  display: none;
+}
+.licence__input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+  background: var(--chip);
+  color: var(--text);
+  font: 11px var(--mono);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.licence__input:focus {
+  outline: 1px solid var(--cyan);
+}
+
+.preset__name:not(:disabled) {
+  cursor: pointer;
+}
+.preset__name:not(:disabled):hover {
+  color: var(--cyan);
+}
+
+/* ---------------------------------------------------------------- presets */
+
+/* The web build's preset sheet (main.ts presetSheet), under the preset bar. */
+.presets {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 260px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: rgba(14, 8, 34, 0.97);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.presets__form,
+.presets__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.presets__input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--chip-border);
+  border-radius: var(--radius-sm);
+  background: var(--chip);
+  color: var(--text);
+  font: 12px var(--mono);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.presets__input:focus {
+  outline: 1px solid var(--cyan);
+}
+.presets__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.presets__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.presets__load {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: 12px var(--mono);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.presets__load:hover,
+.presets__load[data-on='true'] {
+  background: var(--chip);
+  color: var(--cyan);
+}
+.presets__delete {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: 16px var(--mono);
+  cursor: pointer;
+}
+.presets__delete:hover {
+  color: var(--text);
+}
+.presets__empty {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.presets__file[hidden] {
+  display: none;
 }

@@ -56,6 +56,9 @@ class WebPanel : public Component, private Timer {
     void setWobbleShape(const var& event);
     void route(const var& event);
     var routes() const;
+    // The licence banner's state (Phase 7), and a key the page typed in.
+    var licence() const;
+    void setLicenceKey(const var& event);
 
     void timerCallback() override;
     var valueEntry(ValueBridge* bridge, float value) const;
@@ -67,6 +70,7 @@ class WebPanel : public Component, private Timer {
     std::vector<int> held_notes_;
     String last_preset_name_;
     String last_routes_;
+    String last_licence_;
     bool curve_changed_ = true;
     bool connected_ = false;
 

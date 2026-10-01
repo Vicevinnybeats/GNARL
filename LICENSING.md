@@ -26,6 +26,7 @@ Third-party code carries its own licence, each compatible with GPLv3 as used:
 | `third_party/JUCE` | dual GPLv3 / commercial — **used here under GPLv3** |
 | `third_party/VST_SDK` | dual GPLv3 / Steinberg proprietary — **used here under GPLv3** (`LICENSE.txt` line 10) |
 | `third_party/kissfft` | BSD (see `COPYING`) |
+| `wasm/shim/juce_dsp_fft.h` | adapted from JUCE 6.0.5's fallback FFT (`juce_FFT.cpp`), **used here under GPLv3** like the rest of JUCE; it keeps JUCE's copyright line |
 | `third_party/concurrentqueue` | BSD / Boost (see `LICENSE.md`) |
 | `third_party/json` | see file header |
 | `fonts/` | `fonts/LICENSE` is Apache 2.0. Lato and Montserrat are normally distributed under the SIL Open Font License, so **confirm each font's licence before a release** rather than trusting the single file. |

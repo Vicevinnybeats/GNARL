@@ -29,11 +29,15 @@
 //                                               connection (amount -1..1), or
 //                                               remove it with remove: true
 //                  gnarlClassic {}              show Vital's editor
+//                  gnarlLicenceKey {key}        store a licence key and check it
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
 //                                               whenever it changes
 //                  gnarlFrame {scope, wobblePhase, preset, curve?}
+//                  gnarlLicence {status, message, saving, hasKey}  the licence
+//                                               banner, whenever it changes
+//                                               (licensed builds only)
 //
 // ui/src/bridge.ts is the other half.
 
@@ -45,6 +49,8 @@ namespace {
   const Identifier kClassic("gnarlClassic");
   const Identifier kRoute("gnarlRoute");
   const Identifier kRoutes("gnarlRoutes");
+  const Identifier kLicence("gnarlLicence");
+  const Identifier kLicenceKey("gnarlLicenceKey");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -93,6 +99,7 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kNote, [this](const var& event) { note(event); })
       .withEventListener(kWobbleShape, [this](const var& event) { setWobbleShape(event); })
       .withEventListener(kRoute, [this](const var& event) { route(event); })
+      .withEventListener(kLicenceKey, [this](const var& event) { setLicenceKey(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -150,6 +157,10 @@ var WebPanel::connect(const Array<var>& args) {
   result->setProperty("values", var(values.get()));
   result->setProperty("steps", var(steps.get()));
   result->setProperty("routes", routes());
+  var licence_state = licence();
+  if (licence_state.isObject())
+    result->setProperty("licence", licence_state);
+  last_licence_ = JSON::toString(licence_state, true);
   last_routes_ = JSON::toString(routes(), true);
   return var(result.get());
 }
@@ -283,6 +294,29 @@ void WebPanel::route(const var& event) {
   synth_.valueChangedInternal("modulation_" + std::to_string(index + 1) + "_amount", amount);
 }
 
+// The banner's state, or void in a build without licensing.
+var WebPanel::licence() const {
+#if GNARL_LICENSING
+  gnarl::licence::State state = synth_.getLicenceState();
+  DynamicObject::Ptr result = new DynamicObject();
+  result->setProperty("status", gnarl::licence::statusName(state.status));
+  result->setProperty("message", state.message);
+  result->setProperty("saving", state.featuresAllowed());
+  result->setProperty("hasKey", synth_.hasLicenceKey());
+  return var(result.get());
+#else
+  return {};
+#endif
+}
+
+void WebPanel::setLicenceKey(const var& event) {
+#if GNARL_LICENSING
+  synth_.setLicenceKey(event["key"].toString());
+#else
+  ignoreUnused(event);
+#endif
+}
+
 Array<var> WebPanel::wobbleCurve() {
   Array<var> curve;
   LineGenerator* line = synth_.getWobbleSource();
@@ -355,6 +389,14 @@ void WebPanel::timerCallback() {
   // an amount. A handful of connections, compared as text.
   var current_routes = routes();
   String routes_text = JSON::toString(current_routes, true);
+  // The licence banner, when it changed: a check came back, a key was typed.
+  var licence_state = licence();
+  String licence_text = JSON::toString(licence_state, true);
+  if (licence_state.isObject() && licence_text != last_licence_) {
+    last_licence_ = licence_text;
+    browser_->emitEventIfBrowserIsVisible(kLicence, licence_state);
+  }
+
   if (routes_text != last_routes_) {
     last_routes_ = routes_text;
     browser_->emitEventIfBrowserIsVisible(kRoutes, current_routes);

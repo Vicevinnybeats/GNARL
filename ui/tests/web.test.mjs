@@ -44,7 +44,7 @@ const browser = await chromium.launch({
   ...(process.env.GNARL_CHROMIUM ? { executablePath: process.env.GNARL_CHROMIUM } : {}),
   args: ['--autoplay-policy=no-user-gesture-required'],
 });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, acceptDownloads: true });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 if (process.env.DEBUG) page.on('console', (m) => console.log('  page:', m.text().slice(0, 400)));
@@ -137,6 +137,47 @@ await page.evaluate(() =>
 await page.waitForTimeout(300);
 s = await seen();
 check(!(s.routes ?? []).some((r) => r.source === 'lfo_1'), 'and removes it');
+
+// Presets (web/presets.ts): save under a name, change something, load it
+// back; an old-version file is refused with its reason; EXPORT hands back a
+// .vital file; the arrows step through what is saved.
+const toastText = () => page.evaluate(() => document.querySelector('.toast')?.textContent ?? '');
+const volumeNow = () => page.evaluate(() => window.__seen.values.volume?.[0]);
+await page.locator('.m .preset__name').tap();
+await page.fill('.m #preset-name', 'Test Wub');
+await page.locator('.m .presets__form button[type="submit"]').tap();
+await page.waitForFunction(() => document.querySelector('.m .presets__load')?.textContent === 'Test Wub', null, { timeout: 5000 });
+check((await toastText()).startsWith('Saved Test Wub'), `saved: "${await toastText()}"`);
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlSet', { name: 'volume', value: 0.2 }));
+await page.waitForTimeout(300);
+const changed = await volumeNow();
+await page.locator('.m .presets__load', { hasText: 'Test Wub' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Test Wub', null, { timeout: 5000 });
+await page.waitForTimeout(300);
+const restored = await volumeNow();
+check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1,
+  `loading "Test Wub" restores MASTER: ${changed.toFixed(3)} -> ${restored.toFixed(3)}, and the bar shows its name`);
+
+await page.locator('.m .presets__file').setInputFiles({
+  name: 'old.vital', mimeType: 'application/json',
+  buffer: Buffer.from(JSON.stringify({ synth_version: '0.9.0', settings: {} })),
+});
+await page.waitForTimeout(500);
+check((await toastText()).includes('older version'), `an old-version file is refused, saying why: "${await toastText()}"`);
+
+const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.m .presets__actions button', { hasText: 'EXPORT' }).tap()]);
+const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
+check(download.suggestedFilename() === 'Test Wub.vital' && exported.preset_name === 'Test Wub' && exported.settings.wavetables.length === 3,
+  `EXPORT hands back ${download.suggestedFilename()} (${exported.synth_version}, ${Object.keys(exported.settings).length} settings)`);
+
+await page.fill('.m #preset-name', 'Another');
+await page.locator('.m .presets__form button[type="submit"]').tap();
+await page.waitForFunction(() => document.querySelectorAll('.m .presets__load').length === 2, null, { timeout: 5000 });
+await page.locator('.m .preset__step').last().tap();
+await page.waitForTimeout(500);
+const stepped = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
+check(stepped === 'Test Wub', `the arrow steps from "Another" to the next saved patch: "${stepped}"`);
+await page.locator('.m .preset__name').tap();
 
 // Idle, the page sends the engine nothing (the echo rule, CLAUDE.md §5).
 const sent = await page.evaluate(() => {

@@ -12,7 +12,7 @@
 
 import { drawnListeners, drawnSteps } from './draw';
 import { engine, engineViews } from './engine';
-import type { EngineRoute } from './engine';
+import type { EngineLicence, EngineRoute } from './engine';
 import { CHOICES, PARAMS, POWER, WOBBLE_DESTINATIONS } from './params';
 import { apply, get, onGesture, refresh, subscribe } from './store';
 import { setNoteSink } from './voice';
@@ -38,6 +38,8 @@ interface ConnectResult {
   routes?: EngineRoute[];
   /** The web build names its preset here (web/worklet.js); the plugin, in frames. */
   preset?: string;
+  /** Licensed plugin builds only (web_panel.cpp). */
+  licence?: EngineLicence;
 }
 interface Frame {
   scope?: number[];
@@ -356,8 +358,10 @@ function receiveFrame(frame: Frame): void {
   if (frame.preset !== undefined && frame.preset !== lastPreset) {
     lastPreset = frame.preset;
     engine.preset = frame.preset;
-    // A preset brings its own wobble shape, which may be none of the three.
-    apply('wobble.shape', -1);
+    // A preset brings its own wobble shape, which may be none of the three -
+    // and its curve comes with it. (A name alone is a save under a new name:
+    // the shape has not changed. The plugin always sends both together.)
+    if (frame.curve) apply('wobble.shape', -1);
     for (const v of engineViews) v();
   }
 }
@@ -406,6 +410,16 @@ function receiveRoutes(routes: EngineRoute[]): void {
   for (const v of engineViews) v();
 }
 
+function receiveLicence(licence: EngineLicence): void {
+  engine.licence = licence;
+  for (const v of engineViews) v();
+}
+
+/** Store a licence key in the machine's settings and check it (Phase 7). */
+export function sendLicenceKey(key: string): void {
+  send('gnarlLicenceKey', { key });
+}
+
 /** Show Vital's full editor in place of this panel. */
 export function showClassic(): void {
   send('gnarlClassic', {});
@@ -445,6 +459,8 @@ export async function connect(): Promise<void> {
   backend.addEventListener('gnarlValues', (payload) => receiveValues(payload as Record<string, Entry>));
   backend.addEventListener('gnarlFrame', (payload) => receiveFrame(payload as Frame));
   backend.addEventListener('gnarlRoutes', (payload) => receiveRoutes(payload as EngineRoute[]));
+  backend.addEventListener('gnarlLicence', (payload) => receiveLicence(payload as EngineLicence));
+  if (result.licence) receiveLicence(result.licence);
   receiveRoutes(result.routes ?? []);
 
   subscribe((id, value, fromEngine) => {

@@ -22,6 +22,8 @@ class GnarlProcessor extends AudioWorkletProcessor {
     this.samplesToFrame = 0;
     this.curveChanged = true;
     this.lastRoutes = '';
+    this.presetName = 'Init';
+    this.presetChanged = false;
     this.port.onmessage = (event) => this.receive(event.data);
     try {
       this.engine = createGnarlEngine(options.processorOptions.wasm, sampleRate);
@@ -92,9 +94,38 @@ class GnarlProcessor extends AudioWorkletProcessor {
       case 'route':
         engine.route(message.source, message.destination, message.amount ?? 0, message.remove);
         break;
+      // Presets (web/presets.ts). Saving builds a few hundred kB of JSON and
+      // loading renders wavetables: a pause between blocks, at a tap, which
+      // is where Vital's own editor does the same work.
+      case 'save':
+        // Saved under a name, the patch is that patch now (as in Vital). Its
+        // shape has not changed, so no curve goes with the name.
+        this.presetName = message.name;
+        this.presetChanged = true;
+        this.port.postMessage({ type: 'event', id: 'gnarlPresetSaved',
+          payload: { name: message.name, json: engine.save(message.name) } });
+        break;
+      case 'load': {
+        const result = engine.load(message.json);
+        if (result === 0) this.announcePreset(engine.presetName());
+        this.port.postMessage({ type: 'event', id: 'gnarlPresetLoaded', payload: { result, name: engine.presetName() } });
+        break;
+      }
+      case 'init':
+        engine.reset();
+        this.announcePreset(message.name ?? 'Init');
+        break;
       default:
         break;
     }
+  }
+
+  // A new patch: its name, and its wobble shape, go out with the next frame.
+  // (The bridge reads a new preset name as a new wobble shape.)
+  announcePreset(name) {
+    this.presetName = name;
+    this.presetChanged = true;
+    this.curveChanged = true;
   }
 
   // WebPanel::timerCallback: changed values, the scope and wobble, the
@@ -116,6 +147,10 @@ class GnarlProcessor extends AudioWorkletProcessor {
     if (this.curveChanged) {
       frame.curve = engine.wobbleCurve();
       this.curveChanged = false;
+    }
+    if (this.presetChanged) {
+      frame.preset = this.presetName;
+      this.presetChanged = false;
     }
     this.port.postMessage({ type: 'event', id: 'gnarlFrame', payload: frame });
 

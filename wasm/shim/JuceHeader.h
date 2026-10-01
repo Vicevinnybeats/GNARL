@@ -102,3 +102,8 @@ struct Base64 {
 struct FloatVectorOperations {
   static void disableDenormalisedNumberSupport() { }
 };
+
+// The FFT the desktop runs on Windows and Linux, so fourier_transform.h takes
+// its JUCE branch rather than the untested kissfft one (juce_dsp_fft.h).
+#define JUCE_MODULE_AVAILABLE_juce_dsp 1
+#include "juce_dsp_fft.h"

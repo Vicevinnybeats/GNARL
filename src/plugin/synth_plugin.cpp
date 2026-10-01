@@ -12,12 +12,18 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: the licence check (Phase 7, CMake build only).
  */
 
 #include "synth_plugin.h"
 #include "synth_editor.h"
 #include "sound_engine.h"
 #include "load_save.h"
+
+#if GNARL_LICENSING
+#include "licence/licence_client.h"
+#endif
 
 SynthPlugin::SynthPlugin() {
   last_seconds_time_ = 0.0;
@@ -35,7 +41,70 @@ SynthPlugin::SynthPlugin() {
   }
 
   bypass_parameter_ = bridge_lookup_["bypass"];
+
+#if GNARL_LICENSING
+  startLicensing();
+#endif
 }
+
+#if GNARL_LICENSING
+// NOTHING HERE TOUCHES AUDIO: the manager decides one thing, whether preset
+// files may be saved, and only the message thread asks.
+void SynthPlugin::startLicensing() {
+  using namespace gnarl::licence;
+  licence_ = std::make_unique<LicenceManager>();
+
+#if GNARL_PERSONAL_BUILD
+  // Somebody's own instrument, built from source: nothing to check.
+  licence_->setPersonal();
+#else
+  String endpoint = GNARL_LICENCE_ENDPOINT;
+  if (endpoint.isEmpty()) {
+    // No endpoint configured: this build cannot check, and says so.
+    licence_->setUnenforced();
+    return;
+  }
+
+  licence_key_ = loadKey();
+  Time last_verified;
+  bool ever_verified = false;
+  loadVerification(last_verified, ever_verified);
+  licence_->restore(last_verified, ever_verified);
+  // A success is kept with the machine's settings, so going offline later
+  // starts the grace period from the right day.
+  licence_->setListener([this](const State& state) {
+    if (state.status == kLicensed)
+      saveVerification(licence_->getLastVerified(), true);
+  });
+  licence_->setVerifier(httpVerifier(endpoint, licence_key_));
+  licence_->verify();
+#endif
+}
+
+void SynthPlugin::setLicenceKey(const String& key) {
+  using namespace gnarl::licence;
+  licence_key_ = key.trim();
+  saveKey(licence_key_);
+  String endpoint = GNARL_LICENCE_ENDPOINT;
+  if (endpoint.isEmpty() || licence_->getState().status == kPersonal)
+    return;
+  licence_->setVerifier(httpVerifier(endpoint, licence_key_));
+  licence_->verify();
+}
+
+bool SynthPlugin::presetSavingAllowed() {
+  licence_->refreshGrace();
+  gnarl::licence::State state = licence_->getState();
+  if (state.featuresAllowed())
+    return true;
+
+  // Said where the save was asked for, not silently dropped: the classic
+  // editor's save dialog has no other way to learn why nothing happened.
+  if (MessageManager::existsAndIsCurrentThread())
+    AlertWindow::showMessageBoxAsync(MessageBoxIconType::InfoIcon, "Preset not saved", state.message);
+  return false;
+}
+#endif
 
 SynthPlugin::~SynthPlugin() {
   midi_manager_ = nullptr;

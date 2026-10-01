@@ -2,9 +2,9 @@
 // Plain JavaScript, no imports: the AudioWorklet (worklet.js) and the Node
 // tests (tests/test_web.mjs) both load this file as it is.
 //
-// The module is standalone WebAssembly: its only imports are four WASI calls
-// libc keeps for stdio and the clock, none of which the engine uses while it
-// plays, and a memory-growth notice. They are stubbed here. The clock reads
+// The module is standalone WebAssembly: its only imports are a few WASI calls
+// libc keeps for stdio, the clock and the environment, none of which the
+// engine uses while it plays, and a memory-growth notice. They are stubbed here. The clock reads
 // zero, so nothing seeded from it can make two runs differ.
 
 /* exported createGnarlEngine */
@@ -18,6 +18,14 @@ function createGnarlEngine(wasmBytes, sampleRate) {
         new BigUint64Array(memory.buffer, out, 1)[0] = 0n;
         return 0;
       },
+      // An empty environment (the exception runtime asks for one).
+      environ_sizes_get: (count, size) => {
+        const view = new DataView(memory.buffer);
+        view.setUint32(count, 0, true);
+        view.setUint32(size, 0, true);
+        return 0;
+      },
+      environ_get: () => 0,
       fd_close: () => ENOSYS,
       fd_seek: () => ENOSYS,
       // Count the bytes as written, so a stray printf cannot loop forever.
@@ -125,6 +133,22 @@ function createGnarlEngine(wasmBytes, sampleRate) {
       writeNames(source, destination);
       return x.gnarl_route(amount, remove ? 1 : 0);
     },
+    /** The patch as .vital JSON text, saved under `name`. */
+    save(name) {
+      writeNames(name.slice(0, 120));
+      return readString(x.gnarl_save());
+    },
+    /** Load .vital JSON text: 0 loaded, 1 not a patch, 2 newer GNARL, 3 needs
+     * the plugin's migration (an older version). */
+    load(text) {
+      const encoded = encode(text);
+      const pointer = x.gnarl_load_buffer(encoded.length);
+      bytes().set(encoded, pointer);
+      return x.gnarl_load();
+    },
+    /** The init patch. */
+    reset: () => x.gnarl_reset(),
+    presetName: () => readString(x.gnarl_preset_name()),
     routes() {
       const list = [];
       const count = x.gnarl_route_count();

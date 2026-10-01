@@ -13,7 +13,8 @@
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Modified by Gnarl Audio, 2026: getBridge() for the web panel.
+ * Modified by Gnarl Audio, 2026: getBridge() for the web panel; the licence
+ * check (Phase 7, CMake build only).
  */
 
 #pragma once
@@ -22,6 +23,13 @@
 
 #include "synth_base.h"
 #include "value_bridge.h"
+
+// GNARL: the licence check (Phase 7) is in the CMake / JUCE 8 build only,
+// whose panel shows its banner; CMakeLists.txt defines this. The Projucer
+// builds compile none of it.
+#if GNARL_LICENSING
+#include "licence/licence_manager.h"
+#endif
 
 class ValueBridge;
 
@@ -79,6 +87,15 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
       return found == bridge_lookup_.end() ? nullptr : found->second;
     }
 
+#if GNARL_LICENSING
+    // MESSAGE THREAD. The panel reads the state for its banner and hands a
+    // typed key here; nothing on the audio thread touches any of it.
+    gnarl::licence::State getLicenceState() const { return licence_->getState(); }
+    bool hasLicenceKey() const { return licence_key_.isNotEmpty(); }
+    void setLicenceKey(const String& key);
+    bool presetSavingAllowed() override;
+#endif
+
   private:
     ValueBridge* bypass_parameter_;
     double last_seconds_time_;
@@ -86,6 +103,13 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     AudioPlayHead::CurrentPositionInfo position_info_;
 
     std::map<std::string, ValueBridge*> bridge_lookup_;
+
+#if GNARL_LICENSING
+    void startLicensing();
+
+    std::unique_ptr<gnarl::licence::LicenceManager> licence_;
+    String licence_key_;
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthPlugin)
 };

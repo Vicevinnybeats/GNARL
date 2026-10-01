@@ -18,7 +18,20 @@ export const engine = {
   text: new Map<string, string>(),
   /** The modulation matrix: every connection, amount -1..1. */
   routes: [] as EngineRoute[],
+  /** The plugin's licence banner (Phase 7); null in a build without one. */
+  licence: null as EngineLicence | null,
 };
+
+/** src/plugin/web_panel.cpp WebPanel::licence. */
+export interface EngineLicence {
+  /** licensed, offline, expired, invalid, unlicensed, unenforced, personal */
+  status: string;
+  /** The sentence for the banner; empty when there is nothing to say. */
+  message: string;
+  /** Whether preset files may be saved. Audio is never gated. */
+  saving: boolean;
+  hasKey: boolean;
+}
 
 export interface EngineRoute {
   source: string;

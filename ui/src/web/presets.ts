@@ -1,0 +1,144 @@
+/*
+ * The mobile version's presets (docs/design/phase2-09-mobile.md): patches the
+ * engine saves and loads itself, in the plugin's own .vital format, so a
+ * patch made on the phone opens in the plugin and the other way round.
+ *
+ * Saved patches live in this browser's IndexedDB - a patch is about 180 kB,
+ * mostly wavetables, which would fill localStorage after a couple of dozen.
+ * Where IndexedDB is refused (a private window), they live for the visit.
+ * OPEN reads a .vital file; EXPORT hands one back.
+ */
+
+interface Stored {
+  name: string;
+  json: string;
+  saved: number;
+}
+
+export interface LoadResult {
+  /** 0 loaded, 1 not a patch, 2 from a newer GNARL, 3 from an older version. */
+  result: number;
+  name: string;
+}
+
+const DB_NAME = 'gnarl';
+const STORE = 'presets';
+const memory = new Map<string, Stored>();
+let opening: Promise<IDBDatabase | null> | null = null;
+
+function database(): Promise<IDBDatabase | null> {
+  opening ??= new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(DB_NAME, 1);
+      request.onupgradeneeded = (): void => {
+        request.result.createObjectStore(STORE, { keyPath: 'name' });
+      };
+      request.onsuccess = (): void => resolve(request.result);
+      request.onerror = (): void => resolve(null);
+      request.onblocked = (): void => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+  return opening;
+}
+
+function transaction<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
+  return database().then(
+    (db) =>
+      new Promise<T | null>((resolve) => {
+        if (!db) {
+          resolve(null);
+          return;
+        }
+        try {
+          const request = run(db.transaction(STORE, mode).objectStore(STORE));
+          request.onsuccess = (): void => resolve(request.result);
+          request.onerror = (): void => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      }),
+  );
+}
+
+export async function listPresets(): Promise<Stored[]> {
+  const stored = (await transaction('readonly', (store) => store.getAll() as IDBRequest<Stored[]>)) ?? [];
+  const all = new Map<string, Stored>();
+  for (const p of stored) all.set(p.name, p);
+  for (const p of memory.values()) all.set(p.name, p);
+  return [...all.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function storePreset(name: string, json: string): Promise<boolean> {
+  const entry: Stored = { name, json, saved: Date.now() };
+  const done = await transaction('readwrite', (store) => store.put(entry));
+  if (done === null) memory.set(name, entry);
+  return done !== null;
+}
+
+export async function deletePreset(name: string): Promise<void> {
+  memory.delete(name);
+  await transaction('readwrite', (store) => store.delete(name));
+}
+
+/* ------------------------------------------------- talking to the engine */
+
+type Waiter = (payload: unknown) => void;
+const waiting = new Map<string, Waiter[]>();
+let listening = false;
+
+function ask<T>(event: string, payload: unknown, answer: string): Promise<T> {
+  const backend = window.__JUCE__?.backend;
+  if (!backend) return Promise.reject(new Error('no engine'));
+  if (!listening) {
+    listening = true;
+    for (const id of ['gnarlPresetSaved', 'gnarlPresetLoaded']) {
+      backend.addEventListener(id, (reply) => waiting.get(id)?.shift()?.(reply));
+    }
+  }
+  return new Promise<T>((resolve) => {
+    waiting.set(answer, [...(waiting.get(answer) ?? []), resolve as Waiter]);
+    backend.emitEvent(event, payload);
+  });
+}
+
+/** Save the current patch under `name`: in the engine's .vital JSON, stored here. */
+export async function savePatch(name: string): Promise<{ json: string; stored: boolean }> {
+  const reply = await ask<{ name: string; json: string }>('gnarlPresetSave', { name }, 'gnarlPresetSaved');
+  if (!reply.json) throw new Error('the engine could not save this patch');
+  return { json: reply.json, stored: await storePreset(name, reply.json) };
+}
+
+export function loadPatch(json: string): Promise<LoadResult> {
+  return ask<LoadResult>('gnarlPresetLoad', { json }, 'gnarlPresetLoaded');
+}
+
+/** The engine's init patch (the page then sends its own defaults over it). */
+export function initPatch(): void {
+  window.__JUCE__?.backend.emitEvent('gnarlPresetInit', { name: 'Init' });
+}
+
+/** Why a load was refused, in the page's words. */
+export function loadProblem(result: number): string {
+  switch (result) {
+    case 2:
+      return 'That patch was made by a newer GNARL. Update, then open it again.';
+    case 3:
+      return 'That patch is from an older version. Open it in the plugin and save it there once; then it opens here.';
+    default:
+      return 'That file is not a GNARL patch.';
+  }
+}
+
+/** Hand the patch back as a .vital file. */
+export function exportPatch(name: string, json: string): void {
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name.replace(/[\\/:*?"<>|]/g, '_') || 'GNARL'}.vital`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}

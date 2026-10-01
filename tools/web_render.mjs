@@ -4,11 +4,12 @@
 //
 //   node tools/web_render.mjs patch.vital -o out.wav -l 2 -m C2 -b 120 --block 128
 //
-// The browser build has no preset loader (wasm/README.md), so a patch is
-// applied as the panel would: every numeric setting by name, in the engine's
-// units, and every modulation through the matrix. Wavetables, LFO shapes and
-// samples stay at the init patch's, so use this on init-based patches -
-// which is what the tests render. A setting the engine does not know fails.
+// The patch is loaded by the browser build's own loader (gnarl_load: the
+// current format, wavetables, LFOs, modulations, sample). A patch from an
+// older version needs the plugin's migration, which the browser build does
+// not have; for those, --by-name applies every numeric setting and
+// modulation by name instead (wavetables and shapes stay the init's).
+// --save F writes the patch back out as the browser build saves it.
 //
 // Output: 32-bit float WAV, 44.1 kHz, as gnarl-render --bits 32.
 
@@ -111,7 +112,7 @@ export function writeWav(path, interleaved, sampleRate = 44100) {
 }
 
 function main(argv) {
-  const args = { seconds: 2, bpm: 120, notes: [48], block: 128, start: 0, out: 'web.wav', patch: null };
+  const args = { seconds: 2, bpm: 120, notes: [48], block: 128, start: 0, out: 'web.wav', patch: null, save: null, byName: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '-o') args.out = argv[++i];
@@ -121,10 +122,21 @@ function main(argv) {
     else if (a === '--block') args.block = Number(argv[++i]);
     else if (a === '--start') args.start = Number(argv[++i]);
     else if (a === '--wasm') args.wasm = argv[++i];
+    else if (a === '--save') args.save = argv[++i];
+    else if (a === '--by-name') args.byName = true;
     else args.patch = a;
   }
   const engine = loadEngine(args.wasm);
-  if (args.patch) applyPatch(engine, JSON.parse(readFileSync(args.patch, 'utf8')));
+  if (args.patch) {
+    const text = readFileSync(args.patch, 'utf8');
+    if (args.byName) applyPatch(engine, JSON.parse(text));
+    else {
+      const result = engine.load(text);
+      const why = ['', 'not a patch', 'made by a newer GNARL', 'from an older version: use --by-name'][result];
+      if (result !== 0) throw new Error(`${args.patch}: ${why}`);
+    }
+  }
+  if (args.save) writeFileSync(args.save, engine.save(args.patch ? args.patch.replace(/^.*\//, '').replace(/\.vital$/, '') : 'Init'));
   const started = performance.now();
   const audio = render(engine, args);
   const ms = performance.now() - started;
