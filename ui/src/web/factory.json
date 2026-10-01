@@ -7,7 +7,7 @@
       "settings": {
         "volume": 5180, "osc_1_unison_voices": 3, "osc_1_unison_detune": 1.0, "osc_1_stereo_spread": 0.2,
         "osc_1_distortion_type": 2, "osc_1_distortion_amount": 0.5, "filter_1_on": 1, "filter_1_model": 0,
-        "filter_1_blend": 1.0, "filter_1_cutoff": 84, "filter_1_resonance": 0.5, "wobble_rate": 1,
+        "filter_1_blend": 1.0, "filter_1_cutoff": 84, "filter_1_resonance": 0.5, "wobble_rate": 0,
         "wobble_amount_cutoff": 0.5, "wobble_amount_fm": 0.3, "distortion_on": 1, "distortion_drive": 16,
         "compressor_on": 1, "compressor_mix": 0.6, "mono_sub_on": 1, "mono_sub_level": 0.9
       }

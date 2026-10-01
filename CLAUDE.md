@@ -94,6 +94,8 @@ python3 tests/test_isolate.py         # measuring under drums: --isolate hpss, -
 python3 tools/measure.py ref.wav --bpm 140 --from 61 --to 69 --json references/x.json
 python3 tools/compare.py references/x.json patch.vital --bpm 140 --note F1
 python3 tools/measure.py track.mp3 --bpm auto --isolate hpss --scan 8 --json references/x-scan.json
+python3 tools/measure.py track.mp3 --bpm auto --isolate hpss --drops 8 --json references/x-drops.json
+python3 tools/compare.py references/x-drops.json patch.vital --drop 1 --bpm 140 --note F1
 (cd ui && npm run build && npm test)  # the panel's bridge, in Chromium, against a fake plugin
 
 # The mobile version (wasm/README.md): engine to WebAssembly, then the page

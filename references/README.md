@@ -31,6 +31,7 @@ python3 tools/measure.py "Track.mp3" --bpm auto --isolate hpss --scan 8 \
   --json references/artist-track-scan.json
 ```
 
-Measured so far: five tracks by phompy (`phompy-*`): a `-scan` of each, a
-full-mix `-drop` window, and `-drop-bass` (drums removed) for 6:25:300 and
-drac07.
+`--drops 8` finds each drop and measures its first 8 bars instead.
+
+Measured so far: five tracks by phompy (`phompy-*`): `-drops` (every drop,
+with and without drums) and `-scan` (the whole track).

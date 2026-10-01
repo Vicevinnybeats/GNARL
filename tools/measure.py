@@ -34,6 +34,10 @@ What it measures, and how each avoids a mistake this project already made:
 - ISOLATE (optional, tools/isolate.py): --isolate hpss removes the drums
   before measuring (librosa); --isolate demucs measures Demucs's bass stem.
   --bpm auto asks librosa's beat tracker.
+- DROPS: --drops N finds each drop - a run of bars within 3 dB of the
+  loudest, after eight bars averaging 5 dB or more below it - starts it at
+  the sharpest rise in level near that bar, and measures its first N bars
+  (with --isolate, the bass both with and without the drums).
 - SCAN: --scan N measures every N-bar window (hop N/2 bars) across the whole
   track - the rate, depth and level of each - to find the drops without
   choosing --from and --to by ear. Any format ffmpeg reads.
@@ -336,6 +340,42 @@ def scan(x, sr, bpm, bars):
     return out
 
 
+# A drop: bars within LOUD_DB of the loudest, after QUIET_BARS averaging at
+# least QUIET_DB below it. Measured on phompy's drac07: drops at bars 16
+# and 96 come up from about -10 to -4 dB per bar, with -2 the loudest; the
+# one-bar dips at every sixteenth bar inside a drop are fills, not drops.
+LOUD_DB = 3.0
+QUIET_DB = 5.0
+QUIET_BARS = 8
+# Two drops are at least this many bars apart.
+MIN_DROP_BARS = 16
+
+
+def find_drops(mid, sr, bpm):
+    """Seconds at which each drop starts."""
+    bar = int(4 * 60 / bpm * sr)
+    count = len(mid) // bar
+    if count <= QUIET_BARS:
+        return []
+    db = np.array([10 * math.log10(np.mean(mid[i * bar:(i + 1) * bar] ** 2) + 1e-20) for i in range(count)])
+    loud = db >= db.max() - LOUD_DB
+    starts = []
+    for i in range(QUIET_BARS, count - 1):
+        quiet_before = np.mean(db[i - QUIET_BARS:i]) <= db.max() - QUIET_DB
+        if loud[i] and loud[i + 1] and quiet_before and (not starts or i - starts[-1] >= MIN_DROP_BARS):
+            starts.append(i)
+    # The bar grid starts wherever the file does: put each drop at the
+    # sharpest rise in 50 ms level within a bar either side.
+    hop = int(0.05 * sr)
+    out = []
+    for i in starts:
+        lo, hi = max(0, (i - 1) * bar), min(len(mid), (i + 1) * bar)
+        frames = [10 * math.log10(np.mean(mid[j:j + hop] ** 2) + 1e-20) for j in range(lo, hi - hop, hop)]
+        rise = np.diff(frames)
+        out.append((lo + (int(np.argmax(rise)) + 1) * hop) / sr if len(rise) else i * bar / sr)
+    return out
+
+
 def scan_summary(windows):
     lines = []
     for w in windows:
@@ -355,6 +395,7 @@ def main():
     ap.add_argument('--to', dest='end', type=float, help='seconds')
     ap.add_argument('--isolate', choices=['hpss', 'demucs'], help='remove the drums first (tools/isolate.py)')
     ap.add_argument('--scan', type=float, metavar='BARS', help='measure every BARS-bar window instead')
+    ap.add_argument('--drops', type=float, metavar='BARS', help='find each drop and measure its first BARS bars')
     ap.add_argument('--json', help='write every number here')
     args = ap.parse_args()
     x, sr = read_audio(args.wav)
@@ -363,6 +404,7 @@ def main():
     x = x[int(args.start * sr):int(args.end * sr) if args.end else None]
     import isolate
     # The tempo from the whole mix: the drums are what a beat tracker hears.
+    raw = x
     raw_mid = x.mean(axis=1)
     if args.isolate == 'hpss':
         x = isolate.hpss(x, sr)
@@ -375,7 +417,27 @@ def main():
     elif args.bpm:
         bpm = float(args.bpm)
     source = {'file': os.path.basename(args.wav), 'from': args.start, 'to': args.end, 'isolate': args.isolate}
-    if args.scan:
+    if args.drops:
+        if not bpm:
+            raise SystemExit('--drops needs --bpm')
+        length = int(args.drops * 4 * 60 / bpm * sr)
+        drops = []
+        for n, at in enumerate(find_drops(raw_mid, sr, bpm), 1):
+            i = int(at * sr)
+            drop = {'start': round(at + args.start, 2), 'end': round((i + length) / sr + args.start, 2),
+                    'full_mix': measure(raw[i:i + length], sr, bpm)}
+            if args.isolate:
+                drop['bass'] = measure(x[i:i + length], sr, bpm)
+            drops.append(drop)
+            print(f"===== drop {n}: {drop['start']} - {drop['end']} s ({args.drops:g} bars)")
+            print(summary(drop['full_mix']))
+            if 'bass' in drop:
+                print(f'----- without the drums ({args.isolate})')
+                print(summary(drop['bass']))
+        if not drops:
+            print('no drop found: no bars within 3 dB of the loudest after a quieter eight')
+        m = {'schema': SCHEMA, 'bpm': bpm, 'drop_bars': args.drops, 'source': source, 'drops': drops}
+    elif args.scan:
         if not bpm:
             raise SystemExit('--scan needs --bpm')
         m = {'schema': SCHEMA, 'bpm': bpm, 'scan_bars': args.scan, 'source': source,

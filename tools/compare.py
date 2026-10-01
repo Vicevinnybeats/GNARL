@@ -3,7 +3,9 @@
 
     python3 tools/compare.py REFERENCE TARGET [--bpm 140] [--note C1] [--seconds 8]
 
-REFERENCE and TARGET are each a measurement JSON (tools/measure.py --json),
+REFERENCE and TARGET are each a measurement JSON (tools/measure.py --json;
+a --drops file compares one drop, --drop N, its bass without drums if
+measured with --isolate),
 a WAV, or a .vital patch, which is rendered with gnarl-render first. The
 usual loop (docs/design/phase3-01-measure.md):
 
@@ -29,7 +31,15 @@ DEFAULT_RENDER = os.path.join(HERE, '..', 'headless/builds/linux/build/gnarl-ren
 
 def load(path, args):
     if path.endswith('.json'):
-        return json.load(open(path))
+        m = json.load(open(path))
+        # A --drops file (measure.py): one drop of it, the bass without the
+        # drums where it was measured, as a patch is a bass without drums.
+        if 'drops' in m:
+            if not 1 <= args.drop <= len(m['drops']):
+                raise SystemExit(f'{path} has {len(m["drops"])} drops; --drop {args.drop}')
+            drop = m['drops'][args.drop - 1]
+            return drop.get('bass', drop['full_mix'])
+        return m
     if path.endswith('.vital'):
         out = os.path.join(tempfile.mkdtemp(prefix='gnarl-compare-'), 'render.wav')
         subprocess.run([args.render, '--headless', '-o', out, '-l', str(args.seconds), '-m', args.note,
@@ -80,6 +90,7 @@ def main():
     ap.add_argument('--note', default='C1', help='for a .vital: the note to render')
     ap.add_argument('--seconds', type=float, default=8.0, help='for a .vital: how long to render')
     ap.add_argument('--render', default=DEFAULT_RENDER)
+    ap.add_argument('--drop', type=int, default=1, help='for a --drops JSON: which drop (1 = the first)')
     args = ap.parse_args()
 
     ref, tgt = load(args.reference, args), load(args.target, args)

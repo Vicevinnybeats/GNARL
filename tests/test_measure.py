@@ -207,6 +207,23 @@ def main():
     else:
         print(f'skip GNARL checks: no renderer at {RENDER}')
 
+    # --drops: a track shaped like a riddim tune - 16 quiet bars, a 32-bar drop
+    # with a one-bar fill dip every 16 bars (which must NOT count as a new
+    # drop), 8 quiet bars, a 16-bar drop - starting 0.3 s off the bar grid.
+    rng = np.random.default_rng(3)
+    bpm, sr = 140, 44100
+    bar = int(4 * 60 / bpm * sr)
+    levels = [0.15] * 16 + ([1.0] * 15 + [0.2]) * 2 + [0.15] * 8 + [1.0] * 16
+    lead = int(0.3 * sr)
+    track = np.concatenate([np.zeros(lead)] + [lv * rng.standard_normal(bar) for lv in levels])
+    found = measure.find_drops(track, sr, bpm)
+    expected = [(lead + 16 * bar) / sr, (lead + 56 * bar) / sr]
+    check(len(found) == 2 and all(abs(f - e) < 0.06 for f, e in zip(found, expected)),
+          f'--drops finds two drops at {[round(f, 2) for f in found]} s, expected {[round(e, 2) for e in expected]} '
+          '(the fills are not drops)')
+    flat = rng.standard_normal(40 * bar)
+    check(measure.find_drops(flat, sr, bpm) == [], 'a track at one level has no drop')
+
     print(f'\n{len(FAILS)} failure(s)')
     return len(FAILS)
 

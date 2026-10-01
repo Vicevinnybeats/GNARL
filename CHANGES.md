@@ -403,10 +403,11 @@ the merge commit forward: `git log 7651809..`.
 
 - `tools/measure.py`: `--isolate hpss|demucs` (tools/isolate.py) measures the
   bass without the drums, `--bpm auto` finds the tempo, `--scan N` measures
-  every N-bar window of a whole track, and any format ffmpeg reads.
+  every N-bar window of a whole track, `--drops N` finds each drop and
+  measures its first N bars, and any format ffmpeg reads.
   `tests/test_isolate.py` (docs/design/phase3-02-isolate.md).
 - Five reference tracks measured; JSON only in `references/`.
-- The phone page opens on Riddim Wobble, a starting sound designed against
-  those measurements. INIT is still Vital's plain saw.
+- The phone page opens on Riddim Wobble, a 1/4 wobble designed against the
+  drops of those tracks. INIT is still Vital's plain saw.
 - The panel shows DIST MIX and OTT DEPTH as percentages: Vital's engine gives
   them as bare 0..1 numbers, which read "1" beside FOLD's "100 %".

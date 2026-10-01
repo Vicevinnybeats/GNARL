@@ -112,7 +112,7 @@ await page.waitForTimeout(300);
 const startSets = await page.evaluate(() => window.__startSets);
 const presetShown = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
 const opening = await panelState();
-check(startSets === 0 && presetShown === 'Riddim Wobble' && opening.rate === '1/8' && opening.sub && opening.filter,
+check(startSets === 0 && presetShown === 'Riddim Wobble' && opening.rate === '1/4' && opening.sub && opening.filter,
   `opens on a wobble: preset "${presetShown}", engine ${JSON.stringify(opening)}, ${startSets} values sent by the page`);
 
 // Silence before a note.
