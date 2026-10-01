@@ -17,8 +17,11 @@ export const CYAN = '#5fe3ff';
 export const BLUE = '#3d8bff';
 export const VIOLET = '#b06bff';
 
-/** The preview's tempo. In the plugin this is the host's. */
-export const PREVIEW_BPM = 140;
+/** The preview's tempo: the page's TEMPO button; in the plugin, 140. */
+export let PREVIEW_BPM = 140;
+export function setPreviewBpm(bpm: number): void {
+  PREVIEW_BPM = bpm;
+}
 const CYCLES_PER_BEAT = [1, 2, 3, 4] as const;
 
 /* ------------------------------------------------------------------ wobble */

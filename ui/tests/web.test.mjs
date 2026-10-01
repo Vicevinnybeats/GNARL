@@ -256,6 +256,28 @@ await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', {
 await page.waitForFunction(() => window.__seen.tables?.[0] === 'Init', null, { timeout: 3000 }).catch(() => {});
 check((await seen()).tables?.[0] === 'Init', 'INIT puts the init table back');
 
+// The page's tempo (TEMPO button): 140 to start; a tap sends 145, and a
+// preset load - here the init, Vital's 120 - keeps it, as a DAW's tempo does.
+const savedBpm = () => page.evaluate(() => new Promise((resolve) => {
+  const backend = window.__JUCE__.backend;
+  backend.addEventListener('gnarlPresetSaved', (reply) => resolve(JSON.parse(reply.json).settings.beats_per_minute * 60));
+  backend.emitEvent('gnarlPresetSave', { name: 'Tempo Test' });
+}));
+const tempoButton = page.locator('.m .tempo');
+let bpm = await savedBpm();
+check((await tempoButton.textContent()) === '140 BPM' && Math.abs(bpm - 140) < 0.01, `the page starts at 140 BPM (engine ${bpm.toFixed(2)})`);
+await tempoButton.tap();
+await page.waitForTimeout(150);
+bpm = await savedBpm();
+check((await tempoButton.textContent()) === '145 BPM' && Math.abs(bpm - 145) < 0.01, `a tap: 145 BPM (engine ${bpm.toFixed(2)})`);
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
+await page.waitForTimeout(300);
+bpm = await savedBpm();
+check(Math.abs(bpm - 145) < 0.01, `a preset load keeps the page's tempo: ${bpm.toFixed(2)} BPM`);
+for (let k = 0; k < 2; k += 1) await tempoButton.tap();
+await page.waitForTimeout(150);
+check((await tempoButton.textContent()) === '140 BPM', `150, then round to 140: ${await tempoButton.textContent()}`);
+
 // The effects rack (docs/design/phase2-10-fx.md): each page, each switch
 // reaches the engine, and a mode button steps to the next mode.
 await page.locator('.m__tabs .chip', { hasText: 'FX' }).tap();

@@ -25,9 +25,14 @@ class GnarlProcessor extends AudioWorkletProcessor {
     this.lastTables = '';
     this.presetName = 'Init';
     this.presetChanged = false;
+    // The page's tempo, as a DAW's: riddim sits at 140 (145-150 when mixing).
+    // A patch carries its own, which a load would restore; this wins, as the
+    // host's tempo does in the plugin.
+    this.bpm = 140;
     this.port.onmessage = (event) => this.receive(event.data);
     try {
       this.engine = createGnarlEngine(options.processorOptions.wasm, sampleRate);
+      this.engine.bpm(this.bpm);
       this.port.postMessage({ type: 'ready' });
     } catch (error) {
       this.port.postMessage({ type: 'error', message: String(error) });
@@ -83,7 +88,8 @@ class GnarlProcessor extends AudioWorkletProcessor {
         engine.allNotesOff();
         break;
       case 'bpm':
-        engine.bpm(message.bpm);
+        if (typeof message.bpm === 'number' && message.bpm > 20 && message.bpm < 300) this.bpm = message.bpm;
+        engine.bpm(this.bpm);
         break;
       case 'shape': {
         const kinds = { sine: 0, square: 1, draw: 2 };
@@ -146,6 +152,7 @@ class GnarlProcessor extends AudioWorkletProcessor {
   // A new patch: its name, and its wobble shape, go out with the next frame.
   // (The bridge reads a new preset name as a new wobble shape.)
   announcePreset(name) {
+    this.engine.bpm(this.bpm);
     this.presetName = name;
     this.presetChanged = true;
     this.curveChanged = true;

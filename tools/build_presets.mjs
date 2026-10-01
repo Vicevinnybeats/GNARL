@@ -258,6 +258,10 @@ function STYLES() {
 export function buildPatch(engine, spec) {
   if (spec.source) return fromSource(engine, spec);
   engine.reset();
+  // Riddim's tempo, 140 BPM (in beats per second, as the engine keeps it),
+  // not Vital's 120: the phone page plays a patch at its own tempo until the
+  // TEMPO button says otherwise; in a DAW the host's tempo wins.
+  engine.setValue(engine.index('beats_per_minute'), 140 / 60);
   for (const [name, value] of Object.entries(spec.settings)) {
     const index = engine.index(name);
     if (index < 0) throw new Error(`${spec.name}: the engine has no control ${name}`);

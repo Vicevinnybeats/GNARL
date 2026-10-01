@@ -472,3 +472,13 @@ the merge commit forward: `git log 7651809..`.
   Comb Squelch), their brightness and length measured against the
   references' wobs. `tools/build_presets.mjs` can put a generated table in
   a patch (`table`), importing `ui/src/wavetables.ts`.
+
+## 2026-10-01 - Tempo: 140 BPM, and a TEMPO button on the phone
+
+- The browser build played every patch at the tempo saved in it - Vital's
+  120 BPM for all but Vinny Bass 2 - so every tempo-synced wob was 17%
+  slower than designed. The page now holds its own tempo, 140 BPM, and
+  re-applies it after every load, as a DAW's tempo wins in the plugin.
+  A TEMPO button steps 140 / 145 / 150 (riddim is written at 140 or 145
+  and mixed at 150), remembered in the browser.
+- The built-in patches save 140 BPM instead of 120.

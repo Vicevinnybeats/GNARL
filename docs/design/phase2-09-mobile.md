@@ -194,3 +194,18 @@ the `[hidden]` rule removed, five of its checks fail.
   link to the source on the page (LICENSING.md). The site's `/app` tombstone
   is the natural home. Vercel builds the site without Emscripten, so that
   needs either a committed module or a CI step that deploys it.
+
+## Tempo
+
+Every rate in GNARL is tempo-synced, so the tempo decides how long a wob is.
+In the plugin the DAW sets it. The page had no tempo of its own: each patch
+played at the one saved in it, Vital's default 120 BPM for all the built-in
+patches except Vinny Bass 2 (140).
+
+The worklet now keeps a tempo, 140 BPM to start, and re-applies it after
+every load (`announcePreset`), so the page's tempo wins as a host's does.
+The TEMPO button in the header steps 140 → 145 → 150 (`gnarlTempo`). The
+producer: riddim is written at 140 or 145 and mixed at 150. The choice is
+remembered in the browser. `ui/tests/web.test.mjs` checks the start value,
+a tap, and that a load keeps the tempo; with the re-apply removed, it
+reads 120 and fails.

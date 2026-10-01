@@ -390,6 +390,10 @@ comment, whenever you add one.
 
 Nobody working in this repository with an AI can hear. So:
 
+- **Riddim's tempo is 140 or 145 BPM, mixed at 150** (the producer). Measure
+  and design at 140; every rate is tempo-synced, so a patch timed at 120
+  plays 17% slow. The phone page keeps its own tempo for this reason.
+
 - **Only call a sound "close" to a reference if the numbers say so**, and say
   which numbers. The producer listens and decides; the measurements are what
   make that conversation specific.

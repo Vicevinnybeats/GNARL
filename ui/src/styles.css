@@ -1462,3 +1462,11 @@ body[data-mode='phone'] .toast {
 .presets__list--factory {
   max-height: 300px;
 }
+
+/* The web build's tempo button (main.ts tempoChip). */
+.tempo {
+  min-width: 72px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}

@@ -15,7 +15,7 @@ import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
-import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
+import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
 import {
@@ -327,6 +327,54 @@ function wheels(): HTMLElement {
  * would help, a field for one. The key goes to the machine's settings, never
  * into a preset.
  */
+/*
+ * The page's tempo, in the web build only: the plugin follows the DAW's.
+ * Riddim is written at 140 and 145 and mixed at 150 (the producer), so those
+ * three, remembered in this browser. Every rate in GNARL is tempo-synced, so
+ * this sets how long a wob is.
+ */
+const TEMPOS = [140, 145, 150] as const;
+function tempoChip(): HTMLElement | null {
+  if (!hasWebEngine()) return null;
+  let bpm: number = TEMPOS[0];
+  try {
+    const kept = Number(localStorage.getItem('gnarl.bpm'));
+    if ((TEMPOS as readonly number[]).includes(kept)) bpm = kept;
+  } catch {
+    // No storage here: 140.
+  }
+  const b = chipButton('');
+  b.classList.add('tempo');
+  b.title = 'Tempo: 140, 145 or 150 BPM';
+  let sent = false;
+  const send = (): void => {
+    const backend = window.__JUCE__?.backend;
+    if (!backend) return;
+    backend.emitEvent('gnarlTempo', { bpm });
+    sent = true;
+  };
+  const show = (): void => {
+    b.textContent = `${bpm} BPM`;
+    setPreviewBpm(bpm);
+  };
+  b.addEventListener('click', () => {
+    bpm = TEMPOS[(TEMPOS.indexOf(bpm as (typeof TEMPOS)[number]) + 1) % TEMPOS.length] ?? TEMPOS[0];
+    try {
+      localStorage.setItem('gnarl.bpm', String(bpm));
+    } catch {
+      // Kept for this visit only.
+    }
+    show();
+    send();
+  });
+  // The engine starts at 140; a kept 145 or 150 goes to it once it is up.
+  engineViews.add(() => {
+    if (!sent && bpm !== TEMPOS[0]) send();
+  });
+  show();
+  return b;
+}
+
 function licenceChip(): HTMLElement {
   const button = el('button', 'licence__chip', 'LICENCE');
   button.type = 'button';
@@ -380,6 +428,7 @@ function header(): HTMLElement {
     advancedButton(),
     licenceChip(),
     el('div', 'top__spacer'),
+    ...[tempoChip()].filter((x): x is HTMLElement => x !== null),
     scope(250, 34),
     masterKnob(),
   );
@@ -1122,7 +1171,8 @@ function phone(): HTMLElement {
     el(
       'div',
       'm__side',
-      el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), licenceChip(), masterKnob()),
+      el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), licenceChip(),
+        ...[tempoChip()].filter((x): x is HTMLElement => x !== null), masterKnob()),
       el('div', 'm__preset', presetPicker(), aiButton('AI')),
       scope(320, 64),
       el('div', 'play', wheels(), keyboard()),
