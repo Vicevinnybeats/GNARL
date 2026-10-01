@@ -284,6 +284,7 @@ export function choiceRow(id: string, opts: { accent?: Accent; cls?: string } = 
   const choice = CHOICES.find((c) => c.id === id);
   if (!choice) throw new Error(`choiceRow: unknown choice ${id}`);
   const row = el('div', `chips ${opts.cls ?? ''}`);
+  const cycle = (opts.cls ?? '').split(' ').includes('chips--cycle');
   row.dataset.param = id;
   const buttons = choice.options.map((label, i) => {
     const b = chipButton(label, opts.accent);
@@ -291,6 +292,9 @@ export function choiceRow(id: string, opts: { accent?: Accent; cls?: string } = 
     b.addEventListener('click', () => {
       // A single-option row is a toggle (MONO, -1 OCT).
       if (choice.options.length === 1) set(id, get(id) ? 0 : 1);
+      // A cycle row shows one button: each tap steps to the next option
+      // (from none lit, to the first).
+      else if (cycle) set(id, (Math.max(-1, get(id)) + 1) % choice.options.length);
       else set(id, i);
     });
     row.append(b);
@@ -303,6 +307,8 @@ export function choiceRow(id: string, opts: { accent?: Accent; cls?: string } = 
       b.dataset.on = on ? 'true' : 'false';
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    // An engine value with no button (a preset's 2/1 rate) lights none.
+    row.dataset.none = buttons.some((b) => b.dataset.on === 'true') ? 'false' : 'true';
   };
   subscribe((changed) => changed === id && sync());
   sync();

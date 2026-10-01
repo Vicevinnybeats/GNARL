@@ -105,7 +105,7 @@ body {
   grid-template-columns: 1.55fr 1fr 1fr;
 }
 .row--3 {
-  grid-template-columns: 1fr 1fr 1fr 1fr 0.5fr;
+  grid-template-columns: 64px 1fr 116px;
 }
 
 /* ------------------------------------------------------------------ header */
@@ -462,9 +462,15 @@ body {
   background: none;
   border-color: transparent;
 }
-/* The FX tiles' mode chip: one button that shows the current mode. */
+/* The FX tiles' mode chip: one button that shows the current mode, and
+   steps to the next on a tap. With no mode lit (an engine value that has
+   no button), the first shows dimmed, so the control never vanishes. */
 .chips--cycle .chip:not([data-on='true']) {
   display: none;
+}
+.chips--cycle[data-none='true'] .chip:first-child {
+  display: inline-block;
+  opacity: 0.45;
 }
 .chips--cycle .chip[data-on='true'] {
   background: var(--chip);
@@ -543,11 +549,21 @@ body {
   inset: -8px 0;
 }
 .amount__fill {
+  position: absolute;
+  top: 0;
   display: block;
   height: 100%;
   border-radius: 2px;
   background: var(--violet-soft);
   box-shadow: 0 0 8px rgba(176, 107, 255, 0.6);
+}
+.amount__zero {
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.35);
 }
 .route__add {
   height: 22px;
@@ -579,6 +595,32 @@ body {
 }
 .fx__row .chips {
   margin-left: auto;
+}
+.fx__row .chips + .chips {
+  margin-left: 0;
+}
+.fx__aside {
+  display: flex;
+  gap: 4px;
+  margin: -4px 0;
+}
+
+/* The effects rack: page buttons, then one page of up to four slots. */
+.fxrack__nav {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+.fxrack__page {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  height: 100%;
+}
+/* display:grid outranks the hidden attribute (the preset sheet's bug). */
+.fxrack__page[hidden] {
+  display: none;
 }
 
 /* The corner mark: small, turning, and made of light - no panel fill behind
@@ -792,6 +834,18 @@ body[data-orient='portrait'] .play {
 }
 .m .fx__row {
   padding-top: 4px;
+}
+.m .fxrack__nav {
+  flex-direction: row;
+}
+.m .fxrack__nav .chip {
+  flex: 1;
+}
+.m .fxrack__page {
+  grid-template-columns: 1fr;
+}
+.m .fx__row {
+  flex-wrap: wrap;
 }
 .m .display {
   width: 100%;

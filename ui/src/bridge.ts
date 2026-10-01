@@ -138,18 +138,19 @@ function buildBindings(): void {
     if (!c.vital || !c.values || c.flag) continue;
     const values = c.values;
     const name = c.vital;
-    // Every choice the page binds is an indexed parameter starting at 0, so
-    // its host value is index / (steps - 1).
+    // Every choice the page binds is an indexed parameter, starting at 0
+    // unless it says its min, so its host value is (value - min) / (steps - 1).
     const last = (): number => Math.max(1, (steps[name] ?? values.length) - 1);
+    const min = c.min ?? 0;
     add({
       id: c.id,
       name,
       toHost: (option) => {
         const v = values[option];
-        return v === null || v === undefined ? null : v / last();
+        return v === null || v === undefined ? null : (v - min) / last();
       },
       // An engine value this panel has no button for lights none of them.
-      fromHost: (h) => values.indexOf(Math.round(h * last())),
+      fromHost: (h) => values.indexOf(min + Math.round(h * last())),
       text: false,
     });
   }

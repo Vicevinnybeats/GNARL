@@ -513,7 +513,7 @@ function routesFromEngine(): void {
     const source = (MOD_SOURCE_NAMES as readonly string[]).indexOf(r.source);
     const dest = (MOD_DESTINATION_NAMES as readonly string[]).indexOf(r.destination);
     if (source < 0 || dest < 0 || shown.length >= MAX_ROUTES) hiddenRoutes += 1;
-    else shown.push({ source, dest, amount: Math.min(1, Math.abs(r.amount)) });
+    else shown.push({ source, dest, amount: Math.min(1, Math.max(-1, r.amount)) });
   }
   routes.splice(0, routes.length, ...shown);
 }
@@ -573,15 +573,22 @@ function modPanel(): HTMLElement {
           rerenderRoutes();
         });
 
+        // Bipolar, as Vital's matrix: the centre is zero, left of it a
+        // negative amount (a wobble on a LEVEL that cuts rather than boosts).
         const fill = el('span', 'amount__fill');
-        const bar = el('div', 'amount', fill);
-        bar.title = `${Math.round(route.amount * 100)} %`;
-        fill.style.width = `${route.amount * 100}%`;
+        const bar = el('div', 'amount', el('span', 'amount__zero'), fill);
+        const draw = (): void => {
+          fill.style.left = `${50 + Math.min(0, route.amount) * 50}%`;
+          fill.style.width = `${Math.abs(route.amount) * 50}%`;
+          bar.title = `${Math.round(route.amount * 100)} %`;
+        };
+        draw();
         const setFrom = (e: PointerEvent): void => {
           const r = bar.getBoundingClientRect();
-          route.amount = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-          fill.style.width = `${route.amount * 100}%`;
-          bar.title = `${Math.round(route.amount * 100)} %`;
+          const amount = Math.min(1, Math.max(-1, (2 * (e.clientX - r.left)) / r.width - 1));
+          // A little detent at zero, so a route can be set back to none.
+          route.amount = Math.abs(amount) < 0.04 ? 0 : amount;
+          draw();
           if (engine.connected) sendRoute(...names(route), route.amount);
         };
         bar.addEventListener('pointerup', rerenderRoutes);
@@ -619,11 +626,81 @@ function modPanel(): HTMLElement {
 
 /* ---------------------------------------------------------------------- fx */
 
-function fxPanel(index: number, slot: string, title: string, a: string, b: string): HTMLElement {
+interface FxSlot {
+  slot: string;
+  title: string;
+  knobs: readonly string[];
+  choices: readonly string[];
+}
+
+// Every effect the panel shows, in pages: the drive chain GNARL built
+// (docs/design/phase2-07-drive-chain.md), then Vital's own effects
+// (docs/design/phase2-10-fx.md). The numbers name a slot, not the signal
+// order: the engine runs chorus, OTT, delay, the drive chain, EQ, flanger,
+// phaser, reverb.
+const FX_PAGES: readonly { label: string; slots: readonly FxSlot[] }[] = [
+  {
+    label: 'DRIVE',
+    slots: [
+      { slot: 'dist', title: 'DIST', knobs: ['dist.drive', 'dist.mix'], choices: ['dist.mode'] },
+      { slot: 'fold', title: 'FOLD', knobs: ['fold.amount', 'fold.mix'], choices: ['fold.mode'] },
+      { slot: 'crush', title: 'CRUSH', knobs: ['crush.bits', 'crush.rate'], choices: ['crush.mode'] },
+      { slot: 'ott', title: 'OTT', knobs: ['ott.depth', 'ott.time'], choices: ['ott.mode'] },
+    ],
+  },
+  {
+    label: 'MOD',
+    slots: [
+      { slot: 'chorus', title: 'CHORUS', knobs: ['chorus.depth', 'chorus.feedback', 'chorus.mix'], choices: [] },
+      { slot: 'flanger', title: 'FLANGER', knobs: ['flanger.depth', 'flanger.feedback', 'flanger.mix'], choices: ['flanger.rate'] },
+      { slot: 'phaser', title: 'PHASER', knobs: ['phaser.feedback', 'phaser.center', 'phaser.mix'], choices: ['phaser.rate'] },
+      { slot: 'eq', title: 'EQ', knobs: ['eq.low', 'eq.mid', 'eq.freq', 'eq.high'], choices: [] },
+    ],
+  },
+  {
+    label: 'SPACE',
+    slots: [
+      { slot: 'delay', title: 'DELAY', knobs: ['delay.feedback', 'delay.mix'], choices: ['delay.time', 'delay.style'] },
+      { slot: 'reverb', title: 'REVERB', knobs: ['reverb.size', 'reverb.decay', 'reverb.mix'], choices: [] },
+    ],
+  },
+];
+
+function fxPanel(index: number, fx: FxSlot): HTMLElement {
+  const number = index < 10 ? `0${index}` : `${index}`;
+  const choices = fx.choices.map((id) => choiceRow(id, { cls: 'chips--cycle' }));
+  // Beside three knobs a button does not fit the row: it goes in the header.
+  const inHeader = fx.knobs.length > 2 && choices.length > 0;
   return panel(
-    { title: `0${index} ${title}`, power: `${slot}.on`, cls: 'fx' },
-    el('div', 'fx__row', knob(a), knob(b), choiceRow(`${slot}.mode`, { cls: 'chips--cycle' })),
+    {
+      title: `${number} ${fx.title}`,
+      power: `${fx.slot}.on`,
+      cls: `fx fx--${fx.slot}`,
+      ...(inHeader ? { aside: el('div', 'fx__aside', ...choices) } : {}),
+    },
+    el('div', 'fx__row', ...fx.knobs.map((id) => knob(id)), ...(inHeader ? [] : choices)),
   );
+}
+
+/** The effects behind page buttons: DRIVE, MOD, SPACE. */
+function fxRack(): { nav: HTMLElement; pages: HTMLElement } {
+  let index = 0;
+  const pages = FX_PAGES.map((page) =>
+    el('div', 'fxrack__page', ...page.slots.map((fx) => fxPanel(++index, fx))),
+  );
+  const nav = el('nav', 'fxrack__nav chips');
+  const buttons = FX_PAGES.map((page, i) => {
+    const b = chipButton(page.label);
+    b.addEventListener('click', () => select(i));
+    nav.append(b);
+    return b;
+  });
+  const select = (i: number): void => {
+    pages.forEach((p, k) => (p.hidden = k !== i));
+    buttons.forEach((b, k) => (b.dataset.on = k === i ? 'true' : 'false'));
+  };
+  select(0);
+  return { nav, pages: el('div', 'fxrack', ...pages) };
 }
 
 const logos: { canvas: HTMLCanvasElement; paint: (t: number) => void }[] = [];
@@ -646,15 +723,10 @@ function desktop(): HTMLElement {
     header(),
     el('div', 'row row--1', oscPanel(1, 'GROWL_TABLE_01'), oscPanel(2, 'HARD_SQUARE'), subPanel(), vowelPanel()),
     el('div', 'row row--2', wobblePanel(), envelopePanel(), modPanel()),
-    el(
-      'div',
-      'row row--3',
-      fxPanel(1, 'dist', 'DIST', 'dist.drive', 'dist.mix'),
-      fxPanel(2, 'fold', 'FOLD', 'fold.amount', 'fold.mix'),
-      fxPanel(3, 'crush', 'CRUSH', 'crush.bits', 'crush.rate'),
-      fxPanel(4, 'ott', 'OTT', 'ott.depth', 'ott.time'),
-      logoPanel(),
-    ),
+    (() => {
+      const rack = fxRack();
+      return el('div', 'row row--3', rack.nav, rack.pages, logoPanel());
+    })(),
   );
 }
 
@@ -731,12 +803,10 @@ const TABS = [
   { label: 'MOD', build: (): HTMLElement[] => [modPanel()] },
   {
     label: 'FX',
-    build: (): HTMLElement[] => [
-      fxPanel(1, 'dist', 'DIST', 'dist.drive', 'dist.mix'),
-      fxPanel(2, 'fold', 'FOLD', 'fold.amount', 'fold.mix'),
-      fxPanel(3, 'crush', 'CRUSH', 'crush.bits', 'crush.rate'),
-      fxPanel(4, 'ott', 'OTT', 'ott.depth', 'ott.time'),
-    ],
+    build: (): HTMLElement[] => {
+      const rack = fxRack();
+      return [rack.nav, rack.pages];
+    },
   },
 ] as const;
 

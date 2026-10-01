@@ -97,6 +97,28 @@ export const PARAMS: readonly Param[] = [
   P('ott.depth', 'DEPTH', 0.45, 'compressor_mix'),
   P('ott.time', 'TIME', 0.5, 'compressor_attack'),
 
+  // Vital's other effects, bound as they are (docs/design/phase2-10-fx.md).
+  // Knobs send the host's 0..1, so a default here is only the page's
+  // preview: in the plugin and the phone the engine's own value shows.
+  P('chorus.depth', 'DEPTH', 0.5, 'chorus_mod_depth'),
+  P('chorus.feedback', 'FEEDBK', 0.71, 'chorus_feedback', '%', 0, 1, { bipolar: true }),
+  P('chorus.mix', 'MIX', 0.5, 'chorus_dry_wet'),
+  P('flanger.depth', 'DEPTH', 0.5, 'flanger_mod_depth'),
+  P('flanger.feedback', 'FEEDBK', 0.75, 'flanger_feedback', '%', 0, 1, { bipolar: true }),
+  P('flanger.mix', 'MIX', 1, 'flanger_dry_wet'),
+  P('phaser.feedback', 'FEEDBK', 0.5, 'phaser_feedback'),
+  P('phaser.center', 'CENTER', 0.56, 'phaser_center'),
+  P('phaser.mix', 'MIX', 1, 'phaser_dry_wet'),
+  P('eq.low', 'LOW', 0.5, 'eq_low_gain', '%', 0, 1, { bipolar: true }),
+  P('eq.mid', 'MID', 0.5, 'eq_band_gain', '%', 0, 1, { bipolar: true }),
+  P('eq.freq', 'FREQ', 0.56, 'eq_band_cutoff'),
+  P('eq.high', 'HIGH', 0.5, 'eq_high_gain', '%', 0, 1, { bipolar: true }),
+  P('delay.feedback', 'FEEDBK', 0.75, 'delay_feedback', '%', 0, 1, { bipolar: true }),
+  P('delay.mix', 'MIX', 0.33, 'delay_dry_wet'),
+  P('reverb.size', 'SIZE', 0.5, 'reverb_size'),
+  P('reverb.decay', 'DECAY', 0.5, 'reverb_decay_time'),
+  P('reverb.mix', 'MIX', 0.25, 'reverb_dry_wet'),
+
   // The performance wheels, beside the keys. Vital's own controls: a MIDI
   // controller's wheels and these move the same parameters.
   P('pitch', 'PITCH', 0, 'pitch_wheel', 'raw', -1, 1, { bipolar: true }),
@@ -113,6 +135,8 @@ export interface Choice {
   readonly vital: string | null;
   /** The engine value each option sets; null for an option the engine lacks. */
   readonly values?: readonly (number | null)[];
+  /** The engine's minimum, when the parameter's index does not start at 0 (delay_tempo). */
+  readonly min?: number;
   /**
    * An option that is a GNARL switch rather than a value of `vital`: on, it
    * overrides the type (osc FOLD, DIST TUBE). Choosing any other option turns
@@ -145,6 +169,15 @@ export const CHOICES: readonly Choice[] = [
   // compressor_enabled_bands: 0 Multiband (three bands); 1 "Low Band", which
   // splits at the low crossover into two compressed bands - lows and the rest.
   { id: 'ott.mode', options: ['3-BAND', '2-BAND'], def: 0, vital: 'compressor_enabled_bands', values: [0, 1] },
+  // Tempo-synced rates, Vital's kSyncedFrequencyNames: 3 = 8/1 (one sweep
+  // in eight bars), 4 = 4/1, 6 = 1/1, 8 = 1/4, 9 = 1/8, 10 = 1/16. The first
+  // option is the init patch's rate. A value with no button lights none.
+  { id: 'flanger.rate', options: ['4/1', '1/1', '1/4', '1/8'], def: 0, vital: 'flanger_tempo', values: [4, 6, 8, 9] },
+  { id: 'phaser.rate', options: ['8/1', '1/1', '1/4', '1/8'], def: 0, vital: 'phaser_tempo', values: [3, 6, 8, 9] },
+  // delay_tempo runs 4..12, so its host value is (index - 4) / 8.
+  { id: 'delay.time', options: ['1/4', '1/8', '1/16'], def: 1, vital: 'delay_tempo', values: [8, 9, 10], min: 4 },
+  // Vital's delay styles 0 Mono, 1 Stereo, 2 Ping Pong.
+  { id: 'delay.style', options: ['MONO', 'STEREO', 'PING'], def: 0, vital: 'delay_style', values: [0, 1, 2] },
 ];
 
 /** Wobble destinations are independent toggles, one engine depth each. */
@@ -166,10 +199,16 @@ export const POWER: Readonly<Record<string, string | null>> = {
   'sub.on': 'mono_sub_on',
   'fold.on': 'distortion_fold_on',
   'crush.on': 'distortion_crush_on',
+  'chorus.on': 'chorus_on',
+  'flanger.on': 'flanger_on',
+  'phaser.on': 'phaser_on',
+  'eq.on': 'eq_on',
+  'delay.on': 'delay_on',
+  'reverb.on': 'reverb_on',
   'wobble.on': null,
 };
 
-export const FX_SLOTS = ['dist', 'fold', 'crush', 'ott'] as const;
+export const FX_SLOTS = ['dist', 'fold', 'crush', 'ott', 'chorus', 'flanger', 'phaser', 'eq', 'delay', 'reverb'] as const;
 
 // The matrix's sources and destinations, and the engine names behind them
 // (Vital's modulation sources; any modulatable parameter as a destination).
@@ -183,6 +222,9 @@ export const MOD_DESTINATIONS = [
   'OSC1 WARP',
   'SUB LEVEL',
   'FOLD AMOUNT',
+  // A level is a tremolo: the wobble or an LFO here chops the oscillator.
+  'OSC1 LEVEL',
+  'OSC2 LEVEL',
 ] as const;
 export const MOD_DESTINATION_NAMES = [
   'osc_1_wave_frame',
@@ -192,6 +234,8 @@ export const MOD_DESTINATION_NAMES = [
   'osc_1_distortion_amount',
   'mono_sub_level',
   'distortion_fold_drive',
+  'osc_1_level',
+  'osc_2_level',
 ] as const;
 
 export const PRESET_NAMES = [

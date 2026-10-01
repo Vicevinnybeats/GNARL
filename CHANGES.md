@@ -380,3 +380,12 @@ the merge commit forward: `git log 7651809..`.
   Growl, Formant Yoy, Sub Wobble, Tearout Saw, Crushed Reese), each the init
   plus a few settings; `tools/factory_sounds.mjs` renders and measures them
   (docs/design/phase2-09-mobile.md).
+
+## 2026-10-01 - Panel: the effects rack; a wobble on a level
+
+- The panel binds Vital's chorus, flanger, phaser, EQ, delay and reverb, on
+  three pages (DRIVE, MOD, SPACE) beside GNARL's drive chain and OTT. No
+  engine change (docs/design/phase2-10-fx.md).
+- The mod matrix reaches OSC1 LEVEL and OSC2 LEVEL, and its amount bar is
+  bipolar: a negative amount is a tremolo that cuts rather than boosts.
+- Fixed: the FX mode buttons (DIST, FOLD, CRUSH, OTT) never changed mode.

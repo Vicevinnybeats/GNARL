@@ -150,6 +150,70 @@ await page.waitForTimeout(300);
 s = await seen();
 check(!(s.routes ?? []).some((r) => r.source === 'lfo_1'), 'and removes it');
 
+// A wobble on an oscillator's level (the matrix's OSC1 LEVEL): a tremolo.
+await page.evaluate(() =>
+  window.__JUCE__.backend.emitEvent('gnarlRoute', { source: 'wobble', destination: 'osc_1_level', amount: 0.5 }));
+await page.waitForTimeout(300);
+s = await seen();
+check((s.routes ?? []).some((r) => r.source === 'wobble' && r.destination === 'osc_1_level'),
+  `the engine takes wobble -> osc 1 level: ${JSON.stringify((s.routes ?? []).map((r) => `${r.source}>${r.destination}`))}`);
+await page.evaluate(() =>
+  window.__JUCE__.backend.emitEvent('gnarlRoute', { source: 'wobble', destination: 'osc_1_level', remove: true }));
+await page.waitForTimeout(300);
+// The same from the matrix itself: a route turned to OSC1 LEVEL, its amount
+// bar pulled left of centre - a negative amount, which cuts the level.
+await page.locator('.m__tabs .chip', { hasText: 'MOD' }).tap();
+await page.locator('.m .route__add').tap();
+const lastRoute = page.locator('.m .route').last();
+for (let k = 0; k < 12 && (await lastRoute.locator('.route__dest').textContent()) !== 'OSC1 LEVEL'; k += 1) {
+  await lastRoute.locator('.route__dest').tap();
+}
+const amountBox = await page.locator('.m .route').last().locator('.amount').boundingBox();
+await page.mouse.click(amountBox.x + amountBox.width * 0.25, amountBox.y + amountBox.height / 2);
+await page.waitForTimeout(300);
+s = await seen();
+const level = (s.routes ?? []).find((r) => r.destination === 'osc_1_level');
+check(level !== undefined && Math.abs(level.amount + 0.5) < 0.05,
+  `the matrix routes to OSC1 LEVEL with a negative amount: ${JSON.stringify(level)}`);
+await page.locator('.m .route').last().locator('.route__dest').click({ button: 'right' });
+await page.waitForTimeout(300);
+await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
+
+// The effects rack (docs/design/phase2-10-fx.md): each page, each switch
+// reaches the engine, and a mode button steps to the next mode.
+await page.locator('.m__tabs .chip', { hasText: 'FX' }).tap();
+const engineValue = (name) => page.evaluate((n) => window.__seen.values[n], name);
+const FX_ON = { MOD: ['chorus', 'flanger', 'phaser', 'eq'], SPACE: ['delay', 'reverb'] };
+for (const [pageName, slots] of Object.entries(FX_ON)) {
+  await page.locator('.m .fxrack__nav .chip', { hasText: pageName }).tap();
+  for (const slot of slots) {
+    await page.locator(`.m .fx--${slot} .panel__dot`).tap();
+    await page.waitForTimeout(150);
+    const v = await engineValue(`${slot}_on`);
+    check(v?.[0] === 1, `${pageName}: the ${slot.toUpperCase()} switch turns ${slot}_on on in the engine (${JSON.stringify(v)})`);
+  }
+}
+await page.locator('.m .fx--delay .chips--cycle[data-param="delay.time"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+let v = await engineValue('delay_tempo');
+check(/1\/16/.test(v?.[1] ?? ''), `DELAY's time button steps 1/8 -> 1/16 in the engine: ${JSON.stringify(v)}`);
+await page.locator('.m .fx--delay .chips--cycle[data-param="delay.style"] .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+v = await engineValue('delay_style');
+check(/stereo/i.test(v?.[1] ?? ''), `DELAY's style button steps MONO -> STEREO: ${JSON.stringify(v)}`);
+await page.locator('.m .fxrack__nav .chip', { hasText: 'DRIVE' }).tap();
+const distBefore = await page.locator('.m .fx--dist .chips--cycle .chip[data-on="true"]').textContent();
+await page.locator('.m .fx--dist .chips--cycle .chip[data-on="true"]').tap();
+await page.waitForTimeout(200);
+const distAfter = await page.locator('.m .fx--dist .chips--cycle .chip[data-on="true"]').textContent();
+check(distBefore !== distAfter, `DIST's mode button steps: ${distBefore} -> ${distAfter}`);
+// Back off, so what follows hears the patch it expects.
+for (const [pageName, slots] of Object.entries(FX_ON)) {
+  await page.locator('.m .fxrack__nav .chip', { hasText: pageName }).tap();
+  for (const slot of slots) await page.locator(`.m .fx--${slot} .panel__dot`).tap();
+}
+await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
+
 // Presets (web/presets.ts): save under a name, change something, load it
 // back; an old-version file is refused with its reason; EXPORT hands back a
 // .vital file; the arrows step through what is saved. The sheet closes
