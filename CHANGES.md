@@ -351,3 +351,10 @@ the merge commit forward: `git log 7651809..`.
 - `tools/assemble_deploy.mjs`: each site deploy puts the latest release's
   phone version at `/app` (the tombstone stays until there is one).
 - The phone page's start screen names its licence and links the source.
+
+## 2026-10-01 - The phone version installs
+
+- `/app` on the site is installable: a manifest (keeping the retired app's
+  id, so an old home-screen icon updates), icons from GNARL's mark, and a
+  network-first service worker (current page online, last copy offline).
+  `tools/assemble_deploy.mjs` links them into the page and requires them.

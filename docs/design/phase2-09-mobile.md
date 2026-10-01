@@ -37,6 +37,19 @@ doc's last line). Now the same page carries the engine:
     mostly wavetables), or for the visit where a browser keeps no storage.
   - A patch from an older version is refused, with the reason: the plugin
     opens it and, saved there once, it opens here.
+- **Installable.** On the site, `/app` is an app a phone can put on its
+  home screen. `site/public/app/` holds:
+  - the manifest, which keeps the retired app's `id` so an old icon updates
+    in place;
+  - icons rendered from GNARL's mark;
+  - a network-first service worker: online a visit always gets the current
+    release, offline the last copy plays.
+
+  `assemble_deploy.mjs` links them into the page at deploy. The first
+  deploy had no manifest, and Chrome said the app "cannot be installed".
+  Checked: the manifest parses with no errors and every icon is the size
+  it declares. Headless Chromium's installability check answers "no errors"
+  even for a page with no manifest, so it proves nothing and is not used.
 - **No server.** One HTML file, about 1.5 MB, which fetches nothing. It can
   be hosted anywhere that serves HTML over https. It was published as a
   private Artifact for the producer to try.

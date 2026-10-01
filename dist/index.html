@@ -212,44 +212,37 @@
           <h2 class="heading" data-decode>TAKE IT.</h2>
           <p class="body" data-decode data-decode-delay="160">
             Windows and macOS. VST3 everywhere, AU on macOS, and a standalone
-            that needs no DAW at all.
+            that needs no DAW at all. On a phone, the whole engine runs in the
+            browser.
           </p>
+          <!--  DIRECT FILE LINKS. "releases/latest/download/<name>" always
+                serves the newest release's file of that name, so these
+                buttons never need editing for a new version. The names are a
+                contract with .github/workflows/release.yml (docs/release.md).
+                Later, when downloads are for buyers only, these move behind
+                the purchase (docs/release.md says how).  -->
           <div class="row">
-            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest" rel="noreferrer">DOWNLOAD</a>
-            <!--  The installable app, on this same origin at /app - which is
-                  not a detail: a service worker may only claim a scope at or
-                  below its own path, so an app served from a subdirectory can
-                  cache itself and nothing else here.  -->
-            <!--  TWO LABELS, ONE LINK, CHOSEN BY CSS.
-                  On a phone this button installs an app to the home screen,
-                  and "try it in the browser" undersells that to the person
-                  it matters most to. On a desktop "download on phone" would
-                  be a lie about the machine they are on.
-
-                  A media query rather than JavaScript: the right text is
-                  correct on the FIRST paint, where a script would show one
-                  label and swap it, which on a slow connection is a visible
-                  flicker on the page's main call to action. -->
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-Windows.zip" rel="noreferrer">WINDOWS</a>
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-macOS.zip" rel="noreferrer">MACOS</a>
+            <!--  The phone version, on this same origin at /app.
+                  TWO LABELS, ONE LINK, CHOSEN BY CSS: on a phone this is the
+                  instrument itself; on a desktop "download on phone" would
+                  be a lie about the machine they are on. A media query
+                  rather than JavaScript, so the first paint is right.  -->
             <a class="button button--ghost" href="/app/">
-              <span class="only-touch">DOWNLOAD ON PHONE</span>
-              <span class="only-pointer">TRY IT IN THE BROWSER</span>
+              <span class="only-touch">PLAY ON PHONE</span>
+              <span class="only-pointer">PLAY IN THE BROWSER</span>
             </a>
           </div>
 
-          <!-- SOURCE is gone: a link to a private repository is a dead button
-               for everybody who is not signed in as its owner, and the page is
-               public. The remaining one points at RELEASES rather than at the
-               Actions tab - a release is a stable, linkable URL with the files
-               attached to it, where an Actions run is a build log whose
-               artifacts expire and which needs an account to reach at all. -->
           <p class="note" data-decode data-decode-delay="240">
-            PRIVATE BETA &mdash; THE DESKTOP DOWNLOAD NEEDS AN INVITE FOR
-            NOW.<br />
-            <span class="only-touch">THE PHONE VERSION INSTALLS TO YOUR HOME
-            SCREEN AND RUNS A PREVIEW VOICE &mdash; NOT THE FULL
-            ENGINE.</span><span class="only-pointer">THE BROWSER VERSION
-            INSTALLS ON PHONE AND DESKTOP, AND RUNS A PREVIEW VOICE &mdash;
-            NOT THE FULL ENGINE.</span>
+            PUBLIC BETA &mdash; FREE WHILE IT IS IN BETA. NOT CODE-SIGNED YET:
+            THE README IN EACH ZIP SAYS HOW TO OPEN IT.<br />
+            <span class="only-touch">ON A PHONE: TAP TO PLAY, THEN ADD IT TO YOUR
+            HOME SCREEN. SAVE PATCHES THERE AND OPEN THEM IN THE PLUGIN.</span><span class="only-pointer">THE BROWSER VERSION RUNS THE SAME ENGINE AS
+            THE PLUGIN, ON PHONE AND DESKTOP.</span><br />
+            FREE SOFTWARE, GPLV3 &mdash;
+            <a href="https://github.com/Vicevinnybeats/GNARL" rel="noreferrer">SOURCE CODE</a>.
           </p>
 
           <div class="faq">
@@ -277,18 +270,21 @@
             <details>
               <summary data-decode>WILL IT RUN IN FL STUDIO?</summary>
               <p>
-                Yes, and in Ableton, and anywhere else that loads a VST3. CI runs
-                <code>pluginval</code> at strictness 10 on every build, on both
-                Windows and macOS.
+                It is a VST3 and is built for exactly those two. Every build is
+                loaded the way a DAW&rsquo;s scanner loads it and checked for
+                identical sound before it ships. A real FL Studio and Ableton
+                session is the beta&rsquo;s job &mdash; tell us what you find.
               </p>
             </details>
             <details>
               <summary data-decode>HOW MUCH CPU?</summary>
               <p>
-                Oversampling is the dial that matters: the whole voice section runs
-                at 2&times; or 4&times;, because a nonlinear stage aliases the moment it runs
-                and no filter afterwards can remove those partials. 2&times; is the
-                default and measures &minus;43.1 dBc on a hard-clipped sine.
+                Oversampling is the dial that matters: the voices run at 1&times;,
+                2&times;, 4&times; or 8&times;, and 2&times; is the default. Unison is
+                the other: seven voices per oscillator cost seven times one. Even
+                the phone version, in a browser, plays a heavy patch &mdash; two
+                unison oscillators and every effect &mdash; about four times
+                faster than real time on one server core.
               </p>
             </details>
           </div>

@@ -46,7 +46,7 @@ console.log(`assemble_deploy: ${count(out)} files -> dist/`);
 
 //  The pages the site is actually made of. An empty or half-copied dist
 //  deploys green and serves nothing, which is the failure worth catching.
-for (const required of ['index.html', 'checkout.html', 'app/index.html']) {
+for (const required of ['index.html', 'checkout.html', 'app/index.html', 'app/manifest.webmanifest', 'app/sw.js']) {
   if (!existsSync(join(out, required))) {
     console.error(`assemble_deploy: missing ${required}`);
     process.exit(1);
@@ -66,7 +66,18 @@ try {
   const response = await fetch(PHONE_URL, { redirect: 'follow' });
   const page = response.ok ? await response.text() : '';
   if (page.includes('__GNARL_WASM__') && page.length > 500_000) {
-    writeFileSync(join(out, 'app', 'index.html'), page);
+    //  What makes it an installable app (site/public/app: the manifest, the
+    //  icons, the worker): linked here rather than in ui/, because the same
+    //  page is also embedded in the plugin and published elsewhere, where
+    //  none of these files exist.
+    const install = [
+      '<link rel="manifest" href="manifest.webmanifest">',
+      '<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">',
+      '<link rel="apple-touch-icon" href="icons/icon-192.png">',
+      "<script>if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>",
+    ].join('');
+    if (!page.includes('</head>')) throw new Error('assemble_deploy: the phone page has no </head>');
+    writeFileSync(join(out, 'app', 'index.html'), page.replace('</head>', () => `${install}</head>`));
     console.log(`assemble_deploy: phone version at /app (${(page.length / 1024).toFixed(0)} kB)`);
   } else {
     console.warn(`assemble_deploy: WARNING no phone version (${response.status}); /app stays the tombstone`);
