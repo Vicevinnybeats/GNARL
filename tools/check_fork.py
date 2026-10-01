@@ -20,6 +20,9 @@ is the only reason for each one to exist:
     loader REFUSES a patch newer than itself, so every patch the renderer
     saved would have opened in the plugin as the init patch
 
+And one rule, checked before it can be broken: no audio file is committed
+(CLAUDE.md §7 - reference tracks are measured, never stored).
+
 Exit status is the number of failures.
 """
 import pathlib, re, sys, xml.dom.minidom
@@ -142,6 +145,21 @@ for p in sorted((ROOT / 'tests').rglob('*.vital')):
     m = re.search(r'"synth_version"\s*:\s*"([^"]+)"', text(p))
     if not m or m.group(1) != plugin_version:
         fail(f'{p.relative_to(ROOT)} is stamped {m and m.group(1)}, the plugin is {plugin_version}: the plugin would refuse it if newer')
+
+# 8. no audio is committed. Not a bug that happened but CLAUDE.md §7's rule,
+#    made mechanical before Phase 3 starts measuring reference tracks: those
+#    are measured locally and only the JSON is committed. The one exception
+#    is an example the VST3 SDK ships, which is Steinberg's, not a reference.
+AUDIO = re.compile(r'\.(wav|mp3|flac|aiff?|ogg|m4a|opus|wma)$', re.I)
+ALLOWED_AUDIO = {'third_party/VST_SDK/VST3_SDK/public.sdk/source/vst/auv3wrapper/Shared/drumLoop.wav'}
+try:
+    import subprocess
+    tracked = subprocess.run(['git', 'ls-files'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+except Exception:
+    tracked = [str(p.relative_to(ROOT)) for p in ROOT.rglob('*') if p.is_file() and '.git' not in p.parts]
+for f in tracked:
+    if AUDIO.search(f) and f not in ALLOWED_AUDIO:
+        fail(f'{f} is audio: commit measurements, never audio (CLAUDE.md §7)')
 
 print(f'check_fork: {len(fails)} failure(s)')
 sys.exit(min(len(fails), 100))

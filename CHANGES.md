@@ -226,3 +226,15 @@ the merge commit forward: `git log 7651809..`.
 - The panel's FOLD and CRUSH tiles are bound. See
   docs/design/phase2-07-drive-chain.md.
 
+## 2026-10-01 - Phase 3: measure and compare
+
+- `tools/measure.py` (new): loudness (BS.1770-4), band power shares,
+  stereo per band, level and brightness modulation spectra with the wobble
+  rate in cycles per beat; JSON out. `tools/compare.py` (new): a reference
+  against a JSON, a WAV or a rendered `.vital` patch, in numbers.
+- `tests/test_measure.py` (new, in CI): known signals and GNARL renders,
+  with each past analysis mistake run as a negative control.
+- `references/` (new): measurements only; `.gitignore` refuses audio.
+- `tools/check_fork.py` check 8: CI fails if any audio file is committed.
+- See docs/design/phase3-01-measure.md.
+

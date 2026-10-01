@@ -81,6 +81,11 @@ headless/builds/linux/build/gnarl-render --headless -o out.wav -l 4 -m C1 -b 140
 python3 tests/test_wobble.py          # renders + measures the wobble macro
 python3 tests/test_vowel.py           # each vowel button produces its vowel
 python3 tests/test_drive_chain.py     # FOLD = Vital's fold; CRUSH bits, hold, block size
+python3 tests/test_measure.py         # Phase 3's instrument on known signals + GNARL renders
+
+# Phase 3: measure a reference locally (JSON only), compare a patch with it
+python3 tools/measure.py ref.wav --bpm 140 --from 61 --to 69 --json references/x.json
+python3 tools/compare.py references/x.json patch.vital --bpm 140 --note F1
 (cd ui && npm run build && npm test)  # the panel's bridge, in Chromium, against a fake plugin
 python3 tests/test_sub.py --plugin /tmp/probe "$PWD/plugin/builds/linux_vst/build/GNARL.vst3/Contents/x86_64-linux/GNARL.so"
                                       # the mono sub; --plugin adds the mid-block note check
@@ -360,7 +365,12 @@ Nobody working in this repository with an AI can hear. So:
   magnitudes instead of power (a sub balance reported as 12–21% was 79%); an
   envelope sampled at 8192-sample hops whose Nyquist made every track
   "wobble" at 1.2 Hz; autocorrelation that found the kick drum. Print the
-  whole modulation spectrum, not an argmax.
+  whole modulation spectrum, not an argmax. Two more, from GNARL's own
+  renders: a shaped wobble's LOUDEST line can be its 2nd harmonic (so the
+  rate is the harmonic series' fundamental), and a low note beats against
+  the wobble's harmonics (C1 put lines at 32.7 − 7k Hz, and a loose
+  harmonic match called 1/8T "2 per beat"). `tests/test_measure.py` keeps
+  each of these as a negative control.
 
 ## 8. Legal and licensing
 
@@ -388,7 +398,7 @@ GNARL's own licence check (Phase 7, `backend/`):
 | 0 | Plan: Vital structure, build, GPLv3, CI | **done** |
 | 1 | Fork, rebrand, CI, this file | **done** — VST3 built on Windows, macOS (universal) and Linux in CI run 36698376877 |
 | 2 | Riddim features, one at a time, design first | wobble macro: **engine done and tested**, UI tab done; clean mono sub **done and tested** (`docs/design/phase2-05-mono-sub.md`); vowel filter + vowel wobble **done and tested** (`docs/design/phase2-06-vowel-filter.md`); drive chain **done and tested** (`docs/design/phase2-07-drive-chain.md`); new panel `ui/` (desktop + phone layouts, `docs/design/phase2-02-ui.md`) **inside the JUCE 8 plugin**, bound to the engine (`docs/design/phase2-04-web-panel.md`); JUCE 8 move: renderer and VST3 done and identical to JUCE 6 (`docs/design/phase2-03-juce8.md`); JUCE 8 plugin awaits an FL Studio / Ableton test |
-| 3 | Render + compare tooling, reference measurement | not started |
+| 3 | Render + compare tooling, reference measurement | **tooling done and tested** (`tools/measure.py`, `tools/compare.py`, `tests/test_measure.py`, docs/design/phase3-01-measure.md); no reference measured yet - the producer's step |
 | 4 | AI preset generation | **not to be started** |
 
 Phase 2 candidates, with what already exists in upstream:

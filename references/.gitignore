@@ -1,0 +1,9 @@
+# Only measurements live here (README.md). Never the audio.
+*.wav
+*.mp3
+*.flac
+*.aif
+*.aiff
+*.ogg
+*.m4a
+*.opus

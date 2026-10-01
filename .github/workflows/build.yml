@@ -79,11 +79,13 @@ jobs:
 
       #  Renders through the real engine and measures: rates, tempo, transport
       #  lock (with a negative control), bit-identity with the equivalent
-      #  matrix connection, and zero depth changing nothing.
+      #  matrix connection, and zero depth changing nothing. Then Phase 3's
+      #  measuring tool on known signals and GNARL renders (test_measure.py).
       - name: Wobble macro tests
         run: |
-          sudo apt-get install -y -qq python3-numpy
+          sudo apt-get install -y -qq python3-numpy python3-scipy
           python3 tests/test_wobble.py
+          python3 tests/test_measure.py
 
       #  The vowel buttons produce their vowels (phase2-06-vowel-filter.md);
       #  the drive chain's fold and crush stages (phase2-07-drive-chain.md).
