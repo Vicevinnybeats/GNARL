@@ -977,7 +977,24 @@ body[data-orient='portrait'] .play {
   box-shadow: 0 0 14px var(--cyan);
 }
 
-/* The wheels: left of the keys on a phone, beside the scope on a desktop. */
+/* The wheels: left of the keys on a phone; on a desktop, the panel at the
+   bottom right, 40 x 96 px (they were 16 x 30 in the header). */
+.wheels-panel {
+  align-items: center;
+  justify-content: center;
+}
+.wheels-panel .wheels {
+  gap: 14px;
+  height: 100%;
+  padding: 6px 0;
+}
+.wheels-panel .wheel__track {
+  width: 40px;
+  height: 92px;
+}
+.wheels-panel .wheel__label {
+  font-size: 9px;
+}
 .wheels {
   display: flex;
   gap: 6px;
@@ -1048,8 +1065,15 @@ body[data-orient='portrait'] .play {
   gap: 8px;
 }
 .play .wheel__track {
-  width: 26px;
-  height: 84px;
+  width: 40px;
+  flex: 1;
+  min-height: 84px;
+}
+.play .wheels {
+  align-items: stretch;
+}
+.play .wheel {
+  flex: none;
 }
 .play .wheel {
   justify-content: flex-end;

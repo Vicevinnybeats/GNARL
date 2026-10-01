@@ -378,7 +378,6 @@ function header(): HTMLElement {
     advancedButton(),
     licenceChip(),
     el('div', 'top__spacer'),
-    wheels(),
     scope(250, 34),
     masterKnob(),
   );
@@ -904,10 +903,6 @@ function logoCanvas(cls: string): HTMLCanvasElement {
   return canvas;
 }
 
-function logoPanel(): HTMLElement {
-  return el('section', 'panel logo', logoCanvas('logo__canvas'));
-}
-
 /* ------------------------------------------------------------------ layout */
 
 function desktop(): HTMLElement {
@@ -919,7 +914,9 @@ function desktop(): HTMLElement {
     el('div', 'row row--2', wobblePanel(), envelopePanel(), modPanel()),
     (() => {
       const rack = fxRack();
-      return el('div', 'row row--3', rack.nav, rack.pages, logoPanel());
+      // The wheels where the corner mark was: 16 x 30 px in the header was
+      // too small to play (the producer: "somewhere else and bigger").
+      return el('div', 'row row--3', rack.nav, rack.pages, el('section', 'panel wheels-panel', wheels()));
     })(),
   );
 }

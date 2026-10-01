@@ -445,3 +445,9 @@ the merge commit forward: `git log 7651809..`.
   LFO 1 and not with the wobble.
 - The phone's arrows step through the starting sounds and the saved ones.
 - The delay LED moves 10 ms a tap in MS.
+
+## 2026-10-01 - Pitch and mod wheels moved and enlarged
+
+- The panel's wheels leave the header for their own panel at the end of the
+  effects row (40 x 92 px tracks, twice the old size); on the phone they
+  stretch to the keyboard's height.
