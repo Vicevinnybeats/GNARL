@@ -394,6 +394,10 @@ Nobody working in this repository with an AI can hear. So:
 - **Riddim's tempo is 140 or 145 BPM, mixed at 150** (the producer). Measure
   and design at 140; every rate is tempo-synced, so a patch timed at 120
   plays 17% slow. The phone page keeps its own tempo for this reason.
+- **The producer plays most notes at D#3 in FL Studio**, which names MIDI 60
+  C5: so MIDI 39, about 78 Hz - `-m D#2` to `gnarl-render`, whose naming
+  puts MIDI 60 at C4. Measurements until 2026-10-01 used F1 (MIDI 29), ten
+  semitones lower; design and measure at MIDI 39 from now on.
 
 - **Only call a sound "close" to a reference if the numbers say so**, and say
   which numbers. The producer listens and decides; the measurements are what
