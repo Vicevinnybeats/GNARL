@@ -114,6 +114,19 @@ class GnarlProcessor extends AudioWorkletProcessor {
         engine.reset();
         this.announcePreset(message.name ?? 'Init');
         break;
+      // A starting sound (factory.json): the init, then its settings by name
+      // and its wobble shape - as tools/factory_sounds.mjs, which measures them.
+      case 'factory': {
+        engine.reset();
+        for (const [name, value] of Object.entries(message.settings ?? {})) {
+          const index = engine.index(name);
+          if (index >= 0) engine.setValue(index, value);
+        }
+        const shapes = { sine: 0, square: 1 };
+        if (message.shape in shapes) engine.wobbleShape(shapes[message.shape]);
+        this.announcePreset(message.name);
+        break;
+      }
       default:
         break;
     }

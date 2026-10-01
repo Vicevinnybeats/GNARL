@@ -14,7 +14,7 @@ import './fonts.css';
 import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
-import { deletePreset, exportPatch, initPatch, listPresets, loadPatch, loadProblem, savePatch } from './web/presets';
+import { deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -78,10 +78,20 @@ function presetPicker(): HTMLElement {
   prev.addEventListener('click', () => step(-1));
   next.addEventListener('click', () => step(1));
   name.addEventListener('click', () => sheet?.toggle());
+  // The sheet closes on a tap anywhere outside the picker, as a menu does.
+  if (sheet) {
+    document.addEventListener('pointerdown', (e) => {
+      if (!sheet.root.hidden && !root.contains(e.target as Node)) sheet.close();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !sheet.root.hidden) sheet.close();
+    });
+  }
   presetViews.add(show);
   engineViews.add(show);
   show();
-  return el('div', 'preset', prev, name, next, ...(sheet ? [sheet.root] : []));
+  const root = el('div', 'preset', prev, name, next, ...(sheet ? [sheet.root] : []));
+  return root;
 }
 
 /** Load the saved patch `by` places from the current one, by name order. */
@@ -96,16 +106,19 @@ async function stepSaved(by: number): Promise<void> {
   if (target) await openPatch(target.json);
 }
 
-async function openPatch(json: string): Promise<void> {
+async function openPatch(json: string): Promise<boolean> {
   const { result } = await loadPatch(json);
   if (result !== 0) toast(loadProblem(result));
+  return result === 0;
 }
 
 /*
- * The web build's preset sheet: save under a name, the saved list (tap to
- * load, x to delete), OPEN a .vital file, EXPORT this patch as one, INIT.
+ * The web build's preset sheet: save under a name, the five starting sounds,
+ * the saved list (tap to load, x to delete), OPEN a .vital file, EXPORT this
+ * patch as one, INIT. Choosing a patch closes it; so do x, Escape and a tap
+ * outside (presetPicker).
  */
-function presetSheet(): { root: HTMLElement; toggle(): void } {
+function presetSheet(): { root: HTMLElement; toggle(): void; close(): void } {
   const nameInput = el('input', 'presets__input');
   nameInput.type = 'text';
   nameInput.id = 'preset-name';
@@ -117,6 +130,10 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
   save.type = 'submit';
   const form = el('form', 'presets__form', nameInput, save);
   const list = el('ul', 'presets__list');
+  const factoryList = el('ul', 'presets__list presets__list--factory');
+  const closeButton = el('button', 'presets__close', '\u00d7');
+  closeButton.type = 'button';
+  closeButton.setAttribute('aria-label', 'Close presets');
   const file = el('input', 'presets__file');
   file.type = 'file';
   file.accept = '.vital,application/json';
@@ -125,13 +142,39 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
   const exportButton = chipButton('EXPORT');
   const init = chipButton('INIT');
   const actions = el('div', 'presets__actions', open, exportButton, init, file);
-  const root = el('div', 'presets', form, list, actions);
+  const root = el(
+    'div',
+    'presets',
+    el('div', 'presets__head', el('span', 'presets__title', 'PRESETS'), closeButton),
+    form,
+    el('div', 'presets__label', 'FACTORY'),
+    factoryList,
+    el('div', 'presets__label', 'SAVED'),
+    list,
+    actions,
+  );
   root.hidden = true;
+  const close = (): void => {
+    root.hidden = true;
+  };
+  closeButton.addEventListener('click', close);
 
   // Typing a name must not play notes (the computer keyboard plays C2..C3).
   for (const type of ['keydown', 'keyup'] as const) nameInput.addEventListener(type, (e) => e.stopPropagation());
 
   const render = async (): Promise<void> => {
+    factoryList.replaceChildren(
+      ...FACTORY_SOUNDS.map((sound) => {
+        const load = el('button', 'presets__load', sound.name);
+        load.type = 'button';
+        load.dataset.on = sound.name === engine.preset ? 'true' : 'false';
+        load.addEventListener('click', () => {
+          loadFactory(sound);
+          close();
+        });
+        return el('li', 'presets__item', load);
+      }),
+    );
     const saved = await listPresets();
     list.replaceChildren(
       ...(saved.length === 0
@@ -140,7 +183,7 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
             const load = el('button', 'presets__load', p.name);
             load.type = 'button';
             load.dataset.on = p.name === engine.preset ? 'true' : 'false';
-            load.addEventListener('click', () => void openPatch(p.json));
+            load.addEventListener('click', () => void openPatch(p.json).then((ok) => ok && close()));
             const remove = el('button', 'presets__delete', '\u00d7');
             remove.type = 'button';
             remove.setAttribute('aria-label', `Delete ${p.name}`);
@@ -156,7 +199,8 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
     savePatch(patchName)
       .then(({ stored }) => {
         toast(stored ? `Saved ${patchName}.` : `Saved ${patchName} for this visit (this browser keeps no storage).`);
-        return render();
+        nameInput.blur();
+        close();
       })
       .catch((error: unknown) => toast(String(error)));
   });
@@ -164,7 +208,7 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
   file.addEventListener('change', () => {
     const chosen = file.files?.[0];
     file.value = '';
-    if (chosen) void chosen.text().then(openPatch);
+    if (chosen) void chosen.text().then(openPatch).then((ok) => ok && close());
   });
   exportButton.addEventListener('click', () => {
     const patchName = engine.preset || 'GNARL';
@@ -177,7 +221,10 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
       .catch((error: unknown) => toast(String(error)));
   });
   // Vital's init patch: one saw on osc 1, as the engine opens.
-  init.addEventListener('click', () => initPatch());
+  init.addEventListener('click', () => {
+    initPatch();
+    close();
+  });
 
   engineViews.add(() => {
     if (!root.hidden) void render();
@@ -186,6 +233,7 @@ function presetSheet(): { root: HTMLElement; toggle(): void } {
 
   return {
     root,
+    close,
     toggle(): void {
       root.hidden = !root.hidden;
       if (!root.hidden) {

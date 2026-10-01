@@ -1,0 +1,59 @@
+{
+  "_about": "The phone version's five starting sounds (main.ts presetSheet, docs/design/phase2-09-mobile.md). Each is the init patch plus these settings, in the engine's own units as a preset stores them, and a wobble shape (sine, square, or the engine's init triangle). Measured by tools/factory_sounds.mjs - level, peak, wobble rate - not listened to: they are starting points for the producer to judge.",
+  "sounds": [
+    {
+      "name": "Triplet Growl",
+      "shape": "square",
+      "settings": {
+        "volume": 5021, "osc_1_unison_voices": 3, "osc_1_unison_detune": 1.5, "osc_1_distortion_type": 2,
+        "osc_1_distortion_amount": 0.55, "filter_1_on": 1, "filter_1_model": 0, "filter_1_cutoff": 62,
+        "filter_1_resonance": 0.55, "wobble_rate": 2, "wobble_amount_cutoff": 0.55, "wobble_amount_fm": 0.4,
+        "distortion_on": 1, "distortion_drive": 14, "compressor_on": 1, "compressor_mix": 0.6,
+        "mono_sub_on": 1, "mono_sub_level": 0.6
+      }
+    },
+    {
+      "name": "Formant Yoy",
+      "shape": "sine",
+      "settings": {
+        "volume": 4933, "osc_2_on": 1, "osc_2_transpose": 12, "osc_2_level": 0.5,
+        "osc_1_fm_amount": 0.35, "filter_1_on": 1, "filter_1_model": 5, "filter_1_formant_x": 0.3,
+        "filter_1_formant_y": 0.5, "filter_1_resonance": 0.7, "wobble_rate": 1, "wobble_amount_formant": 0.8,
+        "distortion_on": 1, "distortion_tube": 1, "distortion_drive": 10, "compressor_on": 1,
+        "compressor_mix": 0.6, "mono_sub_on": 1, "mono_sub_level": 0.6
+      }
+    },
+    {
+      "name": "Sub Wobble",
+      "shape": "sine",
+      "settings": {
+        "volume": 5793, "filter_1_on": 1, "filter_1_model": 0, "filter_1_cutoff": 48,
+        "filter_1_resonance": 0.3, "wobble_rate": 0, "wobble_amount_cutoff": 0.7, "mono_sub_on": 1,
+        "mono_sub_level": 0.9
+      }
+    },
+    {
+      "name": "Tearout Saw",
+      "shape": "square",
+      "settings": {
+        "volume": 5190, "osc_1_unison_voices": 7, "osc_1_unison_detune": 3, "osc_2_on": 1,
+        "osc_2_unison_voices": 5, "osc_2_transpose": 12, "osc_2_level": 0.5, "osc_2_fold": 1,
+        "osc_2_distortion_amount": 0.5, "filter_1_on": 1, "filter_1_model": 0, "filter_1_cutoff": 58,
+        "filter_1_resonance": 0.4, "wobble_rate": 3, "wobble_amount_cutoff": 0.85, "distortion_on": 1,
+        "distortion_type": 1, "distortion_drive": 12, "distortion_fold_on": 1, "distortion_fold_drive": 6,
+        "compressor_on": 1, "compressor_mix": 0.7, "mono_sub_on": 1, "mono_sub_level": 0.6
+      }
+    },
+    {
+      "name": "Crushed Reese",
+      "shape": "triangle",
+      "settings": {
+        "volume": 5570, "osc_1_unison_voices": 2, "osc_1_unison_detune": 0.6, "osc_2_on": 1,
+        "osc_2_tune": 0.12, "osc_2_level": 0.6, "filter_1_on": 1, "filter_1_model": 0,
+        "filter_1_cutoff": 88, "filter_1_resonance": 0.25,
+        "distortion_crush_on": 1, "distortion_crush_bits": 7, "distortion_crush_rate": 0.2,
+        "mono_sub_on": 1, "mono_sub_level": 0.45
+      }
+    }
+  ]
+}

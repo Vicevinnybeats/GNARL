@@ -152,31 +152,71 @@ check(!(s.routes ?? []).some((r) => r.source === 'lfo_1'), 'and removes it');
 
 // Presets (web/presets.ts): save under a name, change something, load it
 // back; an old-version file is refused with its reason; EXPORT hands back a
-// .vital file; the arrows step through what is saved.
+// .vital file; the arrows step through what is saved. The sheet closes
+// after each choice, on x and on a tap outside (a producer's phone showed it
+// stuck open: display:flex outranked the hidden attribute).
 const toastText = () => page.evaluate(() => document.querySelector('.toast')?.textContent ?? '');
 const volumeNow = () => page.evaluate(() => window.__seen.values.volume?.[0]);
+const sheetOpen = () => page.locator('.m .presets').isVisible();
+const SAVED = '.m .presets__list:not(.presets__list--factory) .presets__load';
+const openSheet = async () => {
+  if (!(await sheetOpen())) await page.locator('.m .preset__name').tap();
+  check(await sheetOpen(), 'tapping the name opens the sheet');
+};
+check(!(await sheetOpen()), 'the preset sheet starts closed');
+await openSheet();
+await page.locator('.m .presets__close').tap();
+check(!(await sheetOpen()), 'x closes the sheet');
+await openSheet();
+await page.mouse.click(200, 600);
+check(!(await sheetOpen()), 'a tap outside closes the sheet');
+await openSheet();
 await page.locator('.m .preset__name').tap();
+check(!(await sheetOpen()), 'tapping the name again closes it');
+
+await openSheet();
 await page.fill('.m #preset-name', 'Test Wub');
 await page.locator('.m .presets__form button[type="submit"]').tap();
-await page.waitForFunction(() => document.querySelector('.m .presets__load')?.textContent === 'Test Wub', null, { timeout: 5000 });
-check((await toastText()).startsWith('Saved Test Wub'), `saved: "${await toastText()}"`);
+await page.waitForFunction(() => document.querySelector('.toast')?.textContent?.startsWith('Saved Test Wub'), null, { timeout: 5000 });
+check(!(await sheetOpen()), `SAVE closes the sheet: "${await toastText()}"`);
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlSet', { name: 'volume', value: 0.2 }));
 await page.waitForTimeout(300);
 const changed = await volumeNow();
-await page.locator('.m .presets__load', { hasText: 'Test Wub' }).tap();
+await openSheet();
+await page.locator(SAVED, { hasText: 'Test Wub' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Test Wub', null, { timeout: 5000 });
 await page.waitForTimeout(300);
 const restored = await volumeNow();
-check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1,
-  `loading "Test Wub" restores MASTER: ${changed.toFixed(3)} -> ${restored.toFixed(3)}, and the bar shows its name`);
+check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(await sheetOpen()),
+  `loading "Test Wub" restores MASTER: ${changed.toFixed(3)} -> ${restored.toFixed(3)}, shows its name, closes the sheet`);
 
+// The five starting sounds (factory.json): each loads, names the bar, sets
+// its values, and closes the sheet.
+await openSheet();
+const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
+check(factoryNames.length === 5, `five factory sounds: ${JSON.stringify(factoryNames)}`);
+await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Triplet Growl' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Triplet Growl', null, { timeout: 5000 });
+await page.waitForTimeout(300);
+const growl = await page.evaluate(() => ({ rate: window.__seen.values.wobble_rate?.[1], sub: window.__seen.values.mono_sub_on?.[0] }));
+check(!(await sheetOpen()) && growl.sub === 1, `Triplet Growl loads (wobble ${growl.rate}, sub on) and closes the sheet`);
+await page.locator('.m .preset__name').tap();
+await page.locator('.m .presets__actions button', { hasText: 'INIT' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });
+check(!(await sheetOpen()), 'INIT loads the init patch and closes the sheet');
+
+await openSheet();
 await page.locator('.m .presets__file').setInputFiles({
   name: 'old.vital', mimeType: 'application/json',
   buffer: Buffer.from(JSON.stringify({ synth_version: '0.9.0', settings: {} })),
 });
 await page.waitForTimeout(500);
-check((await toastText()).includes('older version'), `an old-version file is refused, saying why: "${await toastText()}"`);
+check((await toastText()).includes('older version') && (await sheetOpen()),
+  `an old-version file is refused, saying why, and the sheet stays open: "${await toastText()}"`);
 
+await page.locator(SAVED, { hasText: 'Test Wub' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Test Wub', null, { timeout: 5000 });
+await openSheet();
 const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.m .presets__actions button', { hasText: 'EXPORT' }).tap()]);
 const exported = JSON.parse(readFileSync(await download.path(), 'utf8'));
 check(download.suggestedFilename() === 'Test Wub.vital' && exported.preset_name === 'Test Wub' && exported.settings.wavetables.length === 3,
@@ -184,12 +224,11 @@ check(download.suggestedFilename() === 'Test Wub.vital' && exported.preset_name 
 
 await page.fill('.m #preset-name', 'Another');
 await page.locator('.m .presets__form button[type="submit"]').tap();
-await page.waitForFunction(() => document.querySelectorAll('.m .presets__load').length === 2, null, { timeout: 5000 });
+await page.waitForFunction(() => document.querySelector('.toast')?.textContent?.startsWith('Saved Another'), null, { timeout: 5000 });
 await page.locator('.m .preset__step').last().tap();
 await page.waitForTimeout(500);
 const stepped = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
 check(stepped === 'Test Wub', `the arrow steps from "Another" to the next saved patch: "${stepped}"`);
-await page.locator('.m .preset__name').tap();
 
 // Idle, the page sends the engine nothing (the echo rule, CLAUDE.md §5).
 const sent = await page.evaluate(() => {

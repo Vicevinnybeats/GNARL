@@ -6,8 +6,11 @@
  * Saved patches live in this browser's IndexedDB - a patch is about 180 kB,
  * mostly wavetables, which would fill localStorage after a couple of dozen.
  * Where IndexedDB is refused (a private window), they live for the visit.
- * OPEN reads a .vital file; EXPORT hands one back.
+ * OPEN reads a .vital file; EXPORT hands one back. The five starting sounds
+ * are factory.json, applied over the init by the worklet.
  */
+
+import factory from './factory.json';
 
 interface Stored {
   name: string;
@@ -117,6 +120,20 @@ export function loadPatch(json: string): Promise<LoadResult> {
 /** The engine's init patch (the page then sends its own defaults over it). */
 export function initPatch(): void {
   window.__JUCE__?.backend.emitEvent('gnarlPresetInit', { name: 'Init' });
+}
+
+/** A starting sound: the init patch plus a few settings (factory.json). */
+export interface FactorySound {
+  name: string;
+  shape: string;
+  settings: Record<string, number>;
+}
+
+// JSON infers a union of the five objects; each is a FactorySound.
+export const FACTORY_SOUNDS = factory.sounds as unknown as readonly FactorySound[];
+
+export function loadFactory(sound: FactorySound): void {
+  window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', sound);
 }
 
 /** Why a load was refused, in the page's words. */

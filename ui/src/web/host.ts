@@ -145,6 +145,9 @@ export async function startWebEngine(): Promise<void> {
           case 'gnarlPresetInit':
             port.postMessage({ type: 'init', name: p.name });
             break;
+          case 'gnarlPresetFactory':
+            port.postMessage({ type: 'factory', name: p.name, shape: p.shape, settings: p.settings });
+            break;
           default:
             // gnarlGesture: no host to record automation. gnarlClassic: no
             // classic editor in the browser.

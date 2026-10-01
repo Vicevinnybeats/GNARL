@@ -371,3 +371,12 @@ the merge commit forward: `git log 7651809..`.
   Says the shop is not open while no licence service is configured.
 - `backend/test/stripe.test.ts` (18 cases) and a `backend` CI job running all
   33 with a typecheck. docs/backend.md lists the five steps that turn it on.
+
+## 2026-10-01 - Mobile version: starting sounds; the preset sheet closes
+
+- The preset sheet never closed: its `display: flex` outranked `hidden`. It
+  now closes on x, Escape, a tap outside, and after a patch is chosen.
+- Five starting sounds in the sheet (`ui/src/web/factory.json`: Triplet
+  Growl, Formant Yoy, Sub Wobble, Tearout Saw, Crushed Reese), each the init
+  plus a few settings; `tools/factory_sounds.mjs` renders and measures them
+  (docs/design/phase2-09-mobile.md).

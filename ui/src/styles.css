@@ -1140,6 +1140,38 @@ body[data-mode='phone'] .toast {
   background: rgba(14, 8, 34, 0.97);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
+/* Without this, display:flex above outranks the hidden attribute and the
+   sheet can never close - the bug a producer reported from a phone. */
+.presets[hidden] {
+  display: none;
+}
+.presets__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.presets__title,
+.presets__label {
+  font: 10px var(--mono);
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.presets__label {
+  margin-bottom: -6px;
+}
+.presets__close {
+  width: 32px;
+  height: 32px;
+  margin: -6px -6px -6px 0;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: 20px var(--mono);
+  cursor: pointer;
+}
+.presets__close:hover {
+  color: var(--text);
+}
 .presets__form,
 .presets__actions {
   display: flex;

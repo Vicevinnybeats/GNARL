@@ -121,6 +121,39 @@ start and checks:
 The negative control: with the engine's pitch-wheel line removed,
 `test_web.py`'s pitch check reads 0.0000 semitones and fails.
 
+## Starting sounds
+
+The preset sheet lists five sounds above the saved ones: `ui/src/web/factory.json`,
+each the engine's init plus a few settings by name and a wobble shape, applied
+by the worklet's `factory` message. They are starting points, not a preset
+pack (that is still the producer's decision), and **nobody here has heard
+them**. What the numbers say, from `node tools/factory_sounds.mjs <dir>`
+(F1, 4 s at 140 bpm) and `tools/measure.py --from 0.5 --to 4`:
+
+| Sound | Wobble | Peak | Loudness | Measured movement |
+|---|---|---|---|---|
+| Triplet Growl | 1/8T square on cutoff and FM; osc FORMANT warp, DIST, OTT | −3.6 dBFS | −11.9 LUFS | 3.0 per beat in the growl band (1/8T) |
+| Formant Yoy | 1/8 sine on the vowel; osc 2 FM, TUBE | −3.5 dBFS | −10.8 LUFS | lines at 2.0 and 4.0 per beat; no single rate |
+| Sub Wobble | 1/4 sine on a low cutoff, sub up | −3.1 dBFS | −15.9 LUFS | 1.0 per beat (1/4) |
+| Tearout Saw | 1/16 square on cutoff; 7+5 unison, osc FOLD, HARD + FOLD | −2.0 dBFS | −10.1 LUFS | 4.0 per beat in the spectral centroid, not in level |
+| Crushed Reese | none: two detuned saws through CRUSH | −4.5 dBFS | −16.5 LUFS | 0.3 Hz, the detune's beating |
+
+The sub-heavy two read quieter in LUFS because its weighting discounts the
+sub, not because their peaks are lower. Two things changed while measuring:
+the first levels clipped (Formant Yoy and Crushed Reese peaked above 0 dBFS),
+and a chorus on the Reese made the sub band stereo (side/mid +0.6 dB), so it
+went. Browser against desktop (each patch saved by the browser, random phase
+off): Sub Wobble −92.9 dB; Triplet Growl only −8.9 dB sample by sample, from
+the FORMANT warp under the wobble's FM route (either alone: −70 dB), which
+amplifies the maths-library difference - its measurements agree to 0.02 LU,
+every band within 1%, and the same 3.0 per beat.
+
+The sheet itself: it never closed, because `.presets` sets `display: flex`,
+which outranks the `hidden` attribute (the licence popover's bug again). It
+now closes on x, Escape, a tap outside, and after SAVE, INIT, a factory
+sound, a saved patch or a file that loads. `web.test.mjs` checks each; with
+the `[hidden]` rule removed, five of its checks fail.
+
 ## Found on the way
 
 - **Vital's chorus depends on the block size**: −11.7 dB between blocks of 32
