@@ -643,7 +643,7 @@ body[data-orient='portrait'] .m__side,
 body[data-orient='portrait'] .m__main {
   display: contents;
 }
-body[data-orient='portrait'] .keys {
+body[data-orient='portrait'] .play {
   order: 10;
   margin-bottom: 8px;
 }
@@ -833,6 +833,84 @@ body[data-orient='portrait'] .keys {
   box-shadow: 0 0 14px var(--cyan);
 }
 
+/* The wheels: left of the keys on a phone, beside the scope on a desktop. */
+.wheels {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.wheel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  outline: none;
+}
+.wheel__track {
+  position: relative;
+  width: 16px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, #0d0820 0%, #1c1238 50%, #0d0820 100%);
+  border: 1px solid var(--border);
+  cursor: ns-resize;
+  touch-action: none;
+  overflow: hidden;
+}
+.wheel__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--cyan) 35%, transparent);
+}
+.wheel__thumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  height: 3px;
+  margin-bottom: -1.5px;
+  border-radius: 1px;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+}
+.wheel[data-accent='violet'] .wheel__fill {
+  background: color-mix(in srgb, var(--violet) 35%, transparent);
+}
+.wheel[data-accent='violet'] .wheel__thumb {
+  background: var(--violet);
+  box-shadow: 0 0 6px var(--violet);
+}
+.wheel:focus-visible .wheel__track,
+.wheel[data-active='true'] .wheel__track {
+  border-color: var(--cyan-dim);
+}
+.wheel__label {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+.top .wheel__label {
+  display: none;
+}
+.play {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.play .keys {
+  flex: 1;
+}
+.play .wheels {
+  gap: 8px;
+}
+.play .wheel__track {
+  width: 26px;
+  height: 84px;
+}
+.play .wheel {
+  justify-content: flex-end;
+}
+
 /* Sideways: scope and keys on the left, the section on the right. */
 body[data-mode='phone'][data-orient='landscape'] .m {
   flex-direction: row;
@@ -859,6 +937,14 @@ body[data-orient='landscape'] .keys {
   flex: 1;
   min-height: 70px;
   height: auto;
+}
+body[data-orient='landscape'] .play {
+  flex: 1;
+  min-height: 70px;
+}
+body[data-orient='landscape'] .play .wheel__track {
+  height: auto;
+  flex: 1;
 }
 /* Two sections side by side where there is room. */
 body[data-orient='landscape'] .m__page {

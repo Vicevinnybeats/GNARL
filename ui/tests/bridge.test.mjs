@@ -210,6 +210,34 @@ await settle();
 routes = await page.evaluate(() => window.__fake.routes.map((r) => `${r.source}>${r.destination}`));
 check(!routes.includes('wobble>filter_1_formant_x'), `right-click disconnects it: ${JSON.stringify(routes)}`);
 
+// The wheels: a drag sends pitch_wheel / mod_wheel; pitch springs back to the
+// centre before the gesture ends, so a DAW records the return; mod stays.
+async function dragWheel(param, dy) {
+  const box = await page.locator(`.app .wheel[data-param="${param}"] .wheel__track`).boundingBox();
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i += 1) await page.mouse.move(x, y + (dy * i) / 6);
+  await settle();
+  const held = (await engine())[param === 'pitch' ? 'pitch_wheel' : 'mod_wheel'];
+  await page.mouse.up();
+  await settle();
+  return held;
+}
+const logFrom = await page.evaluate(() => window.__fake.log.length);
+const bent = await dragWheel('pitch', -40);
+e = await engine();
+check(bent > 0.6 && near(e.pitch_wheel, 0.5), `PITCH: held at ${bent.toFixed(3)}, released to ${e.pitch_wheel}`);
+const wheelLog = await page.evaluate((from) =>
+  window.__fake.log.slice(from).filter(([id, p]) => (id === 'gnarlSet' || id === 'gnarlGesture') && p.name === 'pitch_wheel')
+    .map(([id, p]) => (id === 'gnarlGesture' ? (p.begin ? 'begin' : 'end') : p.value)), logFrom);
+check(wheelLog[0] === 'begin' && wheelLog.at(-1) === 'end' && wheelLog.at(-2) === 0.5,
+  `PITCH: the return to centre is inside the gesture (${JSON.stringify(wheelLog.slice(-3))})`);
+const modHeld = await dragWheel('modwheel', -40);
+e = await engine();
+check(modHeld > 0.1 && near(e.mod_wheel, modHeld), `MOD: stays where it is let go (${e.mod_wheel})`);
+
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
 const before = await sets();

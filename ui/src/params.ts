@@ -96,6 +96,11 @@ export const PARAMS: readonly Param[] = [
   P('crush.rate', 'RATE', 0, 'distortion_crush_rate'),
   P('ott.depth', 'DEPTH', 0.45, 'compressor_mix'),
   P('ott.time', 'TIME', 0.5, 'compressor_attack'),
+
+  // The performance wheels, beside the keys. Vital's own controls: a MIDI
+  // controller's wheels and these move the same parameters.
+  P('pitch', 'PITCH', 0, 'pitch_wheel', 'raw', -1, 1, { bipolar: true }),
+  P('modwheel', 'MOD', 0, 'mod_wheel'),
 ];
 
 export const PARAM_BY_ID: ReadonlyMap<string, Param> = new Map(PARAMS.map((p) => [p.id, p]));

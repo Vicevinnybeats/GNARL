@@ -57,6 +57,7 @@ text to three significant figures (`tidyText`).
 | wobble VOWEL destination | `wobble_amount_formant` |
 | FOLD, CRUSH tiles | `distortion_fold_*`, `distortion_crush_*` (docs/design/phase2-07-drive-chain.md) |
 | scope press, keys | MIDI note on/off through the plugin's keyboard state |
+| PITCH, MOD wheels (left of the keys on a phone, beside the scope on a desktop) | `pitch_wheel`, `mod_wheel`, plus `pitchWheelGuiChanged` / `modWheelGuiChanged` as Vital's own wheels call: the voices read the engine's MIDI state, not the control. PITCH springs back to centre inside the gesture |
 
 The controls that used to be dimmed (FM, TUBE, 2-BAND, CRUSH HARD/SOFT,
 FOLD warp, wobble SMOOTH and PHASE, the mod matrix) are bound since

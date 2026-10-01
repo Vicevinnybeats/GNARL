@@ -162,7 +162,14 @@ void WebPanel::setValue(const var& event) {
 
   float value = jlimit(0.0f, 1.0f, (float) event["value"]);
   // Exactly the path a Vital knob takes: set the control, notify the host.
-  synth_.valueChangedInternal(name, found->second.bridge->convertToEngineValue(value));
+  float engine_value = found->second.bridge->convertToEngineValue(value);
+  synth_.valueChangedInternal(name, engine_value);
+  // The wheels are read by the voices from the engine's MIDI state, not from
+  // the control: Vital's own wheels set both (BendSection::sliderValueChanged).
+  if (name == "pitch_wheel")
+    synth_.pitchWheelGuiChanged(engine_value);
+  else if (name == "mod_wheel")
+    synth_.modWheelGuiChanged(engine_value);
   // Not echoed back: the page already shows what it sent. The text is, since
   // only the engine knows its units.
   found->second.last_value = found->second.bridge->getValue();

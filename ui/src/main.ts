@@ -25,7 +25,7 @@ import {
   WOBBLE_DESTINATIONS,
 } from './params';
 import { get, resetAll, subscribe } from './store';
-import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle } from './widgets';
+import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle, wheel } from './widgets';
 import type { Display } from './widgets';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
 
@@ -115,6 +115,11 @@ function advancedButton(): HTMLButtonElement {
   return b;
 }
 
+/** Pitch (springs back) and mod wheel, as on a hardware keyboard's left end. */
+function wheels(): HTMLElement {
+  return el('div', 'wheels', wheel('pitch', { spring: true }), wheel('modwheel', { accent: 'violet' }));
+}
+
 function header(): HTMLElement {
   return el(
     'header',
@@ -124,6 +129,7 @@ function header(): HTMLElement {
     aiButton('AI PRESET'),
     advancedButton(),
     el('div', 'top__spacer'),
+    wheels(),
     scope(250, 34),
     masterKnob(),
   );
@@ -542,7 +548,7 @@ function phone(): HTMLElement {
       el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), masterKnob()),
       el('div', 'm__preset', presetPicker(), aiButton('AI')),
       scope(320, 64),
-      keyboard(),
+      el('div', 'play', wheels(), keyboard()),
     ),
     el('div', 'm__main', tabs, content),
   );

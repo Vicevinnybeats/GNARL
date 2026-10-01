@@ -197,6 +197,80 @@ export function knob(id: string, opts: { size?: number; accent?: Accent; label?:
   return root;
 }
 
+/*
+ * A performance wheel: a vertical strip, dragged like a hardware wheel
+ * (140 px for the full range, so a thumb can sweep it in one move). A
+ * springing wheel - pitch - returns to its default when let go, inside the
+ * same gesture, so a DAW records the return too.
+ */
+export function wheel(id: string, opts: { spring?: boolean; accent?: Accent } = {}): HTMLElement {
+  const p = PARAM_BY_ID.get(id);
+  if (!p) throw new Error(`wheel: unknown parameter ${id}`);
+  const fill = el('span', 'wheel__fill');
+  const thumb = el('span', 'wheel__thumb');
+  const track = el('div', 'wheel__track', fill, thumb);
+  const root = el('div', 'wheel', track, el('span', 'wheel__label', p.label));
+  root.dataset.accent = opts.accent ?? 'blue';
+  root.dataset.param = id;
+  root.tabIndex = 0;
+  root.setAttribute('role', 'slider');
+  root.setAttribute('aria-label', p.label);
+  root.title = opts.spring ? `${p.label}: drag, springs back to centre` : `${p.label}: drag`;
+
+  const norm = (v: number): number => (v - p.min) / (p.max - p.min);
+  const denorm = (n: number): number => p.min + Math.min(1, Math.max(0, n)) * (p.max - p.min);
+
+  const draw = (): void => {
+    const n = norm(get(id));
+    const from = p.bipolar ? 0.5 : 0;
+    thumb.style.bottom = `${n * 100}%`;
+    fill.style.bottom = `${Math.min(from, n) * 100}%`;
+    fill.style.height = `${Math.abs(n - from) * 100}%`;
+    root.setAttribute('aria-valuetext', engine.text.get(id) ?? formatValue(p, get(id)));
+  };
+
+  let dragging = false;
+  let lastY = 0;
+  let acc = 0;
+  track.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    lastY = e.clientY;
+    acc = norm(get(id));
+    track.setPointerCapture(e.pointerId);
+    root.dataset.active = 'true';
+    gesture(id, true);
+    e.preventDefault();
+  });
+  track.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dy = (lastY - e.clientY) / scaleOf(track);
+    lastY = e.clientY;
+    acc = Math.min(1, Math.max(0, acc + dy / 140));
+    set(id, denorm(acc));
+  });
+  const end = (): void => {
+    if (!dragging) return;
+    dragging = false;
+    if (opts.spring) set(id, p.def);
+    gesture(id, false);
+    delete root.dataset.active;
+  };
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', end);
+  track.addEventListener('dblclick', () => set(id, p.def));
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowUp') set(id, denorm(norm(get(id)) + 0.05));
+    else if (e.key === 'ArrowDown') set(id, denorm(norm(get(id)) - 0.05));
+    else return;
+    e.preventDefault();
+  });
+  if (opts.spring) root.addEventListener('keyup', () => set(id, p.def));
+
+  subscribe((changed) => changed === id && draw());
+  draw();
+  return root;
+}
+
 /** The app is scaled with a transform; pointer deltas arrive in screen pixels. */
 function scaleOf(node: Element): number {
   const app = node.closest<HTMLElement>('.app');

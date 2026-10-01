@@ -264,3 +264,12 @@ the merge commit forward: `git log 7651809..`.
   `tests/test_wobble.py` 9-12, `tests/test_drive_chain.py` TUBE and SOFT,
   `ui/tests/bridge.test.mjs` matrix and flag choices.
 - See docs/design/phase2-08-panel-controls.md.
+
+## 2026-10-01 - Panel: pitch and mod wheels
+
+- The panel has PITCH and MOD wheels: left of the keys on a phone, beside
+  the scope on a desktop. They set Vital's `pitch_wheel` / `mod_wheel` and
+  tell the engine the way Vital's own wheels do. PITCH springs back to the
+  centre when let go, inside the same gesture, so a DAW records the return.
+- `ui/tests/bridge.test.mjs`: the spring, its gesture order, and that MOD
+  stays put (checked failing with the spring removed).
