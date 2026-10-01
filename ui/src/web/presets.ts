@@ -11,12 +11,14 @@
  */
 
 import factory from './factory.json';
-import vinnyBass2 from '../../../presets/Vinny Bass 2.vital?raw';
-import riddimSub from '../../../presets/Riddim Sub.vital?raw';
 
-// The full patches the starting sounds name (presets/*.vital). A new one is
-// added here and in factory.json.
-const PATCHES: Readonly<Record<string, string>> = { 'Vinny Bass 2': vinnyBass2, 'Riddim Sub': riddimSub };
+// Every built-in patch (presets/*.vital), bundled into the page, by name.
+// factory.json says which are starting sounds, and in what order.
+const PATCHES: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(
+    import.meta.glob<string>('../../../presets/*.vital', { query: '?raw', import: 'default', eager: true }),
+  ).map(([path, text]) => [path.replace(/^.*\//, '').replace(/\.vital$/, ''), text]),
+);
 
 interface Stored {
   name: string;

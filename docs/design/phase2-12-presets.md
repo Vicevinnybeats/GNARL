@@ -115,3 +115,52 @@ to -1.4 dBFS on D1-D2. GNARL's copy and the original render bit-identically
 with the volumes matched. **Alien Riddim is withdrawn**: the producer's
 patch now opens in GNARL as it is, and a third-party preset is not GNARL's
 to ship.
+
+## One-shot wobs from the references' stems; six test sounds
+
+The producer: separate the reference tracks into stems and see what one
+wob does. Each drop's first 8 bars, the bass stem by HPSS (harmonic part,
+margin 1; Demucs cannot run here), cut at every onset in 150-6000 Hz,
+each wob measured (length while within 20 dB of its peak, brightness
+turns, where it is brightest):
+
+| Track | Wobs | Length, median | Brightness turns | Brightest at |
+|---|---|---|---|---|
+| 6:25:300 | 17 | 1.85 beats | 1 in 10 | the end (1.00) |
+| cemeteryf0g | 14 | 2.06 beats | 1-3 | 0.80 |
+| drac07 | 18 | 1.81 beats | 1 in 9 | 0.21 |
+| lily | 33 | 0.82 beats | 0 in 17 | the hit (0.06) |
+| meta 800 | 31 | 0.96 beats | 0-1 | 0.34 |
+
+A wob is about two beats - 0.8-0.9 s at 140, the producer's "1 second
+wob" - and opens and closes once, centred about 2 kHz.
+
+The test sounds (replacing the five settings-only ones), each one wob per
+key, LFO 1 once (Envelope mode) over a tempo-synced length:
+
+| Sound | Length | Turns | Brightest at | Centroid (10-90%) |
+|---|---|---|---|---|
+| Wob Open | 1.99 beats | 1 | 0.80 | 768 Hz (357-1972) |
+| Wob Peak | 1.94 beats | 1 | 0.21 | 649 Hz (299-1607) |
+| Wob Close | 0.96 beats | 0 | 0.00 | 738 Hz (316-1754) |
+| Frog Croak | 1.99 beats | 2 | 0.89 | 1639 Hz |
+| Ribbit | 1.02 beats | 0 | 0.99 | 1514 Hz |
+| Swamp Gurgle | 1.99 beats | 3 | 0.95 | 1659 Hz |
+
+The three Wobs match their references' length, turns and brightest point;
+they are DARKER (650-770 Hz centre against about 2 kHz). A plain saw at F1
+centres at 170 Hz even unfiltered, so the growl is built first (FORMANT
+warp, soft clip, FOLD) and the filter starts at about 370 Hz. The froggy
+three run Vital's formant filter's vowel from LFO 1 (Croak also bends the
+pitch). Peaks -4.7 to -7.5 dBFS. No sub in any: play Riddim Sub under them.
+
+## Fixed: the wobble's RATE on a Vital patch, the arrows, the delay LED
+
+- On a patch that moves with LFO 1 and leaves the wobble at zero (Vinny
+  Bass 2), the WOBBLE panel's RATE sets LFO 1's rate, and its corner says
+  RATE MOVES LFO 1. Vinny Bass 2 at 1/8 moves 2.0 per beat; at 1/4, about
+  1.25 (its LFO 4 also modulates LFO 1's rate).
+- The phone's arrows step through the starting sounds, then the saved ones;
+  they stepped only through saved patches, so with none saved did nothing.
+- The delay LED in MS moves 10 ms a tap (50 held); 1 ms was inaudible -
+  Vinny Bass 2's delay is MS 215 ms at a 13% mix.

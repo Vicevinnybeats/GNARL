@@ -65,7 +65,88 @@ export const PRESETS = [
     source: 'presets/source/Vinny Bass 2.vital',
     settings: { volume: 5172 },
   },
+
+  // ----- One-shot wobs (docs/design/phase2-12-presets.md): one wob per key,
+  // timed to the tempo, from the reference drops' own wobs - three of five
+  // tracks wob for about 2 beats (1.81-2.06 median), opening and closing
+  // once, centred about 2 kHz; lily's and meta 800's are a beat or less.
+  ...ONE_SHOTS(),
 ];
+
+/*
+ * The one-shot wobs share a voice: a saw (the init wavetable) with a narrow
+ * second voice, soft clip and some OTT, through filter 1. LFO 1 plays ONCE
+ * per key (Envelope mode, 2) at a tempo-synced length; the amp envelope
+ * holds for the same length and falls fast, so a held key is one wob. No
+ * sub: play Riddim Sub under them.
+ */
+function oneShot(name, about, { tempo, shape, filter, routes, extra = {} }) {
+  // tempo: kSyncedFrequencyNames index - 7 = 1/2 (2 beats), 8 = 1/4 (1 beat).
+  const holdSeconds = { 7: 0.84, 8: 0.41 }[tempo];
+  return {
+    name,
+    about,
+    waves: [],
+    settings: {
+      volume: 5300,
+      osc_1_unison_voices: 2, osc_1_unison_detune: 0.8, osc_1_stereo_spread: 0.4,
+      osc_1_random_phase: 0,
+      // Hold (quartic time: seconds = value^4) for the wob, then a fast fall.
+      env_1_attack: 0, env_1_hold: Math.pow(holdSeconds, 0.25), env_1_decay: 0.45, env_1_sustain: 0,
+      env_1_release: 0.3,
+      lfo_1_sync: 1, lfo_1_tempo: tempo, lfo_1_sync_type: 2,
+      distortion_on: 1, distortion_type: 0, distortion_drive: 9, distortion_mix: 0.8,
+      compressor_on: 1, compressor_mix: 0.45,
+      filter_1_on: 1,
+      ...filter,
+      ...extra,
+    },
+    lfo1: shape,
+    routes,
+  };
+}
+
+function ONE_SHOTS() {
+  // Analog low pass from about 370 Hz (cutoff 66); LFO 1 opens it by up to
+  // 0.6 of the range. A plain saw at F1 centres at only 170 Hz even
+  // unfiltered (its power is in the low harmonics), where the references'
+  // wobs centre near 2 kHz: so the growl is made first - osc 1 in FORMANT
+  // warp, harder soft clip and the FOLD stage - and the filter moves that.
+  const lowpass = { filter_1_model: 0, filter_1_style: 1, filter_1_cutoff: 66, filter_1_resonance: 0.55,
+    osc_1_distortion_type: 2, osc_1_distortion_amount: 0.7, distortion_drive: 18,
+    distortion_fold_on: 1, distortion_fold_drive: 6 };
+  // Vital's formant filter: the vowel moves along X with LFO 1.
+  const formant = { filter_1_model: 5, filter_1_style: 0, filter_1_formant_x: 0.15, filter_1_formant_y: 0.6,
+    filter_1_formant_resonance: 0.9 };
+  return [
+    oneShot('Wob Open', 'One wob that opens up through two beats, brightest at its end (as 6:25:300).', {
+      tempo: 7, filter: lowpass, routes: [['lfo_1', 'filter_1_cutoff', 0.6]],
+      shape: shape('Open', [[0, 1], [0.85, 0], [1, 1]]),
+    }),
+    oneShot('Wob Peak', 'One wob over two beats, brightest early, then closing (as drac07).', {
+      tempo: 7, filter: lowpass, routes: [['lfo_1', 'filter_1_cutoff', 0.6]],
+      shape: shape('Peak', [[0, 1], [0.2, 0], [0.6, 0.7], [1, 1]]),
+    }),
+    oneShot('Wob Close', 'A one-beat wob, bright at the hit and closing (as lily).', {
+      tempo: 8, filter: lowpass, routes: [['lfo_1', 'filter_1_cutoff', 0.6]],
+      shape: shape('Close', [[0, 0], [0.3, 0.55], [1, 1]]),
+    }),
+    oneShot('Frog Croak', 'A vowel that swells and sinks over two beats, with the pitch dropping a little: a croak.', {
+      tempo: 7, filter: formant,
+      routes: [['lfo_1', 'filter_1_formant_x', 0.7], ['lfo_1', 'osc_1_tune', 0.08]],
+      shape: shape('Croak', [[0, 1], [0.35, 0], [1, 1]]),
+    }),
+    oneShot('Ribbit', 'Two quick vowel blips in one beat.', {
+      tempo: 8, filter: formant, routes: [['lfo_1', 'filter_1_formant_x', 0.75]],
+      shape: shape('Ribbit', [[0, 1], [0.2, 0], [0.45, 1], [0.65, 0], [1, 1]]),
+    }),
+    oneShot('Swamp Gurgle', 'Four fast vowel bubbles inside a two-beat wob.', {
+      tempo: 7, filter: formant, routes: [['lfo_1', 'filter_1_formant_x', 0.6], ['lfo_1', 'filter_1_formant_y', 0.3]],
+      shape: shape('Gurgle', [[0, 1], [0.12, 0.1], [0.25, 0.8], [0.37, 0.05], [0.5, 0.75], [0.62, 0.1], [0.75, 0.8],
+        [0.87, 0.2], [1, 1]]),
+    }),
+  ];
+}
 
 export function buildPatch(engine, spec) {
   if (spec.source) return fromSource(engine, spec);

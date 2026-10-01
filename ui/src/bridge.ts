@@ -327,6 +327,50 @@ function applyDelay(): void {
   if (frequency) apply('delay.ms', msFromHost(frequency[0]));
 }
 
+/* ---------------------------------------------- the wobble's rate, or LFO 1's */
+
+// A patch made in Vital moves with LFO 1 and leaves GNARL's wobble at zero
+// (Vinny Bass 2: every wobble amount 0, LFO 1 at 1/8 on four destinations).
+// There the wobble's RATE would change nothing anyone hears - the producer:
+// "not going faster or slower like in Vital" - so it sets LFO 1's rate
+// instead, and the panel's corner says so. The same four rates, tempo-synced:
+// (delay_sync-style sync mode, lfo_1_tempo index in kSyncedFrequencyNames).
+const LFO_NAMES = ['lfo_1_sync', 'lfo_1_tempo'];
+const LFO_RATES = [
+  { sync: 1, tempo: 8 }, // 1/4
+  { sync: 1, tempo: 9 }, // 1/8
+  { sync: 3, tempo: 9 }, // 1/8 triplets: 1/8T
+  { sync: 1, tempo: 10 }, // 1/16
+];
+
+function lfoDrivesMovement(): boolean {
+  const wobbleSilent = [...wobbleAmounts.values()].every((a) => a === 0);
+  return wobbleSilent && (engine.routes ?? []).some((r) => r.source === 'lfo_1');
+}
+
+function sendLfoRate(rate: number): void {
+  const at = LFO_RATES[rate];
+  if (!at) return;
+  send('gnarlSet', { name: 'lfo_1_sync', value: hostOfIndex('lfo_1_sync', at.sync) });
+  send('gnarlSet', { name: 'lfo_1_tempo', value: hostOfIndex('lfo_1_tempo', at.tempo) });
+}
+
+/** Light the RATE the patch moves at, and name what moves it. */
+function applyWobbleSource(): void {
+  const lfo = lfoDrivesMovement();
+  for (const node of document.querySelectorAll<HTMLElement>('[data-wobble-source]')) {
+    node.textContent = lfo ? 'RATE MOVES LFO 1' : 'SYNC TO HOST';
+  }
+  if (!lfo) {
+    const entry = lastEntry.get('wobble_rate');
+    if (entry) apply('wobble.rate', indexOf('wobble_rate'));
+    return;
+  }
+  const sync = indexOf('lfo_1_sync');
+  const tempo = indexOf('lfo_1_tempo');
+  apply('wobble.rate', LFO_RATES.findIndex((r) => r.sync === sync && r.tempo === tempo));
+}
+
 /* ------------------------------------------------------------ the wobble */
 
 // One DEPTH knob, three destination toggles and an on/off on the page; three
@@ -373,8 +417,10 @@ function receiveValues(values: Record<string, Entry>): void {
   let filter = false;
   let flags = false;
   let delay = false;
+  let rate = false;
   for (const [name, [host, text]] of Object.entries(values)) {
     lastEntry.set(name, [host, text]);
+    if (LFO_NAMES.includes(name) || name === 'wobble_rate') rate = true;
     if (DELAY_NAMES.includes(name)) delay = true;
     if (FLAG_NAMES.includes(name)) flags = true;
     if (FILTER_NAMES.includes(name)) {
@@ -398,6 +444,7 @@ function receiveValues(values: Record<string, Entry>): void {
   if (filter) applyFilterModel(boundNames);
   if (flags) applyFlagChoices();
   if (delay) applyDelay();
+  if (rate || wobble) applyWobbleSource();
 }
 
 /**
@@ -492,6 +539,7 @@ export function sendRoute(source: string, destination: string, amount: number, r
 
 function receiveRoutes(routes: EngineRoute[]): void {
   engine.routes = routes;
+  applyWobbleSource();
   for (const v of engineViews) v();
 }
 
@@ -521,7 +569,7 @@ export async function connect(): Promise<void> {
   });
 
   buildBindings();
-  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES])];
+  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES, ...LFO_NAMES])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
   if (result.preset !== undefined) lastPreset = engine.preset = result.preset;
@@ -555,6 +603,10 @@ export async function connect(): Promise<void> {
     else if (id === 'vowel.vowel') sendVowel(CHOICES.find((c) => c.id === id)?.options[value] ?? '');
     else if (FLAG_CHOICES.some((c) => c.id === id)) sendFlagChoice(id, value);
     else if (DELAY_IDS.includes(id)) sendDelay(id, value);
+    else if (id === 'wobble.rate' && lfoDrivesMovement()) {
+      sendLfoRate(value);
+      return;
+    }
     const b = activeBinding(id);
     if (!b || !boundNames.has(b.name)) return;
     const host = b.toHost(value);

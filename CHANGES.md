@@ -434,3 +434,14 @@ the merge commit forward: `git log 7651809..`.
   range); others are still refused. Same rule in the browser build.
 - Built-in preset Vinny Bass 2 (the producer's own patch, volume 4.5 dB
   down); the phone opens on it. Alien Riddim withdrawn.
+
+## 2026-10-01 - One-shot wobs; the wobble RATE on Vital patches; arrows; delay LED
+
+- Six test sounds (Wob Open/Peak/Close, Frog Croak, Ribbit, Swamp Gurgle),
+  one wob per key, from the references' wobs measured on their bass stems;
+  they replace the five settings-only sounds. The page bundles every
+  presets/*.vital.
+- The WOBBLE panel's RATE sets LFO 1's rate on a patch that moves with
+  LFO 1 and not with the wobble.
+- The phone's arrows step through the starting sounds and the saved ones.
+- The delay LED moves 10 ms a tap in MS.

@@ -114,6 +114,28 @@ const presetShown = await page.evaluate(() => document.querySelector('.m .preset
 const opening = await panelState();
 check(startSets === 0 && presetShown === 'Vinny Bass 2' && opening.filter && !opening.sub,
   `opens on Vinny Bass 2: preset "${presetShown}", engine ${JSON.stringify(opening)}, ${startSets} values sent by the page`);
+// On a patch that moves with LFO 1 (Vinny Bass 2: the wobble at zero), the
+// wobble's RATE is LFO 1's: lit at its rate, and a tap changes LFO 1.
+await page.locator('.m__tabs .chip', { hasText: 'WOBBLE' }).tap();
+const lfoState = () => page.evaluate(() => ({
+  aside: document.querySelector('.m [data-wobble-source]')?.textContent,
+  lit: document.querySelector('.m [data-param="wobble.rate"] .chip[data-on="true"]')?.textContent ?? null,
+}));
+let lfo = await lfoState();
+check(lfo.aside === 'RATE MOVES LFO 1' && lfo.lit === '1/8', `on Vinny Bass 2 the wobble's RATE is LFO 1's: ${JSON.stringify(lfo)}`);
+await page.locator('.m [data-param="wobble.rate"] .chip', { hasText: '1/4' }).tap();
+await page.waitForTimeout(300);
+const lfoTempo = await page.evaluate(() => window.__seen.values.lfo_1_tempo);
+lfo = await lfoState();
+check(lfo.lit === '1/4' && lfoTempo?.[1] === '1/4', `a tap on 1/4 sets LFO 1 to 1/4 in the engine: ${JSON.stringify(lfoTempo)}, lit ${lfo.lit}`);
+await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
+
+await page.locator('.m .preset__step').last().tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Sub', null, { timeout: 5000 })
+  .catch(() => {});
+const arrowed = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
+check(arrowed === 'Riddim Sub', `the arrow steps through the starting sounds: Vinny Bass 2 -> ${arrowed}`);
+
 // What follows was written for the init patch: load it.
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });
@@ -234,8 +256,8 @@ await page.locator('.m .ddl__step').first().tap();
 await page.waitForTimeout(200);
 const freqs = [await engineValue('delay_frequency'), await engineValue('delay_aux_frequency')];
 const msOf = (host) => 1000 / 2 ** (-2 + host * 11);
-check((await led()) === '251 milliseconds' && freqs.every((x) => Math.abs(msOf(x?.[0] ?? 0) - 251) < 0.01),
-  `up in MS: 251 ms, and the engine's frequencies are ${freqs.map((x) => msOf(x?.[0] ?? 0).toFixed(3)).join(', ')} ms`);
+check((await led()) === '260 milliseconds' && freqs.every((x) => Math.abs(msOf(x?.[0] ?? 0) - 260) < 0.01),
+  `up in MS: a tap is 10 ms (250 -> 260), and the engine's frequencies are ${freqs.map((x) => msOf(x?.[0] ?? 0).toFixed(3)).join(', ')} ms`);
 await page.locator('.m .chips--cycle[data-param="delay.unit"] .chip[data-on="true"]').tap();
 await page.waitForTimeout(200);
 syncs = [await engineValue('delay_sync')];
@@ -306,12 +328,12 @@ check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(awai
 // its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 7 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Riddim Sub', `seven factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
-await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Triplet Growl' }).tap();
-await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Triplet Growl', null, { timeout: 5000 });
+check(factoryNames.length === 8 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[5] === 'Frog Croak', `eight factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Frog Croak' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Frog Croak', null, { timeout: 5000 });
 await page.waitForTimeout(300);
 const growl = await panelState();
-check(!(await sheetOpen()) && growl.rate === '1/8T' && growl.sub, `Triplet Growl loads (wobble ${growl.rate}, sub ${growl.sub}) and closes the sheet`);
+check(!(await sheetOpen()) && growl.filter, `Frog Croak loads (filter on: ${growl.filter}) and closes the sheet`);
 await page.locator('.m .preset__name').tap();
 await page.locator('.m .presets__actions button', { hasText: 'INIT' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });

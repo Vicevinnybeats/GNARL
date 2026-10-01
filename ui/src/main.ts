@@ -105,16 +105,20 @@ function presetPicker(): HTMLElement {
   return root;
 }
 
-/** Load the saved patch `by` places from the current one, by name order. */
+/**
+ * Load the patch `by` places from the current one: the starting sounds
+ * first (factory.json's order), then the patches saved here (by name).
+ */
 async function stepSaved(by: number): Promise<void> {
   const saved = await listPresets();
-  if (saved.length === 0) {
-    toast('No saved patches yet. Tap the name to save this one.');
-    return;
-  }
-  const at = saved.findIndex((p) => p.name === engine.preset);
-  const target = saved[(at + by + saved.length * 2) % saved.length] ?? saved[0];
-  if (target) await openPatch(target.json);
+  const all: { name: string; open: () => void }[] = [
+    ...FACTORY_SOUNDS.map((sound) => ({ name: sound.name, open: () => loadFactory(sound) })),
+    ...saved.map((p) => ({ name: p.name, open: () => void openPatch(p.json) })),
+  ];
+  const at = all.findIndex((p) => p.name === engine.preset);
+  const n = all.length;
+  const target = all[at < 0 ? (by > 0 ? 0 : n - 1) : (at + by + n) % n];
+  target?.open();
 }
 
 async function openPatch(json: string): Promise<boolean> {
@@ -451,7 +455,7 @@ function wobblePanel(): HTMLElement {
   );
 
   return panel(
-    { title: 'WOBBLE LFO', aside: 'SYNC TO HOST', accent: 'violet', power: 'wobble.on', cls: 'wobble' },
+    { title: 'WOBBLE LFO', aside: wobbleAside(), accent: 'violet', power: 'wobble.on', cls: 'wobble' },
     el(
       'div',
       'wobble__grid',
@@ -644,6 +648,13 @@ function modPanel(): HTMLElement {
   return panel({ title: 'MOD MATRIX', aside: count, accent: 'violet' }, list);
 }
 
+/** The wobble panel's corner: what its RATE moves (bridge.ts fills it in). */
+function wobbleAside(): HTMLElement {
+  const aside = el('span', 'panel__aside', 'SYNC TO HOST');
+  aside.dataset.wobbleSource = 'true';
+  return aside;
+}
+
 /* ---------------------------------------------------------------------- fx */
 
 interface FxSlot {
@@ -744,6 +755,14 @@ const SEGMENT_RECTS = [
   [0.5, 9.7, 1.6, 6.3], [0.5, 2, 1.6, 6.3], [2, 8.2, 6, 1.6],
 ] as const;
 const LED_DIGITS = 4;
+
+/** The next time a tap gives: `by` ms on, or from an odd time (a preset's
+ * 215 ms) first onto the 10 ms grid in that direction. */
+function nextMs(ms: number, sign: number, by: number): number {
+  const v = Math.round(ms);
+  if (v % 10 !== 0) return sign > 0 ? Math.ceil(v / 10) * 10 : Math.floor(v / 10) * 10;
+  return v + sign * by;
+}
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function delayLine(): HTMLElement {
@@ -796,7 +815,9 @@ function delayLine(): HTMLElement {
   subscribe((changed) => (changed === 'delay.unit' || changed === 'delay.steps' || changed === 'delay.ms') && draw());
   draw();
 
-  // Held, a button repeats, and after a while in MS moves 10 at a time.
+  // In MS a tap moves 10 ms - 1 ms is not a change anyone hears (the
+  // producer: "not working") - and a held button, after a moment, 50.
+  // STEPS move one at a time.
   const hold = (button: HTMLButtonElement, sign: number): void => {
     let timer = 0;
     let count = 0;
@@ -806,7 +827,7 @@ function delayLine(): HTMLElement {
       count = 0;
     };
     const tick = (): void => {
-      put(get(id()) + sign * (ms() && count > 12 ? 10 : 1));
+      put(ms() ? nextMs(get(id()), sign, count > 12 ? 50 : 10) : get(id()) + sign);
       count += 1;
       timer = window.setTimeout(tick, count === 1 ? 380 : 70);
     };
