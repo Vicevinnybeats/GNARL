@@ -9,6 +9,9 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: { configPath: "./wrangler.toml" },
+        // The webhook's signing secret, for the tests only: the real one is a
+        // `wrangler secret`, never in a file.
+        miniflare: { bindings: { STRIPE_WEBHOOK_SECRET: "whsec_test_secret" } },
       },
     },
   },

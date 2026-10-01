@@ -46,7 +46,7 @@ console.log(`assemble_deploy: ${count(out)} files -> dist/`);
 
 //  The pages the site is actually made of. An empty or half-copied dist
 //  deploys green and serves nothing, which is the failure worth catching.
-for (const required of ['index.html', 'checkout.html', 'app/index.html', 'app/manifest.webmanifest', 'app/sw.js']) {
+for (const required of ['index.html', 'checkout.html', 'thanks.html', 'app/index.html', 'app/manifest.webmanifest', 'app/sw.js']) {
   if (!existsSync(join(out, required))) {
     console.error(`assemble_deploy: missing ${required}`);
     process.exit(1);

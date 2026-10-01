@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" data-theme="dream">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Thank you — GNARL</title>
+    <meta name="description" content="Your GNARL licence key and downloads." />
+    <meta name="color-scheme" content="dark" />
+    <!--  NOINDEX: this page is where Stripe sends a buyer back, with their
+          checkout session in the address. It means nothing to anybody else.  -->
+    <meta name="robots" content="noindex, nofollow" />
+    <!--  THE LICENCE SERVICE'S ADDRESS: the deployed Worker (backend/,
+          docs/backend.md), e.g. https://gnarl-licence.<sub>.workers.dev.
+          Empty until it is deployed; the page then says the shop is not
+          open rather than spinning forever.  -->
+    <meta name="gnarl-licence-api" content="" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2312092a'/><path d='M3 11 L5 5 L8 11 L11 5 L13 11' stroke='%2364e6ff' stroke-width='1.4' fill='none'/></svg>" />
+    <script type="module" crossorigin src="./assets/thanks-CXnonOZw.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/styles-DgLDVwk2.js">
+    <link rel="modulepreload" crossorigin href="./assets/checkout-eDzo7xIl.js">
+    <link rel="stylesheet" crossorigin href="./assets/styles-Ddf2OH7K.css">
+    <link rel="stylesheet" crossorigin href="./assets/checkout-CVXAQHQK.css">
+  </head>
+  <body class="checkout-page">
+    <canvas id="stage" aria-hidden="true"></canvas>
+    <main class="checkout">
+      <a class="checkout__back" href="./index.html">&larr; GNARL</a>
+      <div class="checkout__grid">
+        <section class="checkout__summary">
+          <p class="checkout__eyebrow">THANK YOU</p>
+          <p class="checkout__item">Your licence key</p>
+          <!--  Filled by thanks.ts from the licence service. Selectable text
+                as well as a copy button: a key somebody cannot copy is a key
+                they will type wrong.  -->
+          <p class="thanks__key" id="key" aria-live="polite">Fetching your key&hellip;</p>
+          <button class="button thanks__copy" id="copy" type="button" hidden>COPY KEY</button>
+          <p class="checkout__fine" id="key-note">
+            Keep it somewhere safe. Stripe has also emailed you a receipt.
+          </p>
+        </section>
+        <section class="checkout__pay">
+          <p class="checkout__eyebrow">DOWNLOAD</p>
+          <!--  The same files as the landing page's buttons: the latest
+                release (docs/release.md).  -->
+          <div class="thanks__downloads">
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-Windows.zip" rel="noreferrer">WINDOWS</a>
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-macOS.zip" rel="noreferrer">MACOS</a>
+            <a class="button button--ghost" href="/app/">PHONE</a>
+          </div>
+          <div class="checkout__trust">
+            <p><strong>Activate</strong></p>
+            <ol>
+              <li>Install GNARL from the zip (its README says where).</li>
+              <li>Open it in your DAW and tap <strong>LICENCE</strong> in the panel's header.</li>
+              <li>Paste the key. It works on three of your own machines.</li>
+            </ol>
+          </div>
+          <p class="checkout__fine">
+            Audio never depends on the licence. Offline, GNARL keeps working
+            for 30 days before it asks again.
+          </p>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

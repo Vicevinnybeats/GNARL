@@ -259,3 +259,26 @@
     opacity: 1;
   }
 }
+
+/* The thank-you page (thanks.html): the key, large and selectable. */
+.thanks__key {
+  margin: 12px 0;
+  font-family: var(--font);
+  font-size: clamp(16px, 4.2vw, 24px);
+  letter-spacing: 0.08em;
+  color: #64e6ff;
+  user-select: all;
+  word-break: break-all;
+}
+.thanks__copy {
+  margin-bottom: 12px;
+}
+.thanks__downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+.thanks__copy[hidden] {
+  display: none;
+}

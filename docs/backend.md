@@ -43,8 +43,50 @@ it once the Worker is deployed and verified**, and unpause
 nothing, but keeping both *maintained* would mean two copies of the licence
 policy, which is exactly the kind of duplication that drifts.
 
-## Stripe
+## Stripe - built, waiting for an account
 
-Not connected yet, on either. What it needs to do: on `checkout.session.completed`,
-generate a licence key and insert a `licenses` row. The webhook signature
-must be verified — unlike `/activate`, that endpoint has to be trusted.
+`backend/src/stripe.ts`, tested in `backend/test/stripe.test.ts` (18 cases,
+in CI):
+
+| Endpoint | Does |
+|---|---|
+| `POST /stripe/webhook` | Verifies Stripe's signature (HMAC-SHA256, 5-minute tolerance), then: a paid `checkout.session.completed` (or `async_payment_succeeded`) issues ONE key per checkout session however often Stripe delivers it; a full `charge.refunded` marks the licence refunded, so `/activate` then says no. Anything unsigned, mis-signed, stale or tampered: 400, nothing changes. Our own failure: 503, so Stripe retries rather than a key being lost |
+| `GET /licence?session_id=cs_...` | The thank-you page's lookup: the key once the webhook has landed, `pending` (404) until then |
+
+Keys look like `GNARL-7KQ3-M2XH-9TPA-WD4R`: 16 symbols from 32 that cannot
+be misread (no 0/O, 1/I), 80 bits.
+
+Negative controls, run:
+- with signature checking switched off, four of the refusal tests fail;
+- without the one-key-per-session guard, the triple-delivery test fails.
+
+### Turning it on (a person, once)
+
+1. **Worker:** `cd backend && npm install && npx wrangler login`, then
+   `npm run migrate:remote` (adds the two Stripe columns to the existing D1)
+   and `npm run deploy`. Note the URL it prints.
+2. **Stripe, Payment Link:** create a €49 product and a Payment Link. Under
+   *After payment*, choose *Don't show confirmation page* and redirect to
+   `https://gnarl.vercel.app/thanks.html?session_id={CHECKOUT_SESSION_ID}`.
+3. **Stripe, webhook:** Developers → Webhooks → add the endpoint
+   `<worker URL>/stripe/webhook` with the events
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`
+   and `charge.refunded`. Copy its signing secret, then
+   `npx wrangler secret put STRIPE_WEBHOOK_SECRET`.
+4. **Site:** paste the Payment Link into `data-payment-link` in
+   `site/checkout.html`, and the Worker URL into the `gnarl-licence-api`
+   meta tag in `site/thanks.html`.
+5. **Plugin:** build releases with
+   `-DGNARL_LICENCE_ENDPOINT=<worker URL>/activate` (release.yml's cmake
+   lines). Until then every build says "Development build" and saves
+   presets.
+
+Test it end to end in Stripe's **test mode** first: the same steps with a
+test-mode link and secret, and a card `4242 4242 4242 4242`.
+
+Not built:
+- **email:** the key is shown on the thank-you page, and Stripe's receipt
+  goes to the buyer, but no email carries the key itself. Sending one needs
+  a mail service (Resend, Postmark) and its API key as another secret.
+- **disputes (chargebacks):** these do not revoke a key automatically. A
+  person decides.

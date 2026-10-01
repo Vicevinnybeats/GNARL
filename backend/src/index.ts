@@ -16,10 +16,14 @@
     optional on the webhook, which DOES need to be trusted.
 */
 
+import { licenceForSession, stripeWebhook } from "./stripe";
+
 export interface Env {
     DB: D1Database;
     /** Set with `wrangler secret put STRIPE_WEBHOOK_SECRET`. */
     STRIPE_WEBHOOK_SECRET?: string;
+    /** The site allowed to read /licence from a browser (wrangler.toml [vars]). */
+    SITE_ORIGIN?: string;
 }
 
 /*
@@ -173,6 +177,24 @@ export default {
             }
 
             return activate(request, env);
+        }
+
+        // Payments (src/stripe.ts): Stripe's webhook issues keys, and the
+        // thank-you page fetches the buyer's.
+        if (url.pathname === "/stripe/webhook") {
+            if (request.method !== "POST") {
+                return json({ error: "POST only" }, 405);
+            }
+
+            return stripeWebhook(request, env);
+        }
+
+        if (url.pathname === "/licence") {
+            if (request.method !== "GET") {
+                return json({ error: "GET only" }, 405);
+            }
+
+            return licenceForSession(request, env);
         }
 
         return json({ error: "not found" }, 404);

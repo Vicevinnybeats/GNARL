@@ -16,6 +16,8 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, 'index.html'),
         checkout: resolve(__dirname, 'checkout.html'),
+        // Where Stripe returns a buyer: their key and the downloads.
+        thanks: resolve(__dirname, 'thanks.html'),
       },
     },
     target: 'es2022',

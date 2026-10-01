@@ -19,6 +19,12 @@ create table if not exists licenses (
     email                  text,
     stripe_customer_id     text,
     stripe_subscription_id text,
+    -- The Checkout Session that paid for this licence: unique, which is what
+    -- makes Stripe's repeated webhooks issue ONE key (src/stripe.ts), and how
+    -- the thank-you page finds the key. The payment intent is what a refund
+    -- names. Added by migrations/0002_stripe.sql on an existing database.
+    stripe_session_id      text unique,
+    stripe_payment_intent  text,
 
     -- Distinct rather than a boolean. `revoked` is a leaked key and
     -- `refunded` is a chargeback; they mean different things to whoever is
@@ -58,3 +64,4 @@ create table if not exists activations (
 
 create index if not exists activations_license_id_idx on activations (license_id);
 create index if not exists licenses_stripe_customer_idx on licenses (stripe_customer_id);
+create index if not exists licenses_stripe_payment_intent_idx on licenses (stripe_payment_intent);

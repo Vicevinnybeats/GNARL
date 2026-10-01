@@ -358,3 +358,16 @@ the merge commit forward: `git log 7651809..`.
   id, so an old home-screen icon updates), icons from GNARL's mark, and a
   network-first service worker (current page online, last copy offline).
   `tools/assemble_deploy.mjs` links them into the page and requires them.
+
+## 2026-10-01 - Phase 7: payments
+
+- `backend/src/stripe.ts` (new): a signed Stripe webhook issues one licence
+  key per paid checkout (repeats find the same key) and a full refund marks
+  it refunded; `GET /licence?session_id=` lets the thank-you page fetch the
+  key. Schema: `stripe_session_id` (unique), `stripe_payment_intent`;
+  `migrations/0002_stripe.sql` for the existing database.
+- `site/thanks.html` (new): where Stripe returns a buyer - the key (polled
+  until the webhook lands), a copy button, the downloads and how to activate.
+  Says the shop is not open while no licence service is configured.
+- `backend/test/stripe.test.ts` (18 cases) and a `backend` CI job running all
+  33 with a typecheck. docs/backend.md lists the five steps that turn it on.

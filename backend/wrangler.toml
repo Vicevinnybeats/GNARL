@@ -19,5 +19,9 @@ binding = "DB"
 database_name = "gnarl"
 database_id = "09a68a96-d266-48de-aac5-cb87fc8ad7ad"
 
+# The site that may read /licence from a browser (the thank-you page).
+[vars]
+SITE_ORIGIN = "https://gnarl.vercel.app"
+
 [observability]
 enabled = true

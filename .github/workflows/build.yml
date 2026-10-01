@@ -182,6 +182,24 @@ jobs:
   #  Windows and macOS, beside the Projucer builds that still ship. Linux
   #  proves it identical to JUCE 6; these prove it builds, and produce the
   #  binaries to load in FL Studio and Ableton.
+  #  The licence service (backend/): activation, and payments - Stripe's
+  #  webhook issuing keys, refunds, the thank-you page's lookup. In workerd
+  #  against a local D1, so the real handler and the real SQL.
+  backend:
+    needs: guard
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Licence service tests
+        working-directory: backend
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc --noEmit -p .
+          npm test
+
   windows-juce8:
     needs: guard
     runs-on: windows-2022
