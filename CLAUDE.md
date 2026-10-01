@@ -298,6 +298,9 @@ codebase:
 - Old presets are migrated in `LoadSave::updateFromOldVersion`, keyed on the
   `synth_version` string. A change in a parameter's *meaning* needs a
   migration there.
+- A patch from **Vital 1.5** opens when it uses none of 1.5's additions
+  (`LoadSave::readableNewerPatch`, and its copy in `wasm/shim/load_save.h` -
+  keep the two identical); one that does is refused, as any newer patch is.
 - **Every build carries the plugin's version** (`plugin/gnarl.jucer`,
   1.0.6). `jsonToState` REFUSES a patch whose `synth_version` is newer than
   the program loading it. The renderer used to say 99999.9.9, so every patch

@@ -1,7 +1,7 @@
 {
   "_about": "The starting sounds; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). An entry with \"patch\" is a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. The others are the init patch plus these settings, in the engine's own units as a preset stores them, and a wobble shape. Measured, not listened to: starting points for the producer to judge.",
   "sounds": [
-    {"name": "Alien Riddim", "patch": "Alien Riddim"},
+    {"name": "Vinny Bass 2", "patch": "Vinny Bass 2"},
     {"name": "Riddim Sub", "patch": "Riddim Sub"},
     {
       "name": "Triplet Growl",

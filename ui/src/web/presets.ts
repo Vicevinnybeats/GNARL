@@ -11,12 +11,12 @@
  */
 
 import factory from './factory.json';
-import alienRiddim from '../../../presets/Alien Riddim.vital?raw';
+import vinnyBass2 from '../../../presets/Vinny Bass 2.vital?raw';
 import riddimSub from '../../../presets/Riddim Sub.vital?raw';
 
 // The full patches the starting sounds name (presets/*.vital). A new one is
 // added here and in factory.json.
-const PATCHES: Readonly<Record<string, string>> = { 'Alien Riddim': alienRiddim, 'Riddim Sub': riddimSub };
+const PATCHES: Readonly<Record<string, string>> = { 'Vinny Bass 2': vinnyBass2, 'Riddim Sub': riddimSub };
 
 interface Stored {
   name: string;

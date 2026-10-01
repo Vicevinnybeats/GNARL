@@ -105,15 +105,15 @@ const panelState = () => page.evaluate(() => ({
   sub: document.querySelector('.m [data-param="sub.on"]')?.getAttribute('aria-pressed') === 'true',
   filter: document.querySelector('.m [data-param="vowel.on"]')?.getAttribute('aria-pressed') === 'true',
 }));
-// The page opens on Alien Riddim (factory.json's first, a full patch from
+// The page opens on Vinny Bass 2 (factory.json's first, a full patch from
 // presets/): loaded whole by the worklet, so the page sent no values.
-await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Alien Riddim', null, { timeout: 5000 });
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Vinny Bass 2', null, { timeout: 5000 });
 await page.waitForTimeout(300);
 const startSets = await page.evaluate(() => window.__startSets);
 const presetShown = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
 const opening = await panelState();
-check(startSets === 0 && presetShown === 'Alien Riddim' && opening.filter && !opening.sub,
-  `opens on Alien Riddim: preset "${presetShown}", engine ${JSON.stringify(opening)}, ${startSets} values sent by the page`);
+check(startSets === 0 && presetShown === 'Vinny Bass 2' && opening.filter && !opening.sub,
+  `opens on Vinny Bass 2: preset "${presetShown}", engine ${JSON.stringify(opening)}, ${startSets} values sent by the page`);
 // What follows was written for the init patch: load it.
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });
@@ -306,7 +306,7 @@ check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(awai
 // its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 7 && factoryNames[0] === 'Alien Riddim' && factoryNames[1] === 'Riddim Sub', `seven factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+check(factoryNames.length === 7 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Riddim Sub', `seven factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
 await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Triplet Growl' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Triplet Growl', null, { timeout: 5000 });
 await page.waitForTimeout(300);

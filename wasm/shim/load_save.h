@@ -8,6 +8,7 @@
 
 #include "JuceHeader.h"
 #include "json/json.h"
+#include "synth_constants.h"
 #include "utils.h"
 
 #include <cstdlib>
@@ -50,6 +51,36 @@ class LoadSave {
         return -1;
       return compareVersionStrings(rest_a, rest_b);
     }
+
+    // As LoadSave::compareFeatureVersionStrings: major.minor only.
+    static int compareFeatureVersionStrings(std::string a, std::string b) {
+      auto feature = [](const std::string& s) {
+        size_t dot = s.rfind('.');
+        return dot == std::string::npos ? s : s.substr(0, dot);
+      };
+      return compareVersionStrings(feature(a), feature(b));
+    }
+
+    // A copy of LoadSave::readableNewerPatch (src/common/load_save.cpp): keep
+    // the two identical. tests/test_web.py loads the same patches in both.
+    static bool readableNewerPatch(const json& data) {
+      if (compareFeatureVersionStrings(data["synth_version"].get<std::string>(), "1.5.0") > 0)
+        return false;
+      const json& settings = data["settings"];
+      for (int i = 1; i <= vital::kNumOscillators; ++i) {
+        std::string number = std::to_string(i);
+        std::string phase = "osc_" + number + "_spectral_morph_phase";
+        if (settings.count(phase) && std::abs(settings[phase].get<float>() - 0.5f) > 1e-6f)
+          return false;
+        std::string warp = "osc_" + number + "_distortion_type";
+        if (settings.count(warp) && settings[warp].get<float>() >= kNumWarpTypes)
+          return false;
+      }
+      return true;
+    }
+
+    // SynthOscillator::kNumDistortionTypes, which this header cannot include.
+    static constexpr int kNumWarpTypes = 13;
 
     static void convertBufferToPcm(json& data, const std::string& field) {
       if (data.count(field) == 0)

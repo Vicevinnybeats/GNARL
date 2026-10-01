@@ -1029,11 +1029,35 @@ json LoadSave::updateFromOldVersion(json state) {
   return state;
 }
 
+// GNARL: a patch from Vital 1.5 (or any newer 1.x) is readable when it uses
+// none of the features this engine - Vital 1.0's - lacks. The ones a 1.5
+// patch carries: spectral morph phase (osc_N_spectral_morph_phase, neutral
+// at 0.5), custom warp curves (custom_warps, read only by warp modes past
+// this engine's last, so a warp type in range never reads them) and random
+// LFO seeds (random_values). Anything else unknown is left to the caller's
+// refusal, so a patch that would sound different is never opened as if it
+// did not. docs/design/phase2-12-presets.md.
+bool LoadSave::readableNewerPatch(const json& data) {
+  if (LoadSave::compareFeatureVersionStrings(data["synth_version"].get<std::string>(), "1.5.0") > 0)
+    return false;
+  const json& settings = data["settings"];
+  for (int i = 1; i <= vital::kNumOscillators; ++i) {
+    std::string number = std::to_string(i);
+    std::string phase = "osc_" + number + "_spectral_morph_phase";
+    if (settings.count(phase) && std::abs(settings[phase].get<float>() - 0.5f) > 1e-6f)
+      return false;
+    std::string warp = "osc_" + number + "_distortion_type";
+    if (settings.count(warp) && settings[warp].get<float>() >= vital::SynthOscillator::kNumDistortionTypes)
+      return false;
+  }
+  return true;
+}
+
 bool LoadSave::jsonToState(SynthBase* synth, std::map<std::string, String>& save_info, json data) {
   std::string version = data["synth_version"];
   
   int compare_feature_versions = compareFeatureVersionStrings(version, ProjectInfo::versionString);
-  if (compare_feature_versions > 0)
+  if (compare_feature_versions > 0 && !readableNewerPatch(data))
     return false;
   
   int compare_versions = compareVersionStrings(version, ProjectInfo::versionString);

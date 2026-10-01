@@ -78,3 +78,40 @@ in order).
 
 **Nobody here has heard them.** The producer's ear decides; the screenshot
 of the MATRIX tab would remove the two guesses.
+
+## Vital 1.5 patches open; Vinny Bass 2 replaces Alien Riddim
+
+The producer sent two patches made in Vital 1.5.5 (their own Vinny Bass 2,
+and a third-party Alien patch the screenshots were of) and two exported
+wobs. GNARL refused both patches: its engine is Vital 1.0's, and
+`jsonToState` refuses a newer feature version.
+
+**What 1.5.5 adds, in these files:** five settings - `custom_warps` (all the
+default triangle), `osc_N_spectral_morph_phase` (0.5 on every oscillator,
+the unused third too), `random_values` (seeds). Nothing else is unknown.
+So `LoadSave::readableNewerPatch` (and its copy in `wasm/shim/load_save.h`)
+opens a patch up to 1.5 that keeps every spectral morph phase at 0.5 and
+every warp type within this engine's range; anything else is still refused.
+`tests/test_web.py`: a 1.5.5 patch using none of it loads in both builds
+(browser vs desktop -41.4 dB, that patch's known wavetable gain); with a
+phase of 0.3, both refuse it. (A first version compared against "1.5",
+which the feature comparison cut to "1", and refused everything.)
+
+**Does GNARL play them as Vital does?** Against the producer's own exports,
+every 20 ms, aligned at the note:
+
+| Export | GNARL render | Lowest line | Brightness trace | Brightness |
+|---|---|---|---|---|
+| WoB_1 (0.22 s) | the Alien patch at D2 | 36.4 Hz = 36.4 Hz | correlation 0.73 | 2.4 st darker |
+| Wob_2 (0.8 s) | Vinny Bass 2 at D1 | 37.7 Hz = 37.7 Hz | correlation 0.69 | 1.7 st darker |
+
+(Wob_2's level trace correlates only 0.25: the export's note is released by
+about 0.5 s, the render holds 0.8 s.)
+
+**Vinny Bass 2 is now built in and the phone opens on it** - the producer's
+own patch, kept exactly (presets/source/), with only the master volume
+4.5 dB down: it peaked at +0.6 to +1.2 dBFS, which a phone clips; now -0.9
+to -1.4 dBFS on D1-D2. GNARL's copy and the original render bit-identically
+with the volumes matched. **Alien Riddim is withdrawn**: the producer's
+patch now opens in GNARL as it is, and a third-party preset is not GNARL's
+to ship.

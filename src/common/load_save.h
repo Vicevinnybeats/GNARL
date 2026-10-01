@@ -172,6 +172,9 @@ class LoadSave {
     static void getAllUserLfos(Array<File>& lfos);
     static void getAllUserSamples(Array<File>& samples);
     static int compareFeatureVersionStrings(String a, String b);
+    // GNARL: a patch from a newer Vital 1.x that uses none of the features
+    // this engine lacks, so it can be read as it is (load_save.cpp).
+    static bool readableNewerPatch(const json& data);
     static int compareVersionStrings(String a, String b);
 
     static File getShiftedFile(const String directory_name, const String& extensions,

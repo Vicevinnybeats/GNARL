@@ -298,6 +298,29 @@ console.log(JSON.stringify({ answers, sum, name: e.presetName() }));
           f'refused: garbage, not a patch, newer, older -> {got["answers"]}; afterwards the init patch plays '
           f'bit-identically to a fresh engine ({got["sum"] == clean["sum"]})')
 
+    # A patch saved by Vital 1.5 (LoadSave::readableNewerPatch): one that uses
+    # none of 1.5's additions loads in both builds and sounds the same in
+    # both; one that does (a spectral morph phase off 0.5) is refused by both.
+    vital15 = json.load(open(desktop_saved))
+    vital15['synth_version'] = '1.5.5'
+    for i in (1, 2, 3):
+        vital15['settings'][f'osc_{i}_spectral_morph_phase'] = 0.5
+    vital15['settings']['random_values'] = [{'seed': 4}] * 3
+    vital15['settings']['osc_1_random_phase'] = 0.0
+    v15_path = os.path.join(TMP, 'vital15.vital')
+    json.dump(vital15, open(v15_path, 'w'))
+    d15 = rel_db(native(v15_path, 'C2'), web(v15_path, 'C2')[0])
+    check(d15 < -35, f'a Vital 1.5.5 patch using nothing GNARL lacks loads in both builds: browser vs desktop {d15:.1f} dB')
+    vital15['settings']['osc_1_spectral_morph_phase'] = 0.3
+    v15_off = os.path.join(TMP, 'vital15_phase.vital')
+    json.dump(vital15, open(v15_off, 'w'))
+    desktop_refused = subprocess.run([RENDER, '--headless', '-o', os.path.join(TMP, 'r.wav'), '-l', '0.1', v15_off],
+                                     capture_output=True).returncode != 0
+    web_refused = subprocess.run(['node', WEB, v15_off, '-o', os.path.join(TMP, 'r2.wav'), '-l', '0.1'],
+                                 capture_output=True).returncode != 0
+    check(desktop_refused and web_refused,
+          f'one using a 1.5 feature (spectral morph phase 0.3) is refused by both: desktop {desktop_refused}, browser {web_refused}')
+
     # 6. Speed.
     _, speed = web(heavy, 'F1', seconds=4)
     factor = float(speed.split(':')[1].split('x')[0])

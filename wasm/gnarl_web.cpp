@@ -274,7 +274,10 @@ namespace {
       return 1;
     std::string version = data["synth_version"];
     int compared = compareVersions(version, ProjectInfo::versionString);
-    if (compared > 0)
+    // A newer Vital 1.x patch that uses nothing this engine lacks loads as it
+    // is (LoadSave::readableNewerPatch), as in the plugin.
+    if (LoadSave::compareFeatureVersionStrings(version, ProjectInfo::versionString) > 0 &&
+        !LoadSave::readableNewerPatch(data))
       return 2;
     json& settings = data["settings"];
     if (compared < 0 || settings.count("sub_octave"))

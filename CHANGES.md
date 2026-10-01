@@ -426,3 +426,11 @@ the merge commit forward: `git log 7651809..`.
 
 - LFO 1 plays once (Envelope mode) over 1 s and the amp envelope holds 0.9 s,
   so a key gives one wob of about a second instead of a continuous wobble.
+
+## 2026-10-01 - Vital 1.5 patches open; Vinny Bass 2
+
+- `LoadSave::readableNewerPatch`: a patch from Vital up to 1.5 opens when it
+  uses none of 1.5's additions (spectral morph phase at 0.5, warp types in
+  range); others are still refused. Same rule in the browser build.
+- Built-in preset Vinny Bass 2 (the producer's own patch, volume 4.5 dB
+  down); the phone opens on it. Alien Riddim withdrawn.
