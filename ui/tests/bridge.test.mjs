@@ -293,6 +293,17 @@ await page.locator('.app .preset__step').last().click();
 await page.waitForTimeout(100);
 const stepped = (await presetLog('gnarlPresetFactory')).map((s) => s.name);
 check(stepped.length === 2, `an arrow loads a starting sound in the plugin: ${JSON.stringify(stepped)}`);
+// The AI button: a generated patch goes to the plugin as a starting sound
+// does, whole, named after its seed.
+await page.locator('.app .ai').click();
+await page.waitForTimeout(100);
+const generatedSent = await presetLog('gnarlPresetFactory');
+const generated = generatedSent[generatedSent.length - 1];
+let generatedPatch = null;
+try { generatedPatch = JSON.parse(generated?.patch ?? ''); } catch { /* checked below */ }
+check(generatedSent.length === 3 && /^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(generated?.name ?? '') &&
+  generatedPatch?.preset_name === generated.name && generatedPatch?.author === 'GNARL generator',
+  `the AI button sends a generated patch: ${generated?.name}, ${generatedPatch?.comments}`);
 // A full patch goes to the plugin whole, as the .vital text.
 await page.locator('.app .preset__name').click();
 await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).click();

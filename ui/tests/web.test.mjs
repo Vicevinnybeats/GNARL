@@ -256,6 +256,25 @@ await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', {
 await page.waitForFunction(() => window.__seen.tables?.[0] === 'Init', null, { timeout: 3000 }).catch(() => {});
 check((await seen()).tables?.[0] === 'Init', 'INIT puts the init table back');
 
+// The AI button: a generated patch loads in the engine, which names it,
+// sounds, and saves it with its generated table.
+await page.locator('.m .ai').tap();
+await page.waitForFunction(() => /^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(document.querySelector('.m .preset__name')?.textContent ?? ''),
+  null, { timeout: 5000 }).catch(() => {});
+const madeName = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent ?? '');
+const madeTable = (await seen()).tables?.[0];
+check(/^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(madeName) && madeTable !== 'Init',
+  `the AI button loads a generated patch: "${madeName}", OSC 1 table ${madeTable}`);
+await resetPeak();
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 29, on: true }));
+await page.waitForTimeout(500);
+const madePeak = (await seen()).peak;
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 29, on: false }));
+await page.waitForTimeout(400);
+check(madePeak > 0.05 && madePeak < 1, `and it plays: scope peak ${madePeak.toFixed(3)} on F1`);
+await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
+await page.waitForTimeout(300);
+
 // The page's tempo (TEMPO button): 140 to start; a tap sends 145, and a
 // preset load - here the init, Vital's 120 - keeps it, as a DAW's tempo does.
 const savedBpm = () => page.evaluate(() => new Promise((resolve) => {

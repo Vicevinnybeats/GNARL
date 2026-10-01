@@ -14,7 +14,8 @@ import './fonts.css';
 import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
-import { deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
+import { builtInPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
+import { GENERATOR_BASE, generatePatch } from './generate';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -270,12 +271,26 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
   };
 }
 
+/*
+ * The AI button (docs/design/phase4-01-generator.md): a new patch from a
+ * random seed, made here - no network - within the ranges the references'
+ * wobs measured at, and loaded as a starting sound is. Its name carries the
+ * seed; SAVE keeps it.
+ */
 function aiButton(label: string): HTMLButtonElement {
   const ai = el('button', 'ai', el('span', 'ai__spark', '✦'), label);
   ai.type = 'button';
-  ai.addEventListener('click', () =>
-    toast('AI presets are Phase 4, not built yet. The button is where they will live.'),
-  );
+  ai.title = 'Make a new wob sound';
+  ai.addEventListener('click', () => {
+    const base = builtInPatch(GENERATOR_BASE);
+    if (!base) {
+      toast('The generator needs its base patch, which this build does not have.');
+      return;
+    }
+    const made = generatePatch(base, 1 + Math.floor(Math.random() * 999_999));
+    window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', { name: made.name, patch: made.patch });
+    toast(`${made.name}: ${made.about.replace(/^Generated \(seed \d+\): /, '')}`);
+  });
   return ai;
 }
 

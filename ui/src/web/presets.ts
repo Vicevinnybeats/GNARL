@@ -144,6 +144,11 @@ export interface FactorySound {
 // JSON infers a union of the entries; each is a FactorySound.
 export const FACTORY_SOUNDS = factory.sounds as unknown as readonly FactorySound[];
 
+/** A built-in patch's .vital text (presets/*.vital), by name. */
+export function builtInPatch(name: string): string | undefined {
+  return PATCHES[name];
+}
+
 export function loadFactory(sound: FactorySound): void {
   const patch = sound.patch === undefined ? undefined : PATCHES[sound.patch];
   window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });

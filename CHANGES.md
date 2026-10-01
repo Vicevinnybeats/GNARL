@@ -482,3 +482,14 @@ the merge commit forward: `git log 7651809..`.
   A TEMPO button steps 140 / 145 / 150 (riddim is written at 140 or 145
   and mixed at 150), remembered in the browser.
 - The built-in patches save 140 BPM instead of 120.
+
+## 2026-10-01 - Phase 4: the AI button generates a sound
+
+- The AI button makes a new patch from a random seed
+  (`ui/src/generate.ts`). It uses one of GNARL's tables, a one-shot or
+  looping wob, a random LFO shape and drive/fold/FX within the ranges the
+  references measured at. It needs no network and loads like a starting
+  sound. `tools/generate_patches.mjs` writes generated patches to files;
+  `tests/test_generate.py` renders and measures them.
+- `ui/tsconfig.json`: `allowImportingTsExtensions`, so the generator
+  imports `./wavetables.ts` in a form Node can run.
