@@ -493,3 +493,16 @@ the merge commit forward: `git log 7651809..`.
   `tests/test_generate.py` renders and measures them.
 - `ui/tsconfig.json`: `allowImportingTsExtensions`, so the generator
   imports `./wavetables.ts` in a form Node can run.
+
+## 2026-10-01 - The sound matcher; Ref Wob 1-6; the generator varies them
+
+- `tools/match.py`: searches GNARL settings for the patch whose render is
+  closest to a target wob, on a smoothed log-mel spectrogram of the growl
+  band. `tools/generate_patches.mjs --tables` writes GNARL's tables for it.
+- Built-in presets Ref Wob 1-6: the matcher's best patch for one wob from
+  each reference drop (`presets/source/matched/`). They lead the preset
+  list after Vinny Bass 2; the ten style presets are no longer listed.
+- The AI button makes variations of Ref Wob 1-6 instead of building every
+  sound from one voice. `tests/test_generate.py` measures each against its
+  base.
+- `tools/build_presets.mjs`: a sourced patch can carry a comment.

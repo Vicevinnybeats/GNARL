@@ -1,23 +1,19 @@
 {
-  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Measured, not listened to: starting points for the producer to judge.",
+  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Ref Wob 1-6 are tools/match.py's matches to the references' wobs (phase4-02-matcher.md); the ten style presets of phase2-12 are no longer listed. Measured, not listened to: starting points for the producer to judge.",
   "sounds": [
     {"name": "Vinny Bass 2", "patch": "Vinny Bass 2"},
+    {"name": "Ref Wob 1", "patch": "Ref Wob 1"},
+    {"name": "Ref Wob 2", "patch": "Ref Wob 2"},
+    {"name": "Ref Wob 3", "patch": "Ref Wob 3"},
+    {"name": "Ref Wob 4", "patch": "Ref Wob 4"},
+    {"name": "Ref Wob 5", "patch": "Ref Wob 5"},
+    {"name": "Ref Wob 6", "patch": "Ref Wob 6"},
     {"name": "Riddim Sub", "patch": "Riddim Sub"},
     {"name": "Wob Open", "patch": "Wob Open"},
     {"name": "Wob Peak", "patch": "Wob Peak"},
     {"name": "Wob Close", "patch": "Wob Close"},
     {"name": "Frog Croak", "patch": "Frog Croak"},
     {"name": "Ribbit", "patch": "Ribbit"},
-    {"name": "Swamp Gurgle", "patch": "Swamp Gurgle"},
-    {"name": "Yoi Talk", "patch": "Yoi Talk"},
-    {"name": "Tear Growl", "patch": "Tear Growl"},
-    {"name": "Metal Grind", "patch": "Metal Grind"},
-    {"name": "Screech", "patch": "Screech"},
-    {"name": "Old Wub", "patch": "Old Wub"},
-    {"name": "Triplet Riddim", "patch": "Triplet Riddim"},
-    {"name": "PD Zap", "patch": "PD Zap"},
-    {"name": "Hollow Bark", "patch": "Hollow Bark"},
-    {"name": "Croak Table", "patch": "Croak Table"},
-    {"name": "Comb Squelch", "patch": "Comb Squelch"}
+    {"name": "Swamp Gurgle", "patch": "Swamp Gurgle"}
   ]
 }

@@ -1,54 +1,58 @@
 #!/usr/bin/env python3
 """The AI button's generator (ui/src/generate.ts, docs/design/phase4-01-generator.md).
 
-Generates patches from fixed seeds, renders each with the desktop renderer,
-and measures what the button makes against the references' wobs, as the
-style presets were (phase2-12-presets.md): the growl band 150 Hz - 6 kHz,
-F1 at 140 BPM, the median spectral centroid within 20 dB of the loudest.
-The references' medians are 1874-2233 Hz.
+Generates patches from fixed seeds through tools/generate_patches.mjs and
+renders each with the desktop renderer at 140 BPM. Each is a variation of a
+base patch (Ref Wob 1-6, Vinny Bass 2), so it is measured against its base
+on the sound matcher's own measure (tools/match.py: a smoothed log-mel
+spectrogram of the growl band) - a variation should stay a neighbour of
+the sound it came from. With --targets DIR (the matcher's target wobs,
+which never leave a session's scratch space) it also reports how close the
+variations come to the references.
 
-  python3 tests/test_generate.py [--seeds N]      (needs librosa, Node 22.18+)
+  python3 tests/test_generate.py [--seeds N] [--targets DIR]   (needs librosa, Node 22.18+)
 """
-import argparse, json, os, subprocess, sys, tempfile
-import numpy as np, soundfile as sf, librosa
-from scipy import signal
+import argparse, glob, json, os, re, subprocess, sys, tempfile
+import numpy as np, soundfile as sf
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RENDER = os.path.join(ROOT, 'headless/builds/linux/build/gnarl-render')
+sys.path.insert(0, os.path.join(ROOT, 'tools'))
+import match  # noqa: E402
+
+RENDER = match.RENDER
 BPM = 140
 failures = 0
+
 
 def check(ok, message):
     global failures
     print(('PASS ' if ok else 'FAIL ') + message, flush=True)
     failures += 0 if ok else 1
 
+
 def generate(out, first, count):
     lines = subprocess.run(['node', os.path.join(ROOT, 'tools/generate_patches.mjs'), out, str(first), str(count)],
                            check=True, capture_output=True, text=True).stdout.splitlines()
     return [json.loads(l) for l in lines]
 
+
 def render(patch, note, wav):
-    r = subprocess.run([RENDER, '--headless', '-o', wav, '-l', '1', '-m', note, '-b', str(BPM), '--bits', '32', patch],
+    r = subprocess.run([RENDER, '--headless', '-o', wav, '-l', '2', '-m', note, '-b', str(BPM), '--bits', '32', patch],
                        capture_output=True)
     if r.returncode != 0:
         return None
-    x, sr = sf.read(wav)
-    return x, sr
+    x, _ = sf.read(wav)
+    return x
 
-def centroid(x, sr):
-    m = x.mean(1)[:int(2.5 * 60 / BPM * sr)]
-    g = signal.sosfiltfilt(signal.butter(4, [150, 6000], 'bandpass', fs=sr, output='sos'), m)
-    lev = 20 * np.log10(librosa.feature.rms(y=g, frame_length=1024, hop_length=256)[0] + 1e-9)
-    c = librosa.feature.spectral_centroid(y=g, sr=sr, n_fft=2048, hop_length=256)[0]
-    loud = lev > lev.max() - 20
-    return float(np.median(c[loud][4:]))  # past the onset's click
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seeds', type=int, default=24)
+    ap.add_argument('--targets', help='a directory of target-*.wav (tools/match.py), to report closeness')
     args = ap.parse_args()
+    L = int(1.25 * match.SR)
     with tempfile.TemporaryDirectory() as tmp:
+        wav = os.path.join(tmp, 'o.wav')
         made = generate(os.path.join(tmp, 'a'), 1, args.seeds)
         generate(os.path.join(tmp, 'b'), 1, args.seeds)
         same = all(open(os.path.join(tmp, 'a', f'{g["seed"]}.vital')).read() ==
@@ -56,31 +60,49 @@ def main():
         check(same, f'a seed always makes the same patch ({args.seeds} seeds, twice)')
         check(len({g['name'] for g in made}) == len(made), 'every patch has its own name')
 
-        peaks, cents, loaded, finite = [], [], 0, True
+        base_features = {}
+        targets = {}
+        if args.targets:
+            for f in sorted(glob.glob(os.path.join(args.targets, 'target-*.wav'))):
+                x, _ = sf.read(f)
+                n = min(len(x), L)
+                targets[os.path.basename(f)[7:-4]] = (match.features(x, n), n)
+        peaks, near, loaded, finite, closest = [], [], 0, True, {t: [] for t in targets}
         for g in made:
             patch = os.path.join(tmp, 'a', f'{g["seed"]}.vital')
-            loudest, ok = -999.0, True
-            for note in ['D1', 'F1', 'F2']:
-                got = render(patch, note, os.path.join(tmp, 'o.wav'))
-                if got is None:
+            base = re.search(r'from (.+?)[,.]', g['about']).group(1)
+            loudest, ok, f1 = -999.0, True, None
+            for note in ['D1', 'F1', 'D#2', 'F2']:
+                x = render(patch, note, wav)
+                if x is None:
                     ok = False
                     break
-                x, sr = got
                 finite = finite and bool(np.isfinite(x).all())
                 loudest = max(loudest, 20 * np.log10(np.abs(x).max() + 1e-12))
                 if note == 'F1':
-                    cents.append(centroid(x, sr))
+                    f1 = x.mean(1)
             loaded += ok
             peaks.append(loudest)
-            print(f'     {g["seed"]:3d} {g["name"]:22s} peak {loudest:6.1f} dBFS  centroid {cents[-1] if cents else 0:6.0f} Hz')
-        C = np.array(cents)
-        inside = float(((C >= 1600) & (C <= 2600)).mean())
+            if f1 is None:
+                continue
+            if base not in base_features:
+                bx = render(os.path.join(ROOT, 'presets', f'{base}.vital'), 'F1', wav)
+                base_features[base] = match.features(bx.mean(1), L)
+            d = match.distance(match.features(f1, L), base_features[base])
+            near.append(d)
+            for t, (feat, n) in targets.items():
+                closest[t].append(match.distance(match.features(f1, n), feat))
+            print(f'     {g["seed"]:3d} {g["name"]:20s} peak {loudest:6.1f} dBFS  {d:4.2f} dB from {base}')
         check(loaded == len(made), f'the renderer loads every generated patch ({loaded}/{len(made)})')
         check(finite, 'every render is finite')
         check(max(peaks) <= -1.5, f'the loudest, D1 to F2, peaks at {max(peaks):.1f} dBFS (at most -1.5)')
-        check(1900 <= np.median(C) <= 2400, f'the median centroid is {np.median(C):.0f} Hz (the references: 1874-2233)')
-        check(inside >= 0.8, f'{inside * 100:.0f}% centre at 1.6-2.6 kHz (at least 80%)')
+        check(float(np.median(near)) <= 3.0,
+              f'a variation stays near its base: median {np.median(near):.2f} dB, most {max(near):.2f} '
+              f'(a different patch is 5-6 dB away)')
+        for t, ds in closest.items():
+            print(f'     closest variation to {t}: {min(ds):.2f} dB, median {np.median(ds):.2f}')
     print(f'\n{failures} failure(s)')
     sys.exit(1 if failures else 0)
+
 
 main()

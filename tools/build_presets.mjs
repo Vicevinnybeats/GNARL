@@ -88,6 +88,19 @@ export const PRESETS = [
   // once, centred about 2 kHz; lily's and meta 800's are a beat or less.
   ...ONE_SHOTS(),
 
+  // ----- Matched (docs/design/phase4-02-matcher.md): tools/match.py's best
+  // patch for one wob from each reference drop, closer on the matcher's
+  // measure than any sound GNARL had (3.1-4.1 dB against 4.2-7.1). Volumes
+  // put the loudest of D1, F1, D#2 and F2 at -3 dBFS.
+  ...[
+    ['Ref Wob 1', 5929, 'Matched to a two-beat wob (6:25:300): the Screech table with a sync warp, once over a bar.'],
+    ['Ref Wob 2', 5928, 'Matched to a two-beat wob (cemeteryf0g): the Croak table through the comb filter, looping at 1/2.'],
+    ['Ref Wob 3', 5616, 'Matched to a two-beat wob (drac07): the Croak table through the formant filter, looping at 1/2.'],
+    ['Ref Wob 4', 5743, 'Matched to a one-beat wob (lily): the Pulse table through the formant filter, looping at 1/8T.'],
+    ['Ref Wob 5', 4143, 'Matched to a one-beat wob (meta 800): a saw through the formant filter, looping at 1/2.'],
+    ['Ref Wob 6', 4664, 'Matched to a two-beat wob (meta 800): the Comb table, once at 1/8T.'],
+  ].map(([name, volume, about]) => ({ name, about, comment: about, source: `presets/source/matched/${name}.vital`, settings: { volume } })),
+
   // ----- Styles (docs/design/phase2-12-presets.md): the references' wob -
   // one or two beats, one turn of brightness, centred near 2 kHz - made with
   // each of GNARL's generated tables in a different style.
@@ -295,7 +308,10 @@ function fromSource(engine, spec) {
     if (index < 0) throw new Error(`${spec.name}: the engine has no control ${name}`);
     engine.setValue(index, value);
   }
-  return engine.save(spec.name);
+  if (!spec.comment) return engine.save(spec.name);
+  const saved = JSON.parse(engine.save(spec.name));
+  saved.comments = spec.comment;
+  return JSON.stringify(saved);
 }
 
 function main() {

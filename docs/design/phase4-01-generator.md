@@ -66,8 +66,10 @@ The producer, on the first version's sounds: "very bad … not even close".
 Two numbers per wob (brightness, length) were the whole target, and sounds
 that share them can sound nothing alike. The generator now starts from
 patches that were matched to the references' wobs on the whole spectrogram
-over time (`tools/match.py`, phase4-02-matcher.md): Ref Wob 1–6, plus the
-producer's own Vinny Bass 2.
+over time (`tools/match.py`, phase4-02-matcher.md): Ref Wob 1–6. Not the
+producer's Vinny Bass 2. It is built differently (four LFOs, its own
+table), and its variations measured 9 dB from it: a different sound, not a
+neighbour.
 
 A variation does the following:
 

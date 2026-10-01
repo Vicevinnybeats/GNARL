@@ -7,7 +7,7 @@
  *
  * It makes VARIATIONS of patches that already sound right: the ones the
  * sound matcher found against the references' wobs (tools/match.py,
- * phase4-02-matcher.md) and the producer's own Vinny Bass 2. A first
+ * phase4-02-matcher.md). A first
  * version built every sound from one voice with two measured numbers as its
  * target, and the producer called the results "very bad … not even close".
  * A variation moves where the wob starts and how far it goes, the LFO's
@@ -26,8 +26,9 @@ export interface Generated {
 }
 
 /** The patches a variation starts from: presets/*.vital, by name. */
-export const GENERATOR_BASES = ['Ref Wob 1', 'Ref Wob 2', 'Ref Wob 3', 'Ref Wob 4', 'Ref Wob 5', 'Ref Wob 6',
-  'Vinny Bass 2'] as const;
+// Not Vinny Bass 2: built differently (four LFOs, its own table), its
+// variations measured 9 dB from it - a different sound, not a neighbour.
+export const GENERATOR_BASES = ['Ref Wob 1', 'Ref Wob 2', 'Ref Wob 3', 'Ref Wob 4', 'Ref Wob 5', 'Ref Wob 6'] as const;
 
 /** mulberry32: small, fast, and the same in every browser and in Node. */
 function random(seed: number): () => number {
@@ -134,10 +135,11 @@ export function generatePatch(bases: Readonly<Record<string, string>>, seed: num
   }
 
   // The base's volume is set so it peaks at -3 dBFS (build_presets.mjs).
-  // A variation gets 1 dB of room, and gives back half of any added drive
-  // (tests/test_generate.py measures the loudest).
+  // A variation gets 2.5 dB of room and gives back any added drive: with
+  // 1 dB and half the drive, the loudest of 24 seeds peaked at -0.5 dBFS
+  // (tests/test_generate.py).
   const added = Math.max(0, num(s, 'distortion_drive') - driveBefore);
-  s.volume = Math.pow(Math.max(0, Math.sqrt(num(s, 'volume', 4600)) - 1 - added / 2), 2);
+  s.volume = Math.pow(Math.max(0, Math.sqrt(num(s, 'volume', 4600)) - 2.5 - added), 2);
 
   const noun = NOUNS[tableName] ?? 'Wob';
   const name = `${choose(ADJECTIVES)} ${noun} ${seed % 1000}`;

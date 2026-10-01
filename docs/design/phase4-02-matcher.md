@@ -65,3 +65,43 @@ wobs of 0.8-2.3 beats; per track the clearest by pyin voicing, then level. Six:
 6:25:300 #1 (2.16 beats), cemeteryf0g #1 (1.74), drac07 #1 (1.82), lily #2
 (1.03), meta 800 #1 (1.01) and #2 (2.15). The audio stays in the session's
 scratch space; only distances and the patches leave it.
+
+## Results
+
+1,920 tries per target (480 random, 60 generations of 24). Distance in dB
+per cell on the matcher's measure; lower is closer. The second and third
+columns are every built-in preset and the first generator's 24 seeds,
+rendered and measured the same way:
+
+| Target | Matched | Closest built-in before | Vinny Bass 2 | Matched patch |
+|---|---|---|---|---|
+| 6:25:300 #1 | **3.41** | 5.44 (Croak Table) | 7.21 | Ref Wob 1: Screech table, sync warp, one shot over a bar |
+| cemeteryf0g #1 | **3.50** | 6.28 (Frog Croak) | 10.13 | Ref Wob 2: Croak table, comb filter, looping 1/2 |
+| drac07 #1 | **4.10** | 7.07 (Yoi Talk) | 8.64 | Ref Wob 3: Croak table, formant filter, looping 1/2 |
+| lily #2 | **3.31** | 4.41 (Metal Grind) | 8.10 | Ref Wob 4: Pulse table, formant filter, looping 1/8T |
+| meta 800 #1 | **3.14** | 4.16 (Metal Grind) | 9.59 | Ref Wob 5: saw, formant filter, looping 1/2 |
+| meta 800 #2 | **4.04** | 6.77 (Croak Table) | 7.92 | Ref Wob 6: Comb table, one shot at 1/8T |
+
+The first generator's seeds measured a median of 8.9–13.9 dB from these
+targets. Each matched patch is closer than anything GNARL had before.
+They are built-in presets now: Ref Wob 1–6 (`presets/source/matched/`,
+volumes set in `tools/build_presets.mjs` so the loudest of D1, F1, D#2 and
+F2 peaks at −3 dBFS). Matched loudness varied widely, from −14 to −2 dBFS
+at the same volume.
+
+What the numbers do not say is whether they sound like the references to
+the producer: 3–4 dB is near, on a measure where another patch of the same
+family sits 5–6 dB away, but it is not the same sound.
+
+## The generator on these
+
+The AI button now makes variations of Ref Wob 1–6 (phase4-01-generator.md).
+`tests/test_generate.py`, 24 seeds:
+
+- each variation sits a median **1.79 dB** from its base (at most 4.55);
+- the loudest peaks at −2.0 dBFS;
+- against the six targets, the closest variation is 3.3–4.7 dB and the
+  median 5.1–10.6 dB. The first generator's median was 8.9–13.9 dB.
+
+With every variation forced to swap its table, the "stays near its base"
+check fails (median 3.33 dB).
