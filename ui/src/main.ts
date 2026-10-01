@@ -15,7 +15,7 @@ import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { builtInPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
-import { GENERATOR_BASE, generatePatch } from './generate';
+import { GENERATOR_BASES, generatePatch } from './generate';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -273,8 +273,8 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
 
 /*
  * The AI button (docs/design/phase4-01-generator.md): a new patch from a
- * random seed, made here - no network - within the ranges the references'
- * wobs measured at, and loaded as a starting sound is. Its name carries the
+ * random seed, made here - no network - as a variation of a patch matched
+ * to the references' wobs, and loaded as a starting sound is. Its name carries the
  * seed; SAVE keeps it.
  */
 function aiButton(label: string): HTMLButtonElement {
@@ -282,12 +282,16 @@ function aiButton(label: string): HTMLButtonElement {
   ai.type = 'button';
   ai.title = 'Make a new wob sound';
   ai.addEventListener('click', () => {
-    const base = builtInPatch(GENERATOR_BASE);
-    if (!base) {
-      toast('The generator needs its base patch, which this build does not have.');
+    const bases: Record<string, string> = {};
+    for (const name of GENERATOR_BASES) {
+      const text = builtInPatch(name);
+      if (text) bases[name] = text;
+    }
+    if (Object.keys(bases).length === 0) {
+      toast('The generator needs its base patches, which this build does not have.');
       return;
     }
-    const made = generatePatch(base, 1 + Math.floor(Math.random() * 999_999));
+    const made = generatePatch(bases, 1 + Math.floor(Math.random() * 999_999));
     window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', { name: made.name, patch: made.patch });
     toast(`${made.name}: ${made.about.replace(/^Generated \(seed \d+\): /, '')}`);
   });

@@ -59,3 +59,24 @@ names it, shows its table, and plays it.
 
 What the numbers do not say is whether a generated sound is good. The
 producer judges that.
+
+## Second version: variations of matched patches
+
+The producer, on the first version's sounds: "very bad … not even close".
+Two numbers per wob (brightness, length) were the whole target, and sounds
+that share them can sound nothing alike. The generator now starts from
+patches that were matched to the references' wobs on the whole spectrogram
+over time (`tools/match.py`, phase4-02-matcher.md): Ref Wob 1–6, plus the
+producer's own Vinny Bass 2.
+
+A variation does the following:
+
+- moves where the wob starts in the table, and LFO 1's depth (×0.75–1.25);
+- shifts LFO 1's turning points by ±8% of the cycle;
+- changes the drive (±4 dB), fold (±1.5 dB), shelf (±2 dB) and filter;
+- sometimes swaps a one-shot between one beat and two (20%);
+- sometimes swaps the table (15%);
+- sometimes adds flanger (20%), phaser or reverb (15% each).
+
+It stays a neighbour of a sound that measured close, instead of a point
+anywhere in the space.
