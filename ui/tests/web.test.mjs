@@ -296,7 +296,8 @@ const dubSteps = await engineValue('delay_steps');
 const dubStyle = await engineValue('delay_style');
 check((await delayPreset.textContent()) === 'DUB' && dubSteps?.[1] === '3' && dubStyle?.[1] === 'Ping Pong',
   `the delay's fourth preset, DUB: 3 steps, ping-pong (${JSON.stringify(dubSteps)}, ${JSON.stringify(dubStyle)})`);
-for (let k = 0; k < 2; k += 1) await delayPreset.tap();
+// Seven presets: from DUB (the 4th) five more taps go round to PING (the 2nd).
+for (let k = 0; k < 5; k += 1) await delayPreset.tap();
 await page.waitForTimeout(250);
 check((await delayPreset.textContent()) === 'PING' && (await engineValue('delay_steps'))?.[1] === '1',
   `and round again to PING: ${await delayPreset.textContent()}, ${JSON.stringify(await engineValue('delay_steps'))} step`);
@@ -409,7 +410,7 @@ check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(awai
 // its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 8 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[5] === 'Frog Croak', `eight factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+check(factoryNames.length === 18 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[5] === 'Frog Croak' && factoryNames[17] === 'Comb Squelch', `eighteen factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
 await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Frog Croak' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Frog Croak', null, { timeout: 5000 });
 await page.waitForTimeout(300);

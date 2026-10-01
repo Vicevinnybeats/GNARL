@@ -279,7 +279,7 @@ const sheet = await page.evaluate(() => {
            form: visible('.presets__form'), open_file: [...root.querySelectorAll('.presets__actions button')]
              .filter((n) => n.offsetParent !== null).map((n) => n.textContent) };
 });
-check(sheet.open && sheet.factory === 8 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
+check(sheet.open && sheet.factory === 18 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
   `in the plugin the name opens the starting sounds and INIT only: ${JSON.stringify(sheet)}`);
 await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Wob Open' }).click();
 await page.waitForTimeout(100); // the fake plugin logs on a timer

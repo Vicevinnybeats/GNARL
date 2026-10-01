@@ -5,7 +5,7 @@ also presets for all the FX".
 
 ## Wavetables
 
-`ui/src/wavetables.ts` computes nine tables from formulas: GNARL's own, so
+`ui/src/wavetables.ts` computes eighteen tables from formulas: GNARL's own, so
 there is no file to license and nothing to fetch. Each morphs across
 WT POS (frames 0 to 255):
 
@@ -20,6 +20,15 @@ WT POS (frames 0 to 255):
 | FM | a sine modulated at twice its rate, index 0 to 6 |
 | Pulse | a pulse narrowing from 50% to 4% |
 | Steps | a saw quantised from 32 steps down to 3 |
+| Wub | a saw through a resonant low pass opening from the 2nd harmonic to the 40th |
+| Yoi | an I sliding into an O (the second formant falling) |
+| Screech | a narrow, loud peak from the 12th harmonic to the 60th |
+| Hollow | a square with a notch sweeping up its harmonics |
+| PD | a cosine phase-distorted into a resonant saw |
+| Comb | a saw through a comb whose notches close in |
+| Metal | clusters of high harmonics growing out of a soft tone |
+| Tear | a sine-plus-saw folded unevenly (even harmonics too) |
+| Harmonic | harmonics added one at a time, 1 to 64 |
 
 A table goes to the engine as Vital's wavetable JSON: 16 keyframes of 2048
 samples, spectral interpolation between them (WaveSource `kFrequency`), DC
@@ -54,7 +63,7 @@ With the worklet's handler disabled, the test fails three checks.
 
 ## FX presets
 
-`ui/src/fxpresets.ts`: three or four named settings for each of the ten
+`ui/src/fxpresets.ts`: six or seven named settings for each of the ten
 effects. Each effect's PRESET button applies the next one:
 
 - it sets only that effect's controls, and switches the effect on;
@@ -64,3 +73,9 @@ effects. Each effect's PRESET button applies the next one:
 
 The settings are starting points chosen from each control's range, not
 measured against anything.
+
+## Second batch
+
+Nine more tables (18). All eighteen load in the renderer, are saved under
+their names, and play within 1.5 dB of each other (−12.2 to −13.7 dBFS RMS
+at C2, WT POS at frame 128). FX presets went from 34 to 62.

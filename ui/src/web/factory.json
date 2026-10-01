@@ -8,6 +8,16 @@
     {"name": "Wob Close", "patch": "Wob Close"},
     {"name": "Frog Croak", "patch": "Frog Croak"},
     {"name": "Ribbit", "patch": "Ribbit"},
-    {"name": "Swamp Gurgle", "patch": "Swamp Gurgle"}
+    {"name": "Swamp Gurgle", "patch": "Swamp Gurgle"},
+    {"name": "Yoi Talk", "patch": "Yoi Talk"},
+    {"name": "Tear Growl", "patch": "Tear Growl"},
+    {"name": "Metal Grind", "patch": "Metal Grind"},
+    {"name": "Screech", "patch": "Screech"},
+    {"name": "Old Wub", "patch": "Old Wub"},
+    {"name": "Triplet Riddim", "patch": "Triplet Riddim"},
+    {"name": "PD Zap", "patch": "PD Zap"},
+    {"name": "Hollow Bark", "patch": "Hollow Bark"},
+    {"name": "Croak Table", "patch": "Croak Table"},
+    {"name": "Comb Squelch", "patch": "Comb Squelch"}
   ]
 }

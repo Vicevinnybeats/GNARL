@@ -164,3 +164,42 @@ pitch). Peaks -4.7 to -7.5 dBFS. No sub in any: play Riddim Sub under them.
   they stepped only through saved patches, so with none saved did nothing.
 - The delay LED in MS moves 10 ms a tap (50 held); 1 ms was inaudible -
   Vinny Bass 2's delay is MS 215 ms at a 13% mix.
+
+## Styles: ten sounds on GNARL's own tables
+
+The producer: "all the sounds should be like the references but in
+different styles". Each style moves osc 1 through one of GNARL's generated
+tables (`ui/src/wavetables.ts`) with LFO 1 on WT POS, played once per key
+(1/2 = two beats, 1/4 = one beat). Old Wub and Triplet Riddim are the
+exceptions: they loop for as long as the key is held. The shared voice is:
+
+- three unison voices;
+- drive 28 dB, then the fold at 9 dB;
+- OTT at 0.5;
+- a 6 dB high shelf.
+
+That chain takes a table at F1, which centres at 0.3–1.8 kHz on its own, up
+to where the references' wobs centre. Each sound has its own master volume,
+so its loudest note from D1 to F2 peaks at −3 dBFS.
+
+Measured as the references' wobs were (`oneshot/wobs.py`'s method: growl
+band 150 Hz–6 kHz, the span within 20 dB of the loudest, F1 at 140 BPM).
+The references' medians are 1874–2233 Hz, from about 1.6 kHz (10%) to
+2.3–2.9 kHz (90%):
+
+| Sound | Table | Wob | Centroid median (10–90%) | Peak |
+|---|---|---|---|---|
+| Yoi Talk | Yoi | 2.06 beats | 2009 Hz (1659–2222) | −4.2 dBFS |
+| Tear Growl | Tear | 2.06 beats | 2521 Hz (2185–2703) | −3.7 |
+| Metal Grind | Metal | 1.06 beats | 2183 Hz (1879–2417) | −4.0 |
+| Screech | Screech | 1.04 beats | 2261 Hz (2021–2503) | −4.6 |
+| Old Wub | Wub | loops 1/4 | 2075 Hz (1704–2368) | −3.7 |
+| Triplet Riddim | Growl | loops 1/8T | 2184 Hz (1842–2475) | −4.5 |
+| PD Zap | PD | 0.56 beats | 1892 Hz (936–2352) | −4.7 |
+| Hollow Bark | Hollow | 1.06 beats | 2471 Hz (2025–2703) | −3.6 |
+| Croak Table | Croak | 2.06 beats | 2282 Hz (2091–2486) | −3.0 |
+| Comb Squelch | Comb | 2.06 beats | 2355 Hz (2048–2521) | −3.1 |
+
+Brightness and length are now in the references' range; Tear Growl and
+Hollow Bark sit about 250 Hz above it. What these numbers do NOT say is
+whether a sound has the references' character - that is the producer's ear.

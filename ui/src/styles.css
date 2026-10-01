@@ -1458,3 +1458,7 @@ body[data-mode='phone'] .toast {
   min-width: 54px;
   font-size: 9px;
 }
+/* Eighteen starting sounds: a taller list, still scrolling. */
+.presets__list--factory {
+  max-height: 300px;
+}

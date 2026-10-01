@@ -461,3 +461,14 @@ the merge commit forward: `git log 7651809..`.
   wavetable file, and report the table names back in frames.
 - A PRESET button on each of the ten effects: three or four settings each.
 - docs/design/phase2-13-tables-fx-presets.md.
+
+## 2026-10-01 - More tables, FX presets and sounds
+
+- Nine more generated wavetables (18): Wub, Yoi, Screech, Hollow, PD, Comb,
+  Metal, Tear, Harmonic.
+- FX presets: six or seven per effect, 62 in all.
+- Ten built-in sounds on the generated tables (Yoi Talk, Tear Growl, Metal
+  Grind, Screech, Old Wub, Triplet Riddim, PD Zap, Hollow Bark, Croak Table,
+  Comb Squelch), their brightness and length measured against the
+  references' wobs. `tools/build_presets.mjs` can put a generated table in
+  a patch (`table`), importing `ui/src/wavetables.ts`.

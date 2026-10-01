@@ -3,7 +3,8 @@
 // shapes and oscillator waveforms - or from a patch made elsewhere
 // (presets/source/) with a few settings changed (docs/design/phase2-12-presets.md).
 //
-//   node tools/build_presets.mjs        # writes presets/*.vital
+//   node tools/build_presets.mjs        # writes presets/*.vital (Node 22.18+:
+//                                       # it imports ui/src/wavetables.ts)
 //
 // Built with the browser build of the engine, which saves exactly what the
 // plugin saves, so a file opens in both. The specs were read off the
@@ -15,6 +16,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEngine } from './web_render.mjs';
+// GNARL's generated wavetables, the page's own file (node strips its types).
+import { tableJson } from '../ui/src/wavetables.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,6 +37,19 @@ const WAVES = {
 function shape(name, points) {
   return { name, num_points: points.length, points: points.flat(), powers: points.map(() => 0), smooth: false };
 }
+
+const STYLE_VOLUMES = {
+  'Yoi Talk': 4660,
+  'Tear Growl': 4632,
+  'Metal Grind': 4800,
+  'Screech': 4408,
+  'Old Wub': 4747,
+  'Triplet Riddim': 4503,
+  'PD Zap': 4786,
+  'Hollow Bark': 4662,
+  'Croak Table': 4582,
+  'Comb Squelch': 4645,
+};
 
 // Tempo indices (kSyncedFrequencyNames): 0 Freeze, 4 4/1, 7 1/2, 8 1/4.
 export const PRESETS = [
@@ -71,6 +87,11 @@ export const PRESETS = [
   // tracks wob for about 2 beats (1.81-2.06 median), opening and closing
   // once, centred about 2 kHz; lily's and meta 800's are a beat or less.
   ...ONE_SHOTS(),
+
+  // ----- Styles (docs/design/phase2-12-presets.md): the references' wob -
+  // one or two beats, one turn of brightness, centred near 2 kHz - made with
+  // each of GNARL's generated tables in a different style.
+  ...STYLES(),
 ];
 
 /*
@@ -148,6 +169,92 @@ function ONE_SHOTS() {
   ];
 }
 
+/*
+ * The styles move osc 1 through one of GNARL's own tables (ui/src/wavetables.ts)
+ * with LFO 1 on WT POS - the way a wavetable growl is made - rather than with
+ * a filter. `loop` plays LFO 1 as a repeating wobble (trigger mode) under a
+ * held note instead of once.
+ */
+function style(name, about, { table, tempo, sync = 1, loop = false, shape, depth = 0.9, start = 0,
+  routes = [], extra = {} }) {
+  // Each sound's own master volume: its loudest note from D1 to F2 peaks
+  // at -3 dBFS (32-bit float renders at 140 BPM).
+  const volume = STYLE_VOLUMES[name];
+  const holdSeconds = { 7: 0.84, 8: 0.41, 9: 0.2 }[tempo] ?? 0.84;
+  return {
+    name,
+    about,
+    waves: [],
+    table: [0, table],
+    settings: {
+      volume,
+      osc_1_wave_frame: start,
+      osc_1_unison_voices: 3, osc_1_unison_detune: 1.2, osc_1_stereo_spread: 0.5,
+      osc_1_random_phase: 0,
+      ...(loop
+        ? { env_1_attack: 0, env_1_sustain: 1, env_1_release: 0.25, lfo_1_sync_type: 0 }
+        : { env_1_attack: 0, env_1_hold: Math.pow(holdSeconds, 0.25), env_1_decay: 0.45, env_1_sustain: 0,
+            env_1_release: 0.3, lfo_1_sync_type: 2 }),
+      lfo_1_sync: sync, lfo_1_tempo: tempo,
+      // The references' wobs centre at 1.9-2.2 kHz in the growl band (150 Hz
+      // to 6 kHz), from about 1.6 kHz at their darkest; a table at F1 alone
+      // centres at 0.3-1.8 kHz. Hard drive, the fold and a 6 dB high shelf
+      // bring them there (measured per preset in phase2-12-presets.md).
+      distortion_on: 1, distortion_type: 0, distortion_drive: 28, distortion_mix: 0.8,
+      distortion_fold_on: 1, distortion_fold_drive: 9,
+      compressor_on: 1, compressor_mix: 0.5,
+      eq_on: 1, eq_low_gain: 0, eq_band_gain: 0, eq_high_gain: 6, eq_high_cutoff: 88,
+      ...extra,
+    },
+    lfo1: shape,
+    routes: [['lfo_1', 'osc_1_wave_frame', depth], ...routes],
+  };
+}
+
+function STYLES() {
+  // LFO shapes, y = 0 at the TOP: one rise and fall, as most reference wobs.
+  const swell = (n) => shape(n, [[0, 1], [0.5, 0], [1, 1]]);
+  const late = (n) => shape(n, [[0, 1], [0.8, 0], [1, 1]]);
+  const early = (n) => shape(n, [[0, 0.1], [0.2, 0], [1, 1]]);
+  return [
+    style('Yoi Talk', 'An I opening into an O over two beats: the talking yoi.', {
+      table: 'Yoi', tempo: 7, shape: swell('Yoi'),
+    }),
+    style('Tear Growl', 'Tearout: the uneven fold table, folded again and crushed, opening late.', {
+      table: 'Tear', tempo: 7, shape: late('Tear'),
+      extra: { distortion_crush_on: 1, distortion_crush_bits: 10 },
+    }),
+    style('Metal Grind', 'Metallic clusters swelling in one beat, through a short flanger.', {
+      table: 'Metal', tempo: 8, shape: swell('Grind'),
+      extra: { flanger_on: 1, flanger_tempo: 8, flanger_mod_depth: 0.5, flanger_feedback: 0.1, flanger_dry_wet: 0.6 },
+    }),
+    style('Screech', 'A narrow peak screaming up and back in one beat, with a phaser.', {
+      table: 'Screech', tempo: 8, shape: swell('Screech'), depth: 0.7,
+      extra: { phaser_on: 1, phaser_tempo: 8, phaser_feedback: 0.7, phaser_dry_wet: 0.6 },
+    }),
+    style('Old Wub', 'The classic wub: a resonant low pass table, looping at 1/4 while the key is held.', {
+      table: 'Wub', tempo: 8, loop: true, shape: swell('Wub'),
+    }),
+    style('Triplet Riddim', 'A growl looping in 1/8 triplets while the key is held: the riddim pattern.', {
+      table: 'Growl', tempo: 9, sync: 3, loop: true, shape: early('Triplet'),
+    }),
+    style('PD Zap', 'A phase-distortion zap: bright at the hit, closing in an eighth, the pitch falling.', {
+      table: 'PD', tempo: 9, shape: early('Zap'),
+      routes: [['lfo_1', 'osc_1_tune', 0.1]],
+    }),
+    style('Hollow Bark', 'A hollow square with its notch sweeping, one beat.', {
+      table: 'Hollow', tempo: 8, shape: swell('Bark'),
+    }),
+    style('Croak Table', 'The croak table across two beats: a ring rising and falling inside the note.', {
+      table: 'Croak', tempo: 7, shape: swell('Croak T'),
+    }),
+    style('Comb Squelch', 'The comb table through the dirty filter, squelching once over two beats.', {
+      table: 'Comb', tempo: 7, shape: late('Squelch'),
+      extra: { filter_1_on: 1, filter_1_model: 1, filter_1_cutoff: 100, filter_1_resonance: 0.5 },
+    }),
+  ];
+}
+
 export function buildPatch(engine, spec) {
   if (spec.source) return fromSource(engine, spec);
   engine.reset();
@@ -165,6 +272,7 @@ export function buildPatch(engine, spec) {
     table.name = wave === 'sine' ? 'Sine' : 'Square';
     table.groups[0].components[0].keyframes = [{ position: 0, wave_data: waveData(WAVES[wave]) }];
   });
+  if (spec.table) patch.settings.wavetables[spec.table[0]] = JSON.parse(tableJson(spec.table[1]));
   if (spec.lfo1) patch.settings.lfos[0] = spec.lfo1;
   patch.comments = spec.about;
   patch.author = 'GNARL';

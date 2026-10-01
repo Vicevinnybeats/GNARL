@@ -788,7 +788,7 @@ function fxPresetButton(slot: string): HTMLElement | null {
     b.textContent = preset.name;
     b.dataset.on = 'true';
   });
-  const own = new Set(Object.keys(presets[0]?.values ?? {}));
+  const own = new Set(presets.flatMap((p) => Object.keys(p.values)));
   subscribe((id, _value, fromEngine) => {
     if (applying || fromEngine || !own.has(id)) return;
     b.textContent = 'PRESET';

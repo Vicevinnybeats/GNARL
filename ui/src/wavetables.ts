@@ -139,6 +139,98 @@ export const TABLES: readonly { name: string; about: string; shape: Shape }[] = 
       return saw(Math.floor(phase * steps) / steps);
     },
   },
+  {
+    name: 'Wub',
+    about: 'a saw through a resonant low pass opening from the 2nd harmonic to the 40th: the classic wub',
+    // A two-pole low pass's magnitude at harmonic k, cutoff c, Q 2.5: the
+    // resonant bump that makes a filter sweep talk.
+    shape: additive((k, m) => {
+      const c = 1.5 * (40 / 1.5) ** m;
+      const x = k / c;
+      return 1 / k / Math.sqrt((1 - x * x) ** 2 + (x / 2.5) ** 2);
+    }, 96),
+  },
+  {
+    name: 'Yoi',
+    about: 'an I sliding into an O, the second formant falling: the yoi',
+    shape: (() => {
+      const amps = new Map<number, Float64Array>();
+      return (phase: number, m: number): number => {
+        const key = Math.round(m * 1024);
+        let a = amps.get(key);
+        if (!a) {
+          const t = key / 1024;
+          // I (270, 2290) to O (570, 840), Hz on a 65 Hz fundamental, as Vowel.
+          const f1 = 270 + 300 * t;
+          const f2 = 2290 - 1450 * t;
+          a = new Float64Array(64);
+          for (let k = 1; k < 64; k += 1) {
+            const hz = k * VOWEL_F0;
+            a[k] = (1 / (1 + ((hz - f1) / 90) ** 2) + 0.7 / (1 + ((hz - f2) / 120) ** 2)) / Math.sqrt(k);
+          }
+          amps.set(key, a);
+        }
+        let v = 0;
+        for (let k = 1; k < 64; k += 1) v += (a[k] ?? 0) * Math.sin(TAU * k * phase);
+        return v;
+      };
+    })(),
+  },
+  {
+    name: 'Screech',
+    about: 'a saw with a narrow, loud peak climbing from the 12th harmonic to the 60th',
+    shape: additive((k, m) => {
+      const centre = 12 + 48 * m;
+      return (0.25 + 6 * Math.exp(-(((k - centre) / 1.6) ** 2))) / k;
+    }, 128),
+  },
+  {
+    name: 'Hollow',
+    about: 'a square with a notch sweeping up through its harmonics',
+    shape: additive((k, m) => {
+      if (k % 2 === 0) return 0;
+      const centre = 3 + 37 * m;
+      return (1 - 0.95 * Math.exp(-(((k - centre) / (1 + centre * 0.2)) ** 2))) / k;
+    }, 96),
+  },
+  {
+    name: 'PD',
+    about: 'a cosine phase-distorted into a resonant saw, the knee from 50% to 2%',
+    // Casio's phase distortion: the cycle's first half squeezed into d of it.
+    shape: (phase, m) => {
+      const d = 0.5 - 0.48 * m;
+      const warped = phase < d ? (phase * 0.5) / d : 0.5 + ((phase - d) * 0.5) / (1 - d);
+      return -Math.cos(TAU * warped);
+    },
+  },
+  {
+    name: 'Comb',
+    about: 'a saw through a comb whose notches move closer together',
+    shape: additive((k, m) => Math.abs(Math.cos((Math.PI * k) / (2 + 14 * m))) / k, 96),
+  },
+  {
+    name: 'Metal',
+    about: 'clusters of high harmonics growing out of a soft tone: bell and grind',
+    shape: additive((k, m) => {
+      let a = 1 / k ** 1.5;
+      for (const c of [5, 9, 14, 21]) a += 2 * m * Math.exp(-(((k - c * (1 + 0.5 * m)) / 0.6) ** 2)) / Math.sqrt(k);
+      return a;
+    }, 96),
+  },
+  {
+    name: 'Tear',
+    about: 'a sine-plus-saw folded unevenly, harder across the table: tearout grit',
+    // The offset makes the fold asymmetric, so even harmonics appear too.
+    shape: (phase, m) => Math.sin((1 + 6 * m) * (Math.sin(TAU * phase) + 0.5 * saw(phase)) + 0.6 * m),
+  },
+  {
+    name: 'Harmonic',
+    about: 'harmonics added one at a time, 1 to 64',
+    shape: additive((k, m) => {
+      const top = 1 + 63 * m;
+      return k <= top ? 1 / Math.sqrt(k) : k < top + 1 ? (top + 1 - k) / Math.sqrt(k) : 0;
+    }, 64),
+  },
 ];
 
 export const TABLE_NAMES: readonly string[] = TABLES.map((t) => t.name);
