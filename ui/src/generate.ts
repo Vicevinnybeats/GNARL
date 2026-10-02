@@ -61,14 +61,28 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 
 export function generatePatch(bases: Readonly<Record<string, string>>, seed: number): Generated {
   const r = random(seed);
-  const between = (lo: number, hi: number): number => lo + (hi - lo) * r();
-  const chance = (p: number): boolean => r() < p;
   const choose = <T>(items: readonly T[]): T => items[Math.floor(r() * items.length)] ?? (items[0] as T);
-
   const available = GENERATOR_BASES.filter((b) => bases[b] !== undefined);
   if (available.length === 0) throw new Error('the generator has none of its base patches');
   const baseName = choose(available);
-  const patch = JSON.parse(bases[baseName] as string) as Record<string, unknown> & { settings: Settings };
+  return vary(bases[baseName] as string, r, seed, 1, `from ${baseName}`);
+}
+
+/*
+ * The AI button's pick-the-best mode (main.ts evolveSheet): a child of the
+ * patch the producer picked. `strength` scales every step (1 = a generator
+ * variation; less as the picks go on, so the search settles where the ears
+ * lead it).
+ */
+export function evolvePatch(parentText: string, seed: number, strength: number, label: string): Generated {
+  return vary(parentText, random(seed), seed, strength, label);
+}
+
+function vary(text: string, r: () => number, seed: number, strength: number, origin: string): Generated {
+  const between = (lo: number, hi: number): number => (lo + (hi - lo) * r()) * strength;
+  const chance = (p: number): boolean => r() < p * strength;
+  const choose = <T>(items: readonly T[]): T => items[Math.floor(r() * items.length)] ?? (items[0] as T);
+  const patch = JSON.parse(text) as Record<string, unknown> & { settings: Settings };
   const s = patch.settings;
   const changes: string[] = [];
 
@@ -78,7 +92,7 @@ export function generatePatch(bases: Readonly<Record<string, string>>, seed: num
   mods?.forEach((m, i) => {
     if (m.source === 'lfo_1' && m.destination !== '') {
       const key = `modulation_${i + 1}_amount`;
-      s[key] = clamp(num(s, key) * between(0.75, 1.25), -1, 1);
+      s[key] = clamp(num(s, key) * (1 + between(-0.25, 0.25)), -1, 1);
     }
   });
 
@@ -102,7 +116,7 @@ export function generatePatch(bases: Readonly<Record<string, string>>, seed: num
     }
   }
 
-  // Grit and brightness, either side of where the base sits.
+  // Grit and brightness, either side of where the patch sits.
   const driveBefore = num(s, 'distortion_drive');
   s.distortion_drive = clamp(driveBefore + between(-4, 4), 0, 30);
   if (num(s, 'distortion_fold_on')) s.distortion_fold_drive = clamp(num(s, 'distortion_fold_drive') + between(-1.5, 1.5), 0, 12);
@@ -120,30 +134,37 @@ export function generatePatch(bases: Readonly<Record<string, string>>, seed: num
     if (table) (s.wavetables as unknown[])[0] = JSON.parse(table);
     changes.push(`the ${tableName} table`);
   }
-  if (chance(0.2)) {
-    Object.assign(s, { flanger_on: 1, flanger_tempo: 8, flanger_mod_depth: between(0.3, 0.6),
-      flanger_feedback: between(0.1, 0.5), flanger_dry_wet: between(0.3, 0.5) });
+  if (!num(s, 'flanger_on') && chance(0.2)) {
+    Object.assign(s, { flanger_on: 1, flanger_tempo: 8, flanger_mod_depth: 0.3 + 0.3 * r(),
+      flanger_feedback: 0.1 + 0.4 * r(), flanger_dry_wet: 0.3 + 0.2 * r() });
     changes.push('flanger');
   }
-  if (chance(0.15)) {
-    Object.assign(s, { phaser_on: 1, phaser_tempo: 8, phaser_feedback: between(0.5, 0.75), phaser_dry_wet: between(0.3, 0.6) });
+  if (!num(s, 'phaser_on') && chance(0.15)) {
+    Object.assign(s, { phaser_on: 1, phaser_tempo: 8, phaser_feedback: 0.5 + 0.25 * r(), phaser_dry_wet: 0.3 + 0.3 * r() });
     changes.push('phaser');
   }
-  if (chance(0.15)) {
-    Object.assign(s, { reverb_on: 1, reverb_dry_wet: between(0.08, 0.18), reverb_size: between(0.3, 0.6) });
+  if (!num(s, 'reverb_on') && chance(0.15)) {
+    Object.assign(s, { reverb_on: 1, reverb_dry_wet: 0.08 + 0.1 * r(), reverb_size: 0.3 + 0.3 * r() });
     changes.push('reverb');
   }
 
-  // The base's volume is set so it peaks at -3 dBFS (build_presets.mjs).
-  // A variation gets 2.5 dB of room and gives back any added drive: with
-  // 1 dB and half the drive, the loudest of 24 seeds peaked at -0.5 dBFS
-  // (tests/test_generate.py).
-  const added = Math.max(0, num(s, 'distortion_drive') - driveBefore);
-  s.volume = Math.pow(Math.max(0, Math.sqrt(num(s, 'volume', 4600)) - 2.5 - added), 2);
+  // A base's volume peaks at -3 dBFS (build_presets.mjs). Every variation's
+  // volume is worked out from the BASE's level, carried along in the patch
+  // (gnarl_level, which the engine ignores): 4.5 dB of room, less any drive
+  // added since the base. Computed step by step instead, giving back drive
+  // taken away, a chain of picks crept to +3.9 dBFS - less drive does not
+  // make a saturated sound proportionally quieter. With 2.5 dB of room the
+  // other steps (the wob's place in the table, the filter) still moved a
+  // chain by up to 6 dB, to 0.0 dBFS (tests/test_generate.py).
+  const level = (patch.gnarl_level as { volume: number; drive: number } | undefined) ??
+    { volume: num(s, 'volume', 4600), drive: driveBefore };
+  const added = Math.max(0, num(s, 'distortion_drive') - level.drive);
+  s.volume = Math.pow(Math.max(0, Math.sqrt(level.volume) - 4.5 - added), 2);
+  patch.gnarl_level = level;
 
   const noun = NOUNS[tableName] ?? 'Wob';
   const name = `${choose(ADJECTIVES)} ${noun} ${seed % 1000}`;
-  const about = `Generated (seed ${seed}) from ${baseName}` + (changes.length ? `, with ${changes.join(', ')}` : '') + '.';
+  const about = `Generated (seed ${seed}) ${origin}` + (changes.length ? `, with ${changes.join(', ')}` : '') + '.';
   patch.preset_name = name;
   patch.comments = about;
   patch.author = 'GNARL generator';

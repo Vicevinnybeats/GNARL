@@ -293,17 +293,43 @@ await page.locator('.app .preset__step').last().click();
 await page.waitForTimeout(100);
 const stepped = (await presetLog('gnarlPresetFactory')).map((s) => s.name);
 check(stepped.length === 2, `an arrow loads a starting sound in the plugin: ${JSON.stringify(stepped)}`);
-// The AI button: a generated patch goes to the plugin as a starting sound
-// does, whole, named after its seed.
+// The AI button: pick-the-best (phase4-03-pick.md). It opens four sounds
+// and loads nothing until one is tapped; a tap loads that patch whole and
+// plays a note; PICK starts round 2 with four grown from the pick.
+const factoryBefore = (await presetLog('gnarlPresetFactory')).length;
 await page.locator('.app .ai').click();
 await page.waitForTimeout(100);
-const generatedSent = await presetLog('gnarlPresetFactory');
-const generated = generatedSent[generatedSent.length - 1];
-let generatedPatch = null;
-try { generatedPatch = JSON.parse(generated?.patch ?? ''); } catch { /* checked below */ }
-check(generatedSent.length === 3 && /^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(generated?.name ?? '') &&
-  generatedPatch?.preset_name === generated.name && generatedPatch?.author === 'GNARL generator',
-  `the AI button sends a generated patch: ${generated?.name}, ${generatedPatch?.comments}`);
+const cards = page.locator('.evolve:not([hidden]) .evolve__card');
+check((await cards.count()) === 4 && (await presetLog('gnarlPresetFactory')).length === factoryBefore,
+  `the AI button opens four sounds and loads none: ${await cards.count()} cards`);
+await cards.nth(1).locator('.evolve__play').click();
+await page.waitForTimeout(150);
+const tapped = (await presetLog('gnarlPresetFactory')).slice(factoryBefore);
+let tappedPatch = null;
+try { tappedPatch = JSON.parse(tapped[0]?.patch ?? ''); } catch { /* checked below */ }
+check(tapped.length === 1 && /^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(tapped[0]?.name ?? '') &&
+  tappedPatch?.author === 'GNARL generator',
+  `a tap loads that sound whole: ${tapped[0]?.name}, ${tappedPatch?.comments}`);
+await cards.nth(2).locator('.evolve__pick').click();
+await page.waitForTimeout(150);
+const round2 = await page.evaluate(() => ({
+  title: document.querySelector('.evolve__title')?.textContent,
+  cards: document.querySelectorAll('.evolve__card').length,
+  wild: document.querySelectorAll('.evolve__badge').length,
+}));
+check(round2.title?.endsWith('ROUND 2') && round2.cards === 4 && round2.wild === 1,
+  `PICK grows round 2 from the pick: ${JSON.stringify(round2)}`);
+await cards.nth(0).locator('.evolve__play').click();
+await page.waitForTimeout(150);
+const child = (await presetLog('gnarlPresetFactory')).slice(-1)[0];
+let childPatch = null;
+try { childPatch = JSON.parse(child?.patch ?? ''); } catch { /* checked below */ }
+check(/picked from /.test(childPatch?.comments ?? ''), `a round-2 sound names its parent: ${childPatch?.comments}`);
+await page.locator('.evolve .chip', { hasText: 'BACK' }).click();
+check((await page.locator('.evolve__title').textContent())?.endsWith('ROUND 1'), 'BACK returns to round 1');
+await page.locator('.evolve .chip', { hasText: 'KEEP' }).click();
+check(await page.locator('.evolve').isHidden(), 'KEEP closes the AI');
+
 // A full patch goes to the plugin whole, as the .vital text.
 await page.locator('.app .preset__name').click();
 await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).click();

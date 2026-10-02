@@ -99,6 +99,19 @@ def main():
         check(float(np.median(near)) <= 3.0,
               f'a variation stays near its base: median {np.median(near):.2f} dB, most {max(near):.2f} '
               f'(a different patch is 5-6 dB away)')
+        # Chains of picks (the AI's pick-the-best mode): twelve rounds deep,
+        # the level must neither creep up nor fade out.
+        chain_peaks = []
+        for chain_seed in (11, 22, 33, 44, 55):
+            out = os.path.join(tmp, f'chain{chain_seed}')
+            subprocess.run(['node', os.path.join(ROOT, 'tools/generate_patches.mjs'), '--chain', out, str(chain_seed), '12'],
+                           check=True, capture_output=True)
+            for round_ in range(1, 13):
+                x = render(os.path.join(out, f'{round_}.vital'), 'D#2', wav)
+                chain_peaks.append(20 * np.log10(np.abs(x).max() + 1e-12) if x is not None else -999)
+        check(max(chain_peaks) <= -1.5 and min(chain_peaks) >= -18,
+              f'twelve picks deep, five chains, the level stays between {min(chain_peaks):.1f} and '
+              f'{max(chain_peaks):.1f} dBFS at D#2 (at most -1.5, at least -18)')
         for t, ds in closest.items():
             print(f'     closest variation to {t}: {min(ds):.2f} dB, median {np.median(ds):.2f}')
     print(f'\n{failures} failure(s)')

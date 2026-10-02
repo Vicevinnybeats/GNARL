@@ -256,22 +256,26 @@ await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', {
 await page.waitForFunction(() => window.__seen.tables?.[0] === 'Init', null, { timeout: 3000 }).catch(() => {});
 check((await seen()).tables?.[0] === 'Init', 'INIT puts the init table back');
 
-// The AI button: a generated patch loads in the engine, which names it,
-// sounds, and saves it with its generated table.
+// The AI button (pick-the-best): a tapped sound loads in the engine, which
+// names it and shows its table, and plays; PICK grows round 2.
 await page.locator('.m .ai').tap();
+await page.locator('.evolve:not([hidden]) .evolve__card').first().waitFor({ timeout: 3000 }).catch(() => {});
+await resetPeak();
+await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__play').tap();
 await page.waitForFunction(() => /^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(document.querySelector('.m .preset__name')?.textContent ?? ''),
   null, { timeout: 5000 }).catch(() => {});
+await page.waitForTimeout(600);
 const madeName = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent ?? '');
 const madeTable = (await seen()).tables?.[0];
-check(/^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(madeName) && madeTable !== 'Init',
-  `the AI button loads a generated patch: "${madeName}", OSC 1 table ${madeTable}`);
-await resetPeak();
-await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 29, on: true }));
-await page.waitForTimeout(500);
 const madePeak = (await seen()).peak;
-await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlNote', { note: 29, on: false }));
-await page.waitForTimeout(400);
-check(madePeak > 0.05 && madePeak < 1, `and it plays: scope peak ${madePeak.toFixed(3)} on F1`);
+check(/^[A-Z][a-z]+ [A-Za-z]+ \d+$/.test(madeName) && madeTable !== 'Init',
+  `a tapped AI sound loads: "${madeName}", OSC 1 table ${madeTable}`);
+check(madePeak > 0.05 && madePeak < 1, `and plays its note: scope peak ${madePeak.toFixed(3)}`);
+await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__pick').tap();
+await page.waitForTimeout(200);
+check((await page.locator('.evolve__title').textContent())?.endsWith('ROUND 2'), 'PICK starts round 2');
+await page.locator('.evolve .chip', { hasText: 'KEEP' }).tap();
+await page.waitForTimeout(2000); // the audition note's own release
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
 await page.waitForTimeout(300);
 

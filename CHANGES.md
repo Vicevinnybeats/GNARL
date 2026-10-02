@@ -506,3 +506,16 @@ the merge commit forward: `git log 7651809..`.
   sound from one voice. `tests/test_generate.py` measures each against its
   base.
 - `tools/build_presets.mjs`: a sourced patch can carry a comment.
+
+## 2026-10-02 - The AI button: pick the best
+
+- The AI button opens four sounds. Tap to hear, PICK the closest, and the
+  next four grow from the pick (three near, one wild); BACK, NEW, KEEP.
+  `generate.ts` `evolvePatch` makes a child of any patch at a given
+  strength.
+- A variation's volume is worked out from its base's level, carried in the
+  patch (`gnarl_level`), so a chain of picks neither creeps up nor fades.
+  `tests/test_generate.py` follows five chains twelve picks deep;
+  `tools/generate_patches.mjs --chain` writes them.
+- docs/design/phase4-03-pick.md, including the recognisers tried (OpenL3;
+  Syntheon in phase4-02).

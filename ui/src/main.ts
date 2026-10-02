@@ -15,7 +15,8 @@ import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { builtInPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
-import { GENERATOR_BASES, generatePatch } from './generate';
+import { evolvePatch, GENERATOR_BASES, generatePatch } from './generate';
+import type { Generated } from './generate';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -272,29 +273,146 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
 }
 
 /*
- * The AI button (docs/design/phase4-01-generator.md): a new patch from a
- * random seed, made here - no network - as a variation of a patch matched
- * to the references' wobs, and loaded as a starting sound is. Its name carries the
- * seed; SAVE keeps it.
+ * The AI button opens the pick-the-best mode (docs/design/phase4-03-pick.md):
+ * four sounds, tap to hear each, PICK the closest, and the next four grow
+ * from it - three near it and one wilder. The producer's ears steer; the
+ * steps shrink as the picks go on. Each sound loads as a starting sound does
+ * (gnarlPresetFactory), so the picked one is the patch left playing and
+ * SAVE keeps it. No network.
  */
-function aiButton(label: string): HTMLButtonElement {
-  const ai = el('button', 'ai', el('span', 'ai__spark', '✦'), label);
-  ai.type = 'button';
-  ai.title = 'Make a new wob sound';
-  ai.addEventListener('click', () => {
-    const bases: Record<string, string> = {};
+const PICK_NOTE = 39; // the producer's D#3 in FL Studio (MIDI 39, about 78 Hz)
+const PICK_SECONDS = 1.8; // a two-beat wob at 140 BPM, and its tail
+let evolveSheetSingleton: { open(): void } | null = null;
+
+function evolveSheet(): { open(): void } {
+  if (evolveSheetSingleton) return evolveSheetSingleton;
+  const title = el('span', 'evolve__title', 'AI');
+  const closeButton = el('button', 'evolve__close', '\u00d7');
+  closeButton.type = 'button';
+  closeButton.setAttribute('aria-label', 'Close the AI');
+  const hint = el('p', 'evolve__hint', 'Tap a sound to hear it. PICK the closest: the next four grow from it.');
+  const grid = el('div', 'evolve__grid');
+  const back = chipButton('BACK');
+  const fresh = chipButton('NEW');
+  const keep = chipButton('KEEP');
+  const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint, grid,
+    el('div', 'evolve__actions', back, fresh, keep));
+  root.hidden = true;
+  document.body.append(root);
+
+  let round = 1;
+  let candidates: Generated[] = [];
+  const history: Generated[][] = [];
+  let playing: number | null = null;
+  let stopTimer = 0;
+  const seed = (): number => 1 + Math.floor(Math.random() * 999_999);
+
+  const bases = (): Record<string, string> => {
+    const found: Record<string, string> = {};
     for (const name of GENERATOR_BASES) {
       const text = builtInPatch(name);
-      if (text) bases[name] = text;
+      if (text) found[name] = text;
     }
-    if (Object.keys(bases).length === 0) {
-      toast('The generator needs its base patches, which this build does not have.');
+    return found;
+  };
+  const load = (g: Generated): void => {
+    window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', { name: g.name, patch: g.patch });
+  };
+  const audition = (i: number): void => {
+    const g = candidates[i];
+    if (!g) return;
+    window.clearTimeout(stopTimer);
+    noteOff(PICK_NOTE, clock());
+    load(g);
+    playing = i;
+    noteOn(PICK_NOTE, clock());
+    stopTimer = window.setTimeout(() => {
+      noteOff(PICK_NOTE, clock());
+      playing = null;
+      render();
+    }, PICK_SECONDS * 1000);
+    render();
+  };
+  const render = (): void => {
+    title.textContent = `AI \u00b7 ROUND ${round}`;
+    back.disabled = history.length === 0;
+    grid.replaceChildren(
+      ...candidates.map((g, i) => {
+        const play = el('button', 'evolve__play', el('span', 'evolve__icon', playing === i ? '\u25a0' : '\u25b6'),
+          el('span', 'evolve__name', g.name));
+        play.type = 'button';
+        play.addEventListener('click', () => audition(i));
+        const pick = chipButton('PICK');
+        pick.classList.add('evolve__pick');
+        pick.addEventListener('click', () => choose(i));
+        const card = el('div', 'evolve__card', play, pick);
+        card.dataset.on = playing === i ? 'true' : 'false';
+        if (round > 1 && i === candidates.length - 1) card.append(el('span', 'evolve__badge', 'WILD'));
+        return card;
+      }),
+    );
+  };
+  const start = (): void => {
+    const found = bases();
+    if (Object.keys(found).length === 0) {
+      toast('The AI needs its base patches, which this build does not have.');
       return;
     }
-    const made = generatePatch(bases, 1 + Math.floor(Math.random() * 999_999));
-    window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', { name: made.name, patch: made.patch });
-    toast(`${made.name}: ${made.about.replace(/^Generated \(seed \d+\): /, '')}`);
+    round = 1;
+    history.length = 0;
+    candidates = Array.from({ length: 4 }, () => generatePatch(found, seed()));
+    render();
+  };
+  const choose = (i: number): void => {
+    const parent = candidates[i];
+    if (!parent) return;
+    load(parent);
+    history.push(candidates);
+    round += 1;
+    // Steps shrink as the picks go on (1, 0.74, 0.59 ... never below 0.25),
+    // so the search settles where the producer's picks lead it.
+    const strength = Math.max(0.25, 1 / (1 + 0.35 * (round - 1)));
+    const label = `picked from ${parent.name}`;
+    candidates = [
+      ...Array.from({ length: 3 }, () => evolvePatch(parent.patch, seed(), strength, label)),
+      evolvePatch(parent.patch, seed(), 1, `a wild step from ${parent.name}`),
+    ];
+    render();
+  };
+  back.addEventListener('click', () => {
+    const previous = history.pop();
+    if (!previous) return;
+    candidates = previous;
+    round -= 1;
+    render();
   });
+  fresh.addEventListener('click', start);
+  const close = (): void => {
+    window.clearTimeout(stopTimer);
+    noteOff(PICK_NOTE, clock());
+    playing = null;
+    root.hidden = true;
+  };
+  keep.addEventListener('click', () => {
+    const kept = playing ?? null;
+    close();
+    toast(kept === null ? 'Kept the last sound you heard. SAVE it from the presets.' : 'Kept. SAVE it from the presets.');
+  });
+  closeButton.addEventListener('click', close);
+  evolveSheetSingleton = {
+    open(): void {
+      if (candidates.length === 0) start();
+      root.hidden = false;
+    },
+  };
+  return evolveSheetSingleton;
+}
+
+function aiButton(label: string): HTMLButtonElement {
+  const ai = el('button', 'ai', el('span', 'ai__spark', '\u2726'), label);
+  ai.type = 'button';
+  ai.title = 'Pick-the-best: make new wob sounds and steer them by ear';
+  ai.addEventListener('click', () => evolveSheet().open());
   return ai;
 }
 
