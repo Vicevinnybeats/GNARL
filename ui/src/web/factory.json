@@ -1,7 +1,12 @@
 {
-  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Ref Wob 1-6 are tools/match.py's matches to the references' wobs (phase4-02-matcher.md); the ten style presets of phase2-12 are no longer listed. Measured, not listened to: starting points for the producer to judge.",
+  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Sig Wob 1-5 are tools/match.py --openl3's matches to each track's signature wob (phase4-03-pick.md); Ref Wob 1-6 are tools/match.py's matches to the references' wobs (phase4-02-matcher.md); the ten style presets of phase2-12 are no longer listed. Measured, not listened to: starting points for the producer to judge.",
   "sounds": [
     {"name": "Vinny Bass 2", "patch": "Vinny Bass 2"},
+    {"name": "Sig Wob 1", "patch": "Sig Wob 1"},
+    {"name": "Sig Wob 2", "patch": "Sig Wob 2"},
+    {"name": "Sig Wob 3", "patch": "Sig Wob 3"},
+    {"name": "Sig Wob 4", "patch": "Sig Wob 4"},
+    {"name": "Sig Wob 5", "patch": "Sig Wob 5"},
     {"name": "Ref Wob 1", "patch": "Ref Wob 1"},
     {"name": "Ref Wob 2", "patch": "Ref Wob 2"},
     {"name": "Ref Wob 3", "patch": "Ref Wob 3"},

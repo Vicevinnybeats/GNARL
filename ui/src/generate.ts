@@ -28,7 +28,8 @@ export interface Generated {
 /** The patches a variation starts from: presets/*.vital, by name. */
 // Not Vinny Bass 2: built differently (four LFOs, its own table), its
 // variations measured 9 dB from it - a different sound, not a neighbour.
-export const GENERATOR_BASES = ['Ref Wob 1', 'Ref Wob 2', 'Ref Wob 3', 'Ref Wob 4', 'Ref Wob 5', 'Ref Wob 6'] as const;
+export const GENERATOR_BASES = ['Sig Wob 1', 'Sig Wob 2', 'Sig Wob 3', 'Sig Wob 4', 'Sig Wob 5',
+  'Ref Wob 1', 'Ref Wob 2', 'Ref Wob 3', 'Ref Wob 4', 'Ref Wob 5', 'Ref Wob 6'] as const;
 
 /** mulberry32: small, fast, and the same in every browser and in Node. */
 function random(seed: number): () => number {
@@ -150,16 +151,17 @@ function vary(text: string, r: () => number, seed: number, strength: number, ori
 
   // A base's volume peaks at -3 dBFS (build_presets.mjs). Every variation's
   // volume is worked out from the BASE's level, carried along in the patch
-  // (gnarl_level, which the engine ignores): 4.5 dB of room, less any drive
+  // (gnarl_level, which the engine ignores): 5 dB of room, less any drive
   // added since the base. Computed step by step instead, giving back drive
   // taken away, a chain of picks crept to +3.9 dBFS - less drive does not
   // make a saturated sound proportionally quieter. With 2.5 dB of room the
   // other steps (the wob's place in the table, the filter) still moved a
-  // chain by up to 6 dB, to 0.0 dBFS (tests/test_generate.py).
+  // chain by up to 6 dB, to 0.0 dBFS; with 4.5 dB and the Sig Wobs as bases,
+  // to -1.4 dBFS (tests/test_generate.py).
   const level = (patch.gnarl_level as { volume: number; drive: number } | undefined) ??
     { volume: num(s, 'volume', 4600), drive: driveBefore };
   const added = Math.max(0, num(s, 'distortion_drive') - level.drive);
-  s.volume = Math.pow(Math.max(0, Math.sqrt(level.volume) - 4.5 - added), 2);
+  s.volume = Math.pow(Math.max(0, Math.sqrt(level.volume) - 5 - added), 2);
   patch.gnarl_level = level;
 
   const noun = NOUNS[tableName] ?? 'Wob';

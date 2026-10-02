@@ -153,3 +153,23 @@ result is near on both measures.
 
 OpenL3 runs with a 0.25 s hop: at 0.1 s it took 1.9 s per candidate on
 four cores.
+
+## Sig Wob 1–5: the signature wobs, matched with OpenL3
+
+The five signature wobs of phase4-03-pick.md were matched with
+`--openl3`. Each target at F1 (pyin: 43.9–44.3 Hz). Distances on both
+measures, beside the closest earlier preset, judged by both together:
+
+| Target | Sig Wob | Log-mel / OpenL3 | Closest earlier |
+|---|---|---|---|
+| 6:25:300 | 1 | **2.37 dB / 2.11** | 4.97 / 2.37 (Metal Grind) |
+| cemeteryf0g | 2 | **4.08 / 1.82** | 5.42 / 2.15 (Swamp Gurgle) |
+| drac07 | 3 | **2.93 / 2.04** | 3.47 / 2.62 (Ref Wob 4) |
+| lily | 4 | **3.34 / 2.11** | 5.79 / 2.16 (Screech) |
+| meta 800 | 5 | **2.78 / 1.59** | 4.42 / 2.55 (Yoi Talk) |
+
+Each is closer on both measures; lily only just on OpenL3. All five are
+one-shots. They lead the preset list after Vinny Bass 2 and are the AI
+pick mode's first bases. Their volumes put the loudest of D1, F1, D#2 and
+F2 at −3.0 dBFS. As bases, a pick chain reached −1.4 dBFS with 4.5 dB of
+room, so variations now get 5 dB: chains stay at −11.5 to −1.9 dBFS.

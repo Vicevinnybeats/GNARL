@@ -88,6 +88,19 @@ export const PRESETS = [
   // once, centred about 2 kHz; lily's and meta 800's are a beat or less.
   ...ONE_SHOTS(),
 
+  // ----- Signature wobs (docs/design/phase4-02-matcher.md, phase4-03-pick.md):
+  // each track's most typical wob, found by YAMNet, VGGish and OpenL3, and
+  // matched by tools/match.py --openl3 (log-mel, then log-mel + OpenL3):
+  // closer on both measures than any earlier preset. Loudest of D1, F1,
+  // D#2 and F2 at -3 dBFS.
+  ...[
+    ['Sig Wob 1', 4706, 'Matched to the signature wob of 6:25:300: the Metal table, bend warp, dirty filter, one wob.'],
+    ['Sig Wob 2', 5747, 'Matched to the signature wob of cemeteryf0g: the Pulse table, bend warp, one wob.'],
+    ['Sig Wob 3', 5673, 'Matched to the signature wob of drac07: the Pulse table through the formant filter, one wob.'],
+    ['Sig Wob 4', 5822, 'Matched to the signature wob of lily: a saw, formant warp, analog filter, one wob at 1/8T.'],
+    ['Sig Wob 5', 5702, 'Matched to the signature wob of meta 800: a saw, sync warp, dirty filter, one wob at 1/8T.'],
+  ].map(([name, volume, about]) => ({ name, about, comment: about, source: `presets/source/matched/${name}.vital`, settings: { volume } })),
+
   // ----- Matched (docs/design/phase4-02-matcher.md): tools/match.py's best
   // patch for one wob from each reference drop, closer on the matcher's
   // measure than any sound GNARL had (3.1-4.1 dB against 4.2-7.1). Volumes

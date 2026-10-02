@@ -133,10 +133,10 @@ check(lfo.lit === '1/4' && lfoTempo?.[1] === '1/4', `a tap on 1/4 sets LFO 1 to 
 await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
 
 await page.locator('.m .preset__step').last().tap();
-await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Ref Wob 1', null, { timeout: 5000 })
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Sig Wob 1', null, { timeout: 5000 })
   .catch(() => {});
 const arrowed = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
-check(arrowed === 'Ref Wob 1', `the arrow steps through the starting sounds: Vinny Bass 2 -> ${arrowed}`);
+check(arrowed === 'Sig Wob 1', `the arrow steps through the starting sounds: Vinny Bass 2 -> ${arrowed}`);
 
 // What follows was written for the init patch: load it.
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
@@ -455,7 +455,7 @@ check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(awai
 // its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 14 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Ref Wob 1' && factoryNames[11] === 'Frog Croak' && factoryNames[13] === 'Swamp Gurgle', `fourteen factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+check(factoryNames.length === 19 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Sig Wob 1' && factoryNames[6] === 'Ref Wob 1' && factoryNames[18] === 'Swamp Gurgle', `nineteen factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
 await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Frog Croak' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Frog Croak', null, { timeout: 5000 });
 await page.waitForTimeout(300);

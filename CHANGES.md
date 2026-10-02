@@ -519,3 +519,11 @@ the merge commit forward: `git log 7651809..`.
   `tools/generate_patches.mjs --chain` writes them.
 - docs/design/phase4-03-pick.md, including the recognisers tried (OpenL3;
   Syntheon in phase4-02).
+
+## 2026-10-02 - Sig Wob 1-5
+
+- Built-in presets Sig Wob 1-5: `tools/match.py --openl3`'s matches to
+  each reference track's signature wob, found with YAMNet, VGGish and
+  OpenL3. They follow Vinny Bass 2 in the preset list and are the AI pick
+  mode's first bases (with Ref Wob 1-6).
+- A variation gets 5 dB of room (was 4.5).
