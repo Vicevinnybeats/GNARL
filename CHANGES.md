@@ -575,3 +575,6 @@ the merge commit forward: `git log 7651809..`.
 - AI sounds get delay or reverb on some, not all: dry, a tempo-synced
   delay, reverb with its lows cut, or Vinny Bass 2's light both. The AI
   sheet ends with how to say what is wrong.
+- Sixteen wobs in the starting list, after Vinny Bass 2 and Riddim Sub:
+  Wob Eighth/Triplet/Quarter/Stutter, each Dry/Delay/Verb/Space, made in
+  Vinny Bass 2's recipe and levelled to peak at -4 dBFS at D#3 FL.

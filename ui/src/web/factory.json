@@ -1,5 +1,5 @@
 {
-  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Only the two the producer calls good (2026-10-02): Vinny Bass 2 and Riddim Sub. The matcher's Sig Wob 1-5 and Ref Wob 1-6 and the earlier starting sounds are off the list - measured, the matched ones barely move (docs/design/phase4-05-riddim-recipe.md) - and stay in presets/ as a record.",
+  "_about": "The starting sounds, in this order; the first is the one the phone page opens on (main.ts, docs/design/phase2-12-presets.md). Each names a full patch, presets/<patch>.vital, built by tools/build_presets.mjs. Vinny Bass 2 and Riddim Sub, the two the producer calls good (2026-10-02), then sixteen wobs in Vinny Bass 2's recipe: four rhythms (1/8, 1/8T, 1/4, 1/16) each dry, delayed, reverbed and with both (docs/design/phase4-05-riddim-recipe.md). The matcher's Sig Wob 1-5 and Ref Wob 1-6 and the earlier starting sounds are off the list - measured, the matched ones barely move (docs/design/phase4-05-riddim-recipe.md) - and stay in presets/ as a record.",
   "sounds": [
     {
       "name": "Vinny Bass 2",
@@ -8,6 +8,70 @@
     {
       "name": "Riddim Sub",
       "patch": "Riddim Sub"
+    },
+    {
+      "name": "Wob Eighth Dry",
+      "patch": "Wob Eighth Dry"
+    },
+    {
+      "name": "Wob Eighth Delay",
+      "patch": "Wob Eighth Delay"
+    },
+    {
+      "name": "Wob Eighth Verb",
+      "patch": "Wob Eighth Verb"
+    },
+    {
+      "name": "Wob Eighth Space",
+      "patch": "Wob Eighth Space"
+    },
+    {
+      "name": "Wob Triplet Dry",
+      "patch": "Wob Triplet Dry"
+    },
+    {
+      "name": "Wob Triplet Delay",
+      "patch": "Wob Triplet Delay"
+    },
+    {
+      "name": "Wob Triplet Verb",
+      "patch": "Wob Triplet Verb"
+    },
+    {
+      "name": "Wob Triplet Space",
+      "patch": "Wob Triplet Space"
+    },
+    {
+      "name": "Wob Quarter Dry",
+      "patch": "Wob Quarter Dry"
+    },
+    {
+      "name": "Wob Quarter Delay",
+      "patch": "Wob Quarter Delay"
+    },
+    {
+      "name": "Wob Quarter Verb",
+      "patch": "Wob Quarter Verb"
+    },
+    {
+      "name": "Wob Quarter Space",
+      "patch": "Wob Quarter Space"
+    },
+    {
+      "name": "Wob Stutter Dry",
+      "patch": "Wob Stutter Dry"
+    },
+    {
+      "name": "Wob Stutter Delay",
+      "patch": "Wob Stutter Delay"
+    },
+    {
+      "name": "Wob Stutter Verb",
+      "patch": "Wob Stutter Verb"
+    },
+    {
+      "name": "Wob Stutter Space",
+      "patch": "Wob Stutter Space"
     }
   ]
 }

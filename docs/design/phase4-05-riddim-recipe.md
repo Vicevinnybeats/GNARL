@@ -99,6 +99,16 @@ Movement 0.54–1.18 (delayed ones 0.66–1.18: an echo on the grid
 strengthens the wob), every rate on the riddim grid, highs 3–14% above
 5 kHz, peaks −13.2 to −2.8 dBFS.
 
+## Sixteen in the list
+
+"I see no sounds yet": the list held only Vinny Bass 2 and Riddim Sub, and
+the new wobs were only behind the AI button. So sixteen of them are now
+starting sounds: Wob Eighth / Triplet / Quarter / Stutter (1/8, 1/8T, 1/4,
+1/16), each Dry / Delay / Verb / Space (both). Each is the first seed of
+its kind from the generator (seeds 101-, 201-, 301-, 401-, one range per
+rhythm so the tones differ), its volume set to peak at -4.0 dBFS at D#3 FL,
+then rendered again and measured: all sixteen at -4.0, movement 0.52-1.13.
+
 ## The reminder
 
 Under the AI sheet's four sounds a line says how to steer the next ones -

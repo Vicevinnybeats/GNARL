@@ -497,11 +497,13 @@ const restored = await volumeNow();
 check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(await sheetOpen()),
   `loading "Test Wub" restores MASTER: ${changed.toFixed(3)} -> ${restored.toFixed(3)}, shows its name, closes the sheet`);
 
-// The starting sounds (factory.json): Vinny Bass 2 and Riddim Sub. One
+// The starting sounds (factory.json): Vinny Bass 2, Riddim Sub, sixteen wobs. One
 // loads, names the bar, sets its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(JSON.stringify(factoryNames) === '["Vinny Bass 2","Riddim Sub"]', `two factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+check(factoryNames.length === 18 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Riddim Sub' &&
+  factoryNames[2] === 'Wob Eighth Dry' && factoryNames[17] === 'Wob Stutter Space',
+  `eighteen factory sounds, Vinny Bass 2 first, then Riddim Sub and the sixteen wobs: ${JSON.stringify(factoryNames)}`);
 await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Sub', null, { timeout: 5000 });
 await page.waitForTimeout(300);
