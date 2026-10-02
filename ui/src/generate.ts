@@ -107,8 +107,34 @@ export const RHYTHMS: readonly { sync: number; tempo: number; label: string; wei
   { sync: 1, tempo: 10, label: '1/16', weight: 1 },
   { sync: 3, tempo: 8, label: '1/4T', weight: 1 },
 ];
+/** The spectral morphs LFO 2 may sweep (Vital's kSpectralMorphNames) and their amount ranges. */
+const SWEEPS = [
+  { type: 7, label: 'low pass', lo: 0.7, hi: 0.95 },
+  { type: 2, label: 'formant', lo: 0.35, hi: 0.7 },
+  { type: 3, label: 'harmonic stretch', lo: 0.3, hi: 0.6 },
+  { type: 5, label: 'smear', lo: 0.4, hi: 0.8 },
+] as const;
+/** Oscillator warps (Vital's kPhaseDistortionNames). */
+const WARPS = [
+  { type: 2, label: 'formant' }, { type: 4, label: 'bend' }, { type: 5, label: 'squeeze' }, { type: 1, label: 'sync' },
+] as const;
+/** Distortion kinds (kDistortionTypeNames). Not bit crush: the producer's "screech". */
+const DRIVES = [
+  { type: 5, label: 'down-sample' }, { type: 0, label: 'soft clip' }, { type: 1, label: 'hard clip' },
+  { type: 3, label: 'sine fold' },
+] as const;
+/*
+ * LFO 1 shapes, as Vital stores them: x,y pairs with y = 0 at the TOP (full
+ * level), one power per point. Vinny Bass 2's rises and falls once a cycle.
+ */
+const SHAPES = [
+  { label: 'rise-and-fall', points: [0, 1, 0.5, 0, 1, 1], powers: [0.16, 0, 0] },
+  { label: 'hit-and-fall', points: [0, 0, 1, 1], powers: [-3, 0] },
+  { label: 'open-and-shut', points: [0, 1, 0.08, 0, 0.55, 0, 0.65, 1, 1, 1], powers: [0, 0, 0, 0, 0] },
+  { label: 'swell', points: [0, 1, 0.85, 0, 1, 1], powers: [2.5, -2, 0] },
+] as const;
 /** Tables that keep a wob warm. Not Screech, Metal, Tear, Sync, PD or FM. */
-const WARM_TABLES = ['Growl', 'Vowel', 'Wub', 'Yoi', 'Hollow', 'Harmonic'] as const;
+const WARM_TABLES = ['Growl', 'Vowel', 'Wub', 'Yoi', 'Hollow', 'Harmonic', 'Croak', 'Comb', 'Pulse'] as const;
 
 function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: () => number, strength: number,
   changes: string[], rhythmLabel?: string): string {
@@ -160,12 +186,80 @@ function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: 
   // then a warm table instead.
   if (chance(0.5)) s.osc_1_wave_frame = [60, 110, 110, 160, 200][Math.floor(r() * 5)] ?? 110;
   let tableName = (s.wavetables as { name?: string }[] | undefined)?.[0]?.name ?? '';
-  if (chance(0.2)) {
+  if (chance(0.45)) {
     tableName = WARM_TABLES[Math.floor(r() * WARM_TABLES.length)] ?? 'Growl';
     const table = tableJson(tableName);
     if (table) (s.wavetables as unknown[])[0] = JSON.parse(table);
     s.osc_1_wave_frame = between(105, 236);
     changes.push(`the ${tableName} table`);
+  }
+
+  // FAR FROM VINNY BASS 2 (the producer: "the AI sounds good, but it should
+  // change it completely"). Each move below is common on a new sound
+  // (strength 1) and rarer as picks narrow in. None touches the four LFO
+  // routes, so every result still wobs; tests/test_generate.py holds that.
+
+  // The sweep's kind: LFO 2 moves whichever spectral morph is chosen - a
+  // low pass (Vinny Bass 2's), a formant shift (talking), a harmonic stretch
+  // (metallic yoi) or a smear (wet).
+  if (chance(0.4)) {
+    const kind = SWEEPS[Math.floor(r() * SWEEPS.length)] ?? SWEEPS[0];
+    if (kind && kind.type !== num(s, 'osc_1_spectral_morph_type')) {
+      s.osc_1_spectral_morph_type = kind.type;
+      s.osc_1_spectral_morph_amount = between(kind.lo, kind.hi);
+      changes.push(`a ${kind.label} sweep`);
+    }
+  }
+  // A warp on the oscillator: Vital's formant, bend, squeeze or sync.
+  if (chance(0.35)) {
+    const warp = WARPS[Math.floor(r() * WARPS.length)] ?? WARPS[0];
+    if (warp) {
+      s.osc_1_distortion_type = warp.type;
+      s.osc_1_distortion_amount = between(0.3, 0.7);
+      changes.push(`${warp.label} warp`);
+    }
+  }
+  // Width: unison voices, 2-5.
+  if (chance(0.35)) {
+    s.osc_1_unison_voices = 2 + Math.floor(r() * 4);
+    s.osc_1_unison_detune = between(2, 8);
+    changes.push('unison');
+  }
+  // A second oscillator under it, a warm table an octave down or at pitch,
+  // through the same filter and gated by the same LFO 1, so it wobs too.
+  const free = mods.findIndex((m) => m.source === '' && m.destination === '');
+  if (!num(s, 'osc_2_on') && free >= 0 && chance(0.3)) {
+    const layer = WARM_TABLES[Math.floor(r() * WARM_TABLES.length)] ?? 'Growl';
+    const json = tableJson(layer);
+    const tables = s.wavetables as unknown[] | undefined;
+    if (json && tables && tables.length > 1) {
+      tables[1] = JSON.parse(json);
+      Object.assign(s, { osc_2_on: 1, osc_2_destination: 0, osc_2_level: between(0.35, 0.6),
+        osc_2_transpose: r() < 0.6 ? -12 : 0, osc_2_wave_frame: between(40, 220) });
+      mods[free] = { source: 'lfo_1', destination: 'osc_2_level' };
+      s[`modulation_${free + 1}_amount`] = 1;
+      changes.push(`a ${layer} layer`);
+    }
+  }
+  // The distortion's kind: down-sample (Vinny Bass 2's), soft or hard clip,
+  // or sine fold - its drive is held as below.
+  if (chance(0.35)) {
+    const kind = DRIVES[Math.floor(r() * DRIVES.length)] ?? DRIVES[0];
+    if (kind && kind.type !== num(s, 'distortion_type')) {
+      s.distortion_type = kind.type;
+      changes.push(`${kind.label} drive`);
+    }
+  }
+  // LFO 1's shape: the wob's own curve. Vinny Bass 2's rises and falls once
+  // a cycle; the others hit and fall, open and shut, or swell. Same speed,
+  // so the rate on the grid is kept.
+  const lfos = s.lfos as { points: number[]; powers: number[]; num_points: number; smooth?: boolean }[] | undefined;
+  if (lfos?.[0] && chance(0.3)) {
+    const shape = SHAPES[Math.floor(r() * SHAPES.length)] ?? SHAPES[0];
+    if (shape) {
+      lfos[0] = { ...lfos[0], points: [...shape.points], powers: [...shape.powers], num_points: shape.powers.length, smooth: false };
+      if (shape.label !== 'rise-and-fall') changes.push(`a ${shape.label} shape`);
+    }
   }
 
   // The filter LFO 1 also opens: the comb's pitch and ring, or now and then

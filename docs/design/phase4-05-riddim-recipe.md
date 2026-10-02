@@ -109,6 +109,22 @@ its kind from the generator (seeds 101-, 201-, 301-, 401-, one range per
 rhythm so the tones differ), its volume set to peak at -4.0 dBFS at D#3 FL,
 then rendered again and measured: all sixteen at -4.0, movement 0.52-1.13.
 
+## Further from Vinny Bass 2
+
+"The AI sounds good, but now it should change it completely different."
+A new sound (strength 1) now also takes, each at its own chance, moves
+that leave the four LFO routes alone: the sweep's kind (low pass, formant,
+harmonic stretch, smear; 40%), an oscillator warp (formant, bend, squeeze,
+sync; 35%), unison (2-5 voices; 35%), a second oscillator on a warm table,
+an octave down or at pitch, gated by LFO 1 too (30%), the distortion's kind
+(down-sample, soft or hard clip, sine fold - never bit crush; 35%), LFO 1's
+own curve (rise-and-fall, hit-and-fall, open-and-shut, swell; 30%), and a
+table swap at 45% over nine warm tables. Picks scale every chance down.
+
+Forty new ones: movement 0.41-1.33, highs at most 14.4% above 5 kHz, peaks
+-11.6 to -3.4 dBFS, average tone 457-2400 Hz (976-2019 before: wider both
+ways).
+
 ## The reminder
 
 Under the AI sheet's four sounds a line says how to steer the next ones -
