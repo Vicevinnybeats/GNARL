@@ -79,8 +79,9 @@ export interface Journey {
   setAssemble(amount: number): void;
 }
 
-/** The plugin's own aspect ratio, so the last formation is its shape. */
-const PANEL_ASPECT = 1180 / 720;
+/** The plugin's own aspect ratio, so the last formation is its shape: GNARL's
+    panel (ui/), 1280 x 720. The old editor was 1180 x 720. */
+const PANEL_ASPECT = 1280 / 720;
 
 /** Orbits, wave, helix, driver, shell, panel. */
 const FORMS = 6;
@@ -1003,7 +1004,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
 
   /*  ANISOTROPIC FILTERING, and it is the cheapest sharpness available here.
    *
-   *  The source is 1536x937 - far more detail than the screen asks for - and
+   *  The source is 1600x900 (the panel at 1.25x) - far more detail than the screen asks for - and
    *  the panel still looked soft, because a plane seen at ANY angle other
    *  than straight on samples its texture along a stretched footprint.
    *  Trilinear filtering answers that by dropping to a blurrier mip level;
