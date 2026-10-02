@@ -29,17 +29,20 @@ The file never leaves the device. Nothing is fetched; there is no server.
   2048, hop 441, power averaged over 8 frames, normalised, floored at
   −50 dB, mean absolute dB). On the same audio it agrees with Python to
   about 0.1 dB.
-- **The same search**, smaller: `match-search.js`, a random round stratified
-  by table then generations from the best two of the six best tables.
-  Budget 160 random + 12 × 24 = 448 renders (`MATCH_BUDGET`), against 1,320
-  for the desktop runs.
+- **The search, inside the riddim recipe** (since 2026-10-02,
+  `recipe-search.ts`): every candidate is a sound the AI makes from Vinny
+  Bass 2 (generate.ts), so every match wobs. A random round stratified by
+  rhythm (1/8, 1/8T, 1/4, 1/16, 1/4T), then generations of children of the
+  best two of the best four rhythms, steps shrinking. Budget 160 + 12 × 24
+  = 448 renders (`MATCH_BUDGET`). It replaced `match-search.js`, which
+  searched match.py's one-wob genes - see "Inside the recipe" below.
 - **The input.** `decodeAudio` (44.1 kHz mono), `trimToWob` (from the first
   sound 26 dB under the peak, 1.25 s), `detectMidi` (YIN on the bass,
   30–200 Hz; MIDI 29 if it finds nothing). The status line names the note
   in FL Studio's naming.
-- **The four.** Best first, distinct in table or filter, each with its
-  volume set so its peak is at −4.5 dBFS (matched patches otherwise came
-  out from −14 to −2 dBFS at one volume).
+- **The four.** Best first, distinct in rhythm or table, each levelled
+  as the AI's sounds are (rendered, peak at −5 dBFS; generate.ts
+  levelVolume).
 
 ## Measurements
 
@@ -58,16 +61,39 @@ browser run reached only 5.19. Running MATCH again is a real second
 chance, not a repeat. A bigger budget or several searches from different
 seeds would narrow it, at the cost of time on a phone.
 
-`ui/tests/web.test.mjs` runs MATCH end to end in Chromium on Sig Wob 1's
-render with the seed pinned to 1 (`window.__GNARL_MATCH_SEED__`) and
-requires the closest under 5 dB. With the held-note bug put
-back, it fails at 8.03 dB.
+`ui/tests/web.test.mjs` runs MATCH end to end in Chromium on Wob Triplet
+Dry's render at D#3 with the seed pinned to 1 (`window.__GNARL_MATCH_SEED__`)
+and requires the closest under 7.0 (the best of thirty random sounds of the
+recipe: 7.40). Until 2026-10-02 it used Sig Wob 1's render and 5 dB; with
+the held-note bug put back, that version failed at 8.03.
 
 `tools/match_web.mjs` runs the in-app matcher from Node on one thread:
 
 ```bash
-node tools/match_web.mjs target.wav --midi 29 --out p.vital
+node tools/match_web.mjs target.wav --midi 39 --out p.vital
 ```
+
+## Inside the recipe
+
+The first version's matches were what the producer heard as "screech
+instead of a wob": match.py's genes build one wob - an LFO that runs once -
+so a held note is one sweep and then a steady tone (phase4-05 measured no
+beat-locked movement in them). Since 2026-10-02 MATCH searches only sounds
+of the AI's recipe, which keep Vinny Bass 2's four LFO routes.
+
+Against Wob Triplet Dry rendered at D#3 (FL) for 1.25 s:
+
+| | Distance |
+|---|---|
+| The patch itself | 3.78 (its note is held longer than the matcher's render) |
+| Thirty random sounds of the recipe | 7.40–14.73, median 9.75 |
+| MATCH, Node, seeds 1 and 2 | 5.77, 5.23 - both at 1/8T, the target's rhythm |
+| MATCH, Chromium, seed 1 | 6.24, in 105 s |
+
+The distances are larger than the first version's (3–5) because the
+candidates are whole Vinny Bass 2 patches with far more that can differ;
+they are not comparable across the two. Against a static target (Sig Wob 1)
+the closest is 7.27: there is no static sound to find any more.
 
 ## Release
 

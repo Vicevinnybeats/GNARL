@@ -23,10 +23,11 @@ self.onmessage = (event) => {
       const results = message.patches.map((text) =>
         Math.max(...message.midis.map((m) => core.peakOf(engine, text, m, message.seconds) ?? 0)));
       self.postMessage({ type: 'peaks', id: message.id, results });
-    } else if (message.type === 'score') {
-      const results = message.genes.map((g) => {
-        const patch = JSON.stringify(core.build(g, job.baseText, 'Matched'));
-        const audio = core.renderMono(engine, patch, job.midi, job.length / core.SR);
+    } else if (message.type === 'scoreText') {
+      // MATCH inside the riddim recipe (recipe-search.ts): whole patches,
+      // rendered and judged as the genes are below.
+      const results = message.patches.map((text) => {
+        const audio = core.renderMono(engine, text, job.midi, job.length / core.SR);
         if (!audio) return { d: Infinity, peak: 0 };
         let peak = 0;
         for (const v of audio) peak = Math.max(peak, Math.abs(v));

@@ -3,18 +3,17 @@
 // one thread (docs/design/phase4-04-match-in-app.md). ui/tests/web.test.mjs
 // runs the same matcher through the page.
 //
-//   node tools/match_web.mjs target.wav --midi 29 --out p.vital [--random 160 --generations 12 --seed 1]
+//   node tools/match_web.mjs target.wav --midi 39 --out p.vital [--random 160 --generations 12 --seed 1]
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadEngine } from './web_render.mjs';
-import { TABLE_NAMES, tableJson } from '../ui/src/wavetables.ts';
+import { searchRecipe } from '../ui/src/match/recipe-search.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const load = (file, name) => new Function(readFileSync(join(root, 'ui/src/match', file), 'utf8') + `; return ${name};`)();
 const core = load('match-core.js', 'createMatcherCore')();
-const { search } = load('match-search.js', 'createMatcherSearch')(core);
 
 export function readWav(path) {
   const b = readFileSync(path);
@@ -42,7 +41,7 @@ export function readWav(path) {
 }
 
 async function main(argv) {
-  const args = { midi: 29, random: 160, generations: 12, children: 24, seed: 1, out: null, target: null };
+  const args = { midi: 39, random: 160, generations: 12, children: 24, seed: 1, out: null, target: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--midi') args.midi = Number(argv[++i]);
@@ -53,17 +52,17 @@ async function main(argv) {
     else args.target = a;
   }
   const engine = loadEngine();
-  const tables = Object.fromEntries(TABLE_NAMES.map((n) => [n, tableJson(n)]));
-  core.setTables(tables);
-  const baseText = readFileSync(join(root, 'presets', 'Yoi Talk.vital'), 'utf8');
+  const baseText = readFileSync(join(root, 'presets', 'Vinny Bass 2.vital'), 'utf8');
   const x = readWav(args.target);
   const length = Math.min(x.length, Math.round(1.25 * core.SR));
   const target = core.features(x, length);
   const t0 = Date.now();
-  const ranked = await search({
-    randomCount: args.random, generations: args.generations, children: args.children, seed: args.seed,
-    score: async (genes) => genes.map((g) => {
-      const audio = core.renderMono(engine, JSON.stringify(core.build(g, baseText, 'Matched')), args.midi, length / core.SR);
+  // As the page's workers do (match-worker.js 'scoreText').
+  const ranked = await searchRecipe({
+    bases: { 'Vinny Bass 2': baseText }, randomCount: args.random, generations: args.generations,
+    children: args.children, seed: args.seed,
+    score: async (patches) => patches.map((text) => {
+      const audio = core.renderMono(engine, text, args.midi, length / core.SR);
       if (!audio) return { d: Infinity, peak: 0 };
       let peak = 0;
       for (const v of audio) peak = Math.max(peak, Math.abs(v));
@@ -71,9 +70,10 @@ async function main(argv) {
     }),
   });
   const best = ranked[0];
-  if (args.out) writeFileSync(args.out, JSON.stringify(core.build(best.genes, baseText, 'Matched')));
+  if (args.out) writeFileSync(args.out, best.patch);
+  const table = JSON.parse(best.patch).settings.wavetables?.[0]?.name;
   console.log(JSON.stringify({ distance: best.d, tries: ranked.length, seconds: (Date.now() - t0) / 1000,
-    table: core.CHOICES.table[best.genes.table], filter: core.CHOICES.filter[best.genes.filter] }));
+    rhythm: best.rhythm, table }));
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main(process.argv.slice(2));

@@ -584,3 +584,12 @@ the merge commit forward: `git log 7651809..`.
 - The AI's sounds are levelled by measurement: each is rendered by the
   engine (in the page's workers, and in tools/generate_patches.mjs) and its
   volume set so its peak is -5 dBFS. No formula held the wider sounds' level.
+
+## 2026-10-02 - MATCH A SOUND searches inside the riddim recipe
+
+- MATCH's candidates are now sounds the AI makes from Vinny Bass 2
+  (`ui/src/match/recipe-search.ts`), so every match wobs; the one-wob genes
+  search (`match-search.js`) is gone. The four are levelled as the AI's are.
+  `tools/match_web.mjs` runs the same search. Against a known triplet wob:
+  5.23-6.24 on the matcher's measure, at the right rhythm, where thirty
+  random sounds of the recipe score 7.40 at best.

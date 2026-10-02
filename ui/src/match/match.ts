@@ -9,10 +9,10 @@
 
 import coreSource from '../web/engine-core.js?raw';
 import matchCoreSource from './match-core.js?raw';
-import searchSource from './match-search.js?raw';
 import workerSource from './match-worker.js?raw';
 import { TABLE_NAMES, tableJson } from '../wavetables';
 import { LEVEL_NOTES, LEVEL_SECONDS, levelVolume } from '../generate';
+import { searchRecipe } from './recipe-search';
 
 type Features = Float64Array[];
 interface Scored {
@@ -21,34 +21,19 @@ interface Scored {
 }
 interface Core {
   SR: number;
-  CHOICES: { table: string[]; filter: string[] };
   setTables(byName: Record<string, string>): void;
-  build(genes: Genes, baseText: string, name: string): Record<string, unknown> & { settings: Record<string, unknown> };
   features(x: Float32Array, length: number): Features;
 }
-type Genes = Record<string, number>;
-interface Ranked extends Scored {
-  genes: Genes;
-}
-interface SearchApi {
-  search(options: {
-    randomCount: number;
-    generations: number;
-    children: number;
-    seed: number;
-    score(genes: Genes[]): Promise<Scored[]>;
-    onProgress?(done: number, total: number, best: number): void;
-    cancelled?(): boolean;
-  }): Promise<Ranked[]>;
-}
-
 const core = new Function(`${matchCoreSource}; return createMatcherCore;`)()() as Core;
-const searchApi = new Function(`${searchSource}; return createMatcherSearch;`)()(core) as SearchApi;
 const TABLES: Record<string, string> = Object.fromEntries(TABLE_NAMES.map((n) => [n, tableJson(n) ?? '']));
 core.setTables(TABLES);
 
-/** The candidates' base patch: the styles' shared voice, as tools/match.py. */
-export const MATCH_BASE = 'Yoi Talk';
+/**
+ * The recipe every candidate is made in: Vinny Bass 2, as the AI's
+ * (recipe-search.ts). Until 2026-10-02 it was the styles' voice, Yoi Talk,
+ * with match.py's one-wob genes - and every match was a static screech.
+ */
+export const MATCH_BASE = 'Vinny Bass 2';
 /** 160 random + 12 generations of 24: 3.86 dB on a known patch (phase4-04). */
 export const MATCH_BUDGET = { randomCount: 160, generations: 12, children: 24 };
 
@@ -151,7 +136,7 @@ function base64Bytes(text: string): Uint8Array {
 
 /** Score batches on several workers, each with its own engine. */
 function workerPool(count: number, init: Record<string, unknown>): {
-  score(genes: Genes[]): Promise<Scored[]>;
+  scoreTexts(patches: string[]): Promise<Scored[]>;
   peaks(patches: string[]): Promise<number[]>;
   close(): void;
 } {
@@ -178,16 +163,6 @@ function workerPool(count: number, init: Record<string, unknown>): {
     URL.revokeObjectURL(url);
   }
   let nextId = 0;
-  const run = (w: Worker, genes: Genes[]): Promise<Scored[]> =>
-    new Promise((resolve, reject) => {
-      const id = nextId++;
-      w.onmessage = (e: MessageEvent<{ type: string; id: number; results?: Scored[]; message?: string }>): void => {
-        if (e.data.id !== id) return;
-        if (e.data.type === 'scored') resolve(e.data.results ?? []);
-        else reject(new Error(e.data.message));
-      };
-      w.postMessage({ type: 'score', id, genes });
-    });
   const runPeaks = (w: Worker, patches: string[]): Promise<number[]> =>
     new Promise((resolve, reject) => {
       const id = nextId++;
@@ -198,7 +173,28 @@ function workerPool(count: number, init: Record<string, unknown>): {
       };
       w.postMessage({ type: 'peaks', id, patches, midis: LEVEL_NOTES, seconds: LEVEL_SECONDS });
     });
+  const runTexts = (w: Worker, patches: string[]): Promise<Scored[]> =>
+    new Promise((resolve, reject) => {
+      const id = nextId++;
+      w.onmessage = (e: MessageEvent<{ type: string; id: number; results?: Scored[]; message?: string }>): void => {
+        if (e.data.id !== id) return;
+        if (e.data.type === 'scored') resolve(e.data.results ?? []);
+        else reject(new Error(e.data.message));
+      };
+      w.postMessage({ type: 'scoreText', id, patches });
+    });
   return {
+    async scoreTexts(patches) {
+      await Promise.all(ready);
+      const per = Math.ceil(patches.length / workers.length);
+      const parts = await Promise.all(
+        workers.map((w, i) => {
+          const slice = patches.slice(i * per, (i + 1) * per);
+          return slice.length ? runTexts(w, slice) : Promise.resolve([]);
+        }),
+      );
+      return parts.flat();
+    },
     async peaks(patches) {
       await Promise.all(ready);
       const per = Math.ceil(patches.length / workers.length);
@@ -206,17 +202,6 @@ function workerPool(count: number, init: Record<string, unknown>): {
         workers.map((w, i) => {
           const slice = patches.slice(i * per, (i + 1) * per);
           return slice.length ? runPeaks(w, slice) : Promise.resolve([]);
-        }),
-      );
-      return parts.flat();
-    },
-    async score(genes) {
-      await Promise.all(ready);
-      const per = Math.ceil(genes.length / workers.length);
-      const parts = await Promise.all(
-        workers.map((w, i) => {
-          const slice = genes.slice(i * per, (i + 1) * per);
-          return slice.length ? run(w, slice) : Promise.resolve([]);
         }),
       );
       return parts.flat();
@@ -247,30 +232,28 @@ export async function matchSound(job: MatchJob): Promise<Matched[]> {
     type: 'init', wasm: base64Bytes(wasm), tables: TABLES, baseText: job.baseText, target, length, midi: job.midi,
   });
   try {
-    const ranked = await searchApi.search({
-      ...MATCH_BUDGET, seed: job.seed, score: (g) => pool.score(g), onProgress: job.onProgress, cancelled: job.cancelled,
+    const ranked = await searchRecipe({
+      ...MATCH_BUDGET, bases: { [MATCH_BASE]: job.baseText }, seed: job.seed,
+      score: (patches) => pool.scoreTexts(patches), onProgress: job.onProgress, cancelled: job.cancelled,
     });
-    const chosen: Ranked[] = [];
+    // Four that differ: by rhythm and OSC 1's table.
+    const table = (p: string): string =>
+      (JSON.parse(p) as { settings: { wavetables?: { name?: string }[] } }).settings.wavetables?.[0]?.name ?? '';
+    const chosen: typeof ranked = [];
     for (const r of ranked) {
-      if (!Number.isFinite(r.d)) break;
-      const key = (c: Ranked): string => `${c.genes.table}/${c.genes.filter}`;
+      const key = (c: (typeof ranked)[number]): string => `${c.rhythm}/${table(c.patch)}`;
       if (!chosen.some((c) => key(c) === key(r))) chosen.push(r);
       if (chosen.length === 4) break;
     }
+    // Levelled as the AI's sounds are (generate.ts levelVolume).
+    const peaks = await pool.peaks(chosen.map((c) => c.patch));
     return chosen.map((r, i) => {
-      const patch = core.build(r.genes, job.baseText, `Match ${i + 1}`);
-      // Level: the candidate's peak at the target's note put at -4.5 dBFS
-      // (the volume control reads sqrt(value) - 80 dB). Matched patches came
-      // out from -14 to -2 dBFS at one volume (phase4-02-matcher.md).
-      const peakDb = 20 * Math.log10(Math.max(1e-6, r.peak));
-      const volume = Number(patch.settings.volume ?? 4300);
-      patch.settings.volume = Math.pow(Math.max(0, Math.sqrt(volume) + (-4.5 - peakDb)), 2);
-      const table = core.CHOICES.table[r.genes.table ?? 0] ?? '';
-      const filter = core.CHOICES.filter[r.genes.filter ?? 0] ?? '';
-      const about = `Matched to your sound (${r.d.toFixed(2)} dB on the matcher's measure): the ${table} table` +
-        (filter === 'off' ? '' : `, ${filter} filter`) + '.';
-      patch.comments = about;
-      return { name: `Match ${i + 1}`, about, seed: job.seed * 10 + i, patch: JSON.stringify(patch), distance: r.d };
+      const patch = JSON.parse(levelVolume(r.patch, peaks[i] ?? 0)) as Record<string, unknown>;
+      const name = `Match ${i + 1}`;
+      const about = `Matched to your sound (${r.d.toFixed(2)} dB on the matcher's measure): a ${r.rhythm || 'riddim'} wob ` +
+        `on the ${table(r.patch)} table, in Vinny Bass 2's recipe.`;
+      Object.assign(patch, { preset_name: name, comments: about, author: 'GNARL matcher' });
+      return { name, about, seed: job.seed * 10 + i, patch: JSON.stringify(patch), distance: r.d };
     });
   } finally {
     pool.close();

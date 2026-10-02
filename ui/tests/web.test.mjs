@@ -302,23 +302,25 @@ await page.waitForTimeout(2000); // the audition note's own release
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
 await page.waitForTimeout(300);
 
-// MATCH A SOUND (phase4-04-match-in-app.md): a known GNARL sound as the
-// file - Sig Wob 1 at F1, rendered here with the same engine - goes in
-// through the file picker; the matcher's workers search and the four closest
-// come back as the sheet's cards. On the matcher's measure an unrelated
-// random patch sits 5-9 dB from a target; the closest found must beat 5.
+// MATCH A SOUND (phase4-04-match-in-app.md): a known wob as the file - Wob
+// Triplet Dry at the producer's D#3, rendered here with the same engine -
+// goes in through the file picker; the matcher's workers search inside the
+// riddim recipe and the four closest come back as the sheet's cards. On the
+// matcher's measure the patch itself scores 3.78 against this file (its note
+// is held longer than the matcher's render), thirty random sounds of the
+// recipe 7.40-14.73 (median 9.75); the closest found must beat 7.0.
 {
   const engineForFile = loadEngine();
-  if (engineForFile.load(readFileSync(path.join(here, '..', '..', 'presets', 'Sig Wob 1.vital'), 'utf8')) !== 0) {
-    throw new Error('web.test: Sig Wob 1 did not load');
+  if (engineForFile.load(readFileSync(path.join(here, '..', '..', 'presets', 'Wob Triplet Dry.vital'), 'utf8')) !== 0) {
+    throw new Error('web.test: Wob Triplet Dry did not load');
   }
   const wavPath = path.join(mkdtempSync(path.join(tmpdir(), 'gnarl-match-')), 'one-wob.wav');
-  writeWav(wavPath, renderNote(engineForFile, { seconds: 1, bpm: 140, notes: [29] }));
+  writeWav(wavPath, renderNote(engineForFile, { seconds: 1.25, bpm: 140, notes: [39] }));
   await page.locator('.m .ai').tap();
   await page.locator('.evolve:not([hidden]) .evolve__match').waitFor({ timeout: 3000 });
   const started = Date.now();
-  // Seed 1: the search varies with its seed (3.1-4.8 over eight in Node,
-// phase4-04), and this checks the plumbing, not the luck.
+  // Seed 1: the search varies with its seed (phase4-04), and this checks the
+  // plumbing, not the luck.
   await page.evaluate(() => (window.__GNARL_MATCH_SEED__ = 1));
   await page.locator('.evolve__file').setInputFiles(wavPath);
   await page.waitForFunction(() => document.querySelector('.evolve__title')?.textContent?.endsWith('MATCHED') ||
@@ -331,15 +333,15 @@ await page.waitForTimeout(300);
   const seconds = (Date.now() - started) / 1000;
   check(matched.title?.endsWith('MATCHED') && matched.cards.length === 4 && matched.cards[0] === 'Match 1',
     `MATCH A SOUND returns four sounds in ${seconds.toFixed(0)} s: ${JSON.stringify(matched.cards)} - ${matched.status}`);
-  // MIDI 29: F1 in the renderer's naming, F2 in FL Studio's (MIDI 60 = C5).
-  check(/note F2/.test(matched.status ?? ''), `it hears the file's note as MIDI 29, F2 in FL Studio's naming: ${matched.status}`);
+  // MIDI 39: D#2 in the renderer's naming, D#3 in FL Studio's (MIDI 60 = C5).
+  check(/note D#3/.test(matched.status ?? ''), `it hears the file's note as MIDI 39, D#3 in FL Studio's naming: ${matched.status}`);
   await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__play').tap();
   await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Match 1', null, { timeout: 5000 })
     .catch(() => {});
   check((await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent)) === 'Match 1',
     'tapping Match 1 loads it in the engine');
   const best = Number(/closest ([\d.]+) dB/.exec(matched.status ?? '')?.[1] ?? NaN);
-  check(best < 5, `the closest found is ${best} dB from the file (an unrelated patch: 5-9)`);
+  check(best < 7, `the closest found is ${best} dB from the file (the patch itself 3.78; random sounds of the recipe 7.40-14.73)`);
   await page.locator('.evolve .chip', { hasText: 'KEEP' }).tap();
   await page.waitForTimeout(2000);
   await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
