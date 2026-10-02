@@ -125,3 +125,31 @@ On the matcher's measure:
 
 The other two targets crashed it with a length mismatch inside the model.
 A wob is its movement, which this model cannot express.
+
+## OpenL3 as a judge (2026-10-02)
+
+OpenL3 told the reference tracks' wobs apart best of four measures
+(phase4-03-pick.md), so the producer asked for the matcher to use it.
+
+The same instrument test as above: a random known patch is the target, the
+search starts from scratch, and the result is measured on both measures.
+The first row's random patch scores 1.48 when OpenL3 runs with a 0.1 s hop.
+
+| Judge | Log-mel distance to the truth | OpenL3 distance |
+|---|---|---|
+| another random patch | 5.55 dB | 1.51 |
+| log-mel alone (1,320 tries) | 3.38 dB | — |
+| OpenL3 alone (360 tries, 0.1 s hop) | **7.88 dB** | 1.03 |
+| log-mel, then the best 48 judged by both (+288 tries) | 4.09 dB | 1.00 |
+
+**OpenL3 alone is fooled.** It found a sound it rated near the truth, but
+that sound sat further from the truth on the spectrum than an unrelated
+random patch. OpenL3 knows what *kind* of sound it is, not the detail.
+
+**`--openl3` therefore adds a second stage.** The best 48 of the log-mel
+search are judged again, and refined, by log-mel + 3.8 × OpenL3: each
+distance scaled by its median over random patches (8.8 dB and 2.3). The
+result is near on both measures.
+
+OpenL3 runs with a 0.25 s hop: at 0.1 s it took 1.9 s per candidate on
+four cores.

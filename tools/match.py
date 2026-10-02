@@ -16,8 +16,9 @@ the distance. What comes out is a patch: settings, found by search.
           [--random 360] [--generations 40] [--children 24] [--seed 1]
 
 --tables is a directory of the tables' JSON (written by
-tools/generate_patches.mjs --tables DIR). Needs librosa. --openl3 FILE judges
-with OpenL3 instead of the log-mel picture (needs torchopenl3 and its weights).
+tools/generate_patches.mjs --tables DIR). Needs librosa. --openl3 FILE adds a
+second stage judged by the log-mel picture and OpenL3 together (needs
+torchopenl3 and its weights).
 """
 import argparse, json, math, os, random, subprocess, sys, tempfile
 from multiprocessing import Pool
@@ -70,15 +71,21 @@ def features(x, length):
     return np.maximum(db, FLOOR_DB)
 
 
-# The ear: the log-mel picture above, or OpenL3 (music, mel256, 512-d), the
-# recogniser that told the reference tracks' wobs apart best
-# (phase4-03-pick.md: 0.85 same-track share of the 5 nearest wobs, log-mel
-# 0.78). Its distance is a cosine distance x 100.
-EAR = {'kind': 'logmel', 'weights': None, 'model': None}
+# The ear. The log-mel picture above alone, or - with --openl3 - that picture
+# AND OpenL3 (music, mel256, 512-d), the recogniser that told the reference
+# tracks' wobs apart best (phase4-03-pick.md: 0.85 same-track share of the 5
+# nearest wobs, log-mel 0.78). Not OpenL3 alone: judged by it alone, a search
+# for a known patch found one OpenL3 rated close (1.03, another random patch
+# 1.48) that sat 7.88 dB from it on the log-mel picture - further than that
+# random patch (phase4-02-matcher.md). OpenL3 knows what KIND of sound it
+# is, not the detail. Combined, each distance is scaled by its random-patch
+# median (log-mel 8.8 dB, OpenL3 2.3): d = log-mel + 3.8 x OpenL3.
+EAR = {'openl3': False, 'weights': None, 'model': None}
+OPENL3_WEIGHT = 8.8 / 2.3
 
 
 def use_openl3(weights):
-    EAR.update(kind='openl3', weights=weights)
+    EAR.update(openl3=True, weights=weights)
 
 
 def _openl3():
@@ -92,22 +99,28 @@ def _openl3():
     return EAR['model']
 
 
-def ear_features(x, length):
-    if EAR['kind'] == 'logmel':
-        return features(x, length)
+def openl3_embedding(x, length):
     import torchopenl3
     x = np.asarray(x[:length], dtype=np.float32)
     if len(x) < length:
         x = np.pad(x, (0, length - len(x)))
-    e, _ = torchopenl3.get_audio_embedding(x, SR, model=_openl3(), hop_size=0.1, verbose=False)
+    # hop 0.25 s: four or five one-second windows over a wob; 0.1 s took
+    # 1.9 s per candidate on four cores.
+    e, _ = torchopenl3.get_audio_embedding(x, SR, model=_openl3(), hop_size=0.25, verbose=False)
     e = e.squeeze(0).mean(0).detach().cpu().numpy().astype(np.float64)
     return e / (np.linalg.norm(e) + 1e-12)
 
 
-def ear_distance(a, b):
-    if EAR['kind'] == 'logmel':
+def ear_features(x, length, combined):
+    if not combined:
+        return features(x, length)
+    return features(x, length), openl3_embedding(x, length)
+
+
+def ear_distance(a, b, combined):
+    if not combined:
         return distance(a, b)
-    return float(100 * (1 - np.dot(a, b)))
+    return distance(a[0], b[0]) + OPENL3_WEIGHT * float(100 * (1 - np.dot(a[1], b[1])))
 
 
 def distance(a, b):
@@ -210,7 +223,7 @@ def build(g, base, tables, name='Matched'):
 
 def render_features(args):
     """Worker: render genes at the target's note, return (distance, peak)."""
-    g, base, tables, target, length, midi, workdir = args
+    g, base, tables, target, length, midi, workdir, combined = args
     fd, path = tempfile.mkstemp(suffix='.vital', dir=workdir)
     os.close(fd)
     wav = path[:-6] + '.wav'
@@ -227,7 +240,7 @@ def render_features(args):
         mono = x.mean(1)
         if np.abs(mono).max() < 1e-4:
             return math.inf, 0.0
-        return ear_distance(ear_features(mono, length), target), float(np.abs(x).max())
+        return ear_distance(ear_features(mono, length, combined), target, combined), float(np.abs(x).max())
     finally:
         for p in (path, wav):
             if os.path.exists(p):
@@ -248,43 +261,55 @@ def load_tables(directory):
     return tables
 
 
-def search(target_audio, midi, tables, base, n_random=360, generations=40, children=24, seed=1, log=print):
+def search(target_audio, midi, tables, base, n_random=360, generations=40, children=24, seed=1, log=print,
+           refine=12):
+    """The log-mel search; then, with OpenL3 on, the best 48 judged again by
+    log-mel + OpenL3 and `refine` more generations under that judge."""
     length = min(len(target_audio), int(1.25 * SR))
-    target = ear_features(target_audio, length)
     rng = random.Random(seed)
     pool = Pool(os.cpu_count() or 2)
     with tempfile.TemporaryDirectory() as workdir:
-        def score(genes):
-            return pool.map(render_features, [(g, base, tables, target, length, midi, workdir) for g in genes])
+        def score(genes, target, combined):
+            return pool.map(render_features, [(g, base, tables, target, length, midi, workdir, combined) for g in genes])
 
+        def evolve(everything, target, combined, gens, label):
+            # Parents: the best two of each of the six best tables, so a table
+            # whose first random tries were unlucky is not dropped for good.
+            def parents():
+                best = {}
+                for d, g in sorted(everything, key=lambda t: t[0]):
+                    best.setdefault(g['table'], [])
+                    if len(best[g['table']]) < 2:
+                        best[g['table']].append((d, g))
+                tables_ranked = sorted(best.values(), key=lambda v: v[0][0])[:6]
+                return [p for v in tables_ranked for p in v]
+
+            for gen in range(gens):
+                sigma = 0.25 * (1 - gen / max(1, gens)) + 0.03
+                pool_parents = parents()
+                kids = [mutate(pool_parents[rng.randrange(len(pool_parents))][1], rng, sigma) for _ in range(children)]
+                results = score(kids, target, combined)
+                everything.extend((d, g) for (d, _), g in zip(results, kids))
+                if gen % 5 == 4 or gen == gens - 1:
+                    log(f'{label} generation {gen + 1}: best {min(everything, key=lambda t: t[0])[0]:.2f}')
+            return everything
+
+        target = ear_features(target_audio, length, False)
         # The table is the largest single choice: every table gets an equal
         # share of the random round, so none is missed by chance.
         population = [random_genes(rng) for _ in range(n_random)]
         for i, g in enumerate(population):
             g['table'] = i % len(CHOICES['table'])
-        scored = sorted(zip([d for d, _ in score(population)], range(n_random), population), key=lambda t: t[0])
-        log(f'random {n_random}: best {scored[0][0]:.2f}, median {scored[len(scored) // 2][0]:.2f}')
-        # Parents: the best two of each of the six best tables, so a table
-        # whose first random tries were unlucky is not dropped for good.
-        everything = [(d, g) for d, _, g in scored]
-
-        def parents():
-            best = {}
-            for d, g in sorted(everything, key=lambda t: t[0]):
-                best.setdefault(g['table'], [])
-                if len(best[g['table']]) < 2:
-                    best[g['table']].append((d, g))
-            tables_ranked = sorted(best.values(), key=lambda v: v[0][0])[:6]
-            return [p for v in tables_ranked for p in v]
-
-        for gen in range(generations):
-            sigma = 0.25 * (1 - gen / max(1, generations)) + 0.03
-            pool_parents = parents()
-            kids = [mutate(pool_parents[rng.randrange(len(pool_parents))][1], rng, sigma) for _ in range(children)]
-            results = score(kids)
-            everything.extend((d, g) for (d, _), g in zip(results, kids))
-            if gen % 5 == 4 or gen == generations - 1:
-                log(f'generation {gen + 1}: best {min(everything, key=lambda t: t[0])[0]:.2f}')
+        scored = sorted(zip([d for d, _ in score(population, target, False)], range(n_random), population),
+                        key=lambda t: t[0])
+        log(f'random {n_random}: best {scored[0][0]:.2f} dB, median {scored[len(scored) // 2][0]:.2f} dB')
+        everything = evolve([(d, g) for d, _, g in scored], target, False, generations, 'log-mel')
+        if EAR['openl3']:
+            target = ear_features(target_audio, length, True)
+            top = [g for _, g in sorted(everything, key=lambda t: t[0])[:48]]
+            rescored = [(d, g) for (d, _), g in zip(score(top, target, True), top)]
+            log(f'log-mel best 48 judged with OpenL3 too: best {min(rescored, key=lambda t: t[0])[0]:.2f}')
+            everything = evolve(rescored, target, True, refine, 'log-mel + OpenL3')
         elite = sorted(everything, key=lambda t: t[0])[:8]
     pool.close()
     return elite
@@ -316,10 +341,10 @@ def main():
     best_d, best = elite[0]
     with open(args.out, 'w') as f:
         json.dump(build(best, base, tables, args.name), f)
-    json.dump({'distance': best_d, 'ear': EAR['kind'], 'genes': best,
+    json.dump({'distance': best_d, 'ear': 'log-mel + OpenL3' if EAR['openl3'] else 'log-mel', 'genes': best,
                'table': CHOICES['table'][best['table']], 'filter': CHOICES['filter'][best['filter']]},
               open(args.out + '.json', 'w'), indent=1)
-    print(f"best {best_d:.2f} ({EAR['kind']}) -> {args.out}")
+    print(f"best {best_d:.2f} ({'log-mel + OpenL3' if EAR['openl3'] else 'log-mel dB'}) -> {args.out}")
 
 
 if __name__ == '__main__':
