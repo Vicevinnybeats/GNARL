@@ -134,6 +134,15 @@ def main():
         check(not offbeat, f'at a riddim rate ({sorted({r for *_, r, _ in wobs if r})}); off the grid: {offbeat}')
         check(not harsh, f'no harsher than Vinny Bass 2 + 4 points above 5 kHz '
               f'(most {max(h for *_, h in wobs):.1f}%); harsher: {harsh}')
+        # A 1/4 wob (the producer's ask; every first round of the AI sheet
+        # has one) is one a beat: LFO 4's bend once pulled it to 1.25. A
+        # slower sweep under it may read as 0.5, the series' fundamental.
+        subprocess.run(['node', os.path.join(ROOT, 'tools/generate_patches.mjs'), os.path.join(tmp, 'q'), '1', '4',
+                        '--rhythm', '1/4'], check=True, capture_output=True)
+        quarter = [wob(os.path.join(tmp, 'q', f'{i}.vital'), tmp) for i in range(1, 5)]
+        check(all(r in (0.5, 1.0) or (r and abs(r - 1.0) < 0.05) for _, r, _ in quarter) and
+              all(d >= 0.4 for d, _, _ in quarter),
+              f'a 1/4 wob moves once a beat: {[(round(d, 2), r) for d, r, _ in quarter]}')
         check(loaded == len(made), f'the renderer loads every generated patch ({loaded}/{len(made)})')
         check(finite, 'every render is finite')
         check(max(peaks) <= -1.5, f'the loudest, D1 to F2, peaks at {max(peaks):.1f} dBFS (at most -1.5)')

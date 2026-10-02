@@ -39,6 +39,9 @@ if (process.argv[2] === '--chain') {
   }
   process.exit(0);
 }
+//   node tools/generate_patches.mjs <out-dir> <first-seed> <count> --rhythm 1/4   every one at that rhythm
+const rhythmAt = process.argv.indexOf('--rhythm');
+const rhythm = rhythmAt > 0 ? process.argv.splice(rhythmAt, 2)[1] : undefined;
 const [out, first = '1', count = '20'] = process.argv.slice(2);
 if (!out) throw new Error('usage: generate_patches.mjs <out-dir> [first-seed] [count]');
 const bases = {};
@@ -48,7 +51,7 @@ for (const name of GENERATOR_BASES) {
 }
 mkdirSync(out, { recursive: true });
 for (let seed = Number(first); seed < Number(first) + Number(count); seed += 1) {
-  const g = generatePatch(bases, seed);
+  const g = generatePatch(bases, seed, rhythm);
   writeFileSync(join(out, `${seed}.vital`), g.patch);
   console.log(JSON.stringify({ seed, name: g.name, about: g.about }));
 }

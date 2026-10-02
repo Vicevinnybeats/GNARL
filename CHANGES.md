@@ -570,3 +570,5 @@ the merge commit forward: `git log 7651809..`.
 - `tests/test_generate.py` requires every variation to wob (movement at
   least 0.4 at a riddim rate) and to be no harsher than Vinny Bass 2.
   docs/design/phase4-05-riddim-recipe.md.
+- The AI also makes 1/4 wobs (one a beat, LFO 4's bend off for them); each
+  first round of four has one.

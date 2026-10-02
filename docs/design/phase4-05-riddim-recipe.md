@@ -44,7 +44,7 @@ A variation keeps all four routes and moves only:
 
 | What | Range |
 |---|---|
-| Rhythm (LFO 1) | 1/8, 1/8T, 1/16, 1/4T (weighted to the first two) |
+| Rhythm (LFO 1) | 1/8, 1/8T, 1/4, 1/16, 1/4T (weighted to 1/8 and 1/8T); every first round of four has one 1/4 wob, the producer's ask |
 | LFO 4's bend | its amount × 0.4–1.6 |
 | Sweep | LFO 2's depth × 0.5–1.7; its speed 1/2, 1/4, 1/8, sometimes triplet |
 | Tone | one of the table's full-level slices (frames 60, 110, 160, 200), or 20%: a warm GNARL table (Growl, Vowel, Wub, Yoi, Hollow, Harmonic — never Screech, Metal, Tear, Sync, PD, FM) |
@@ -82,6 +82,14 @@ fails.
 
 Nobody here has heard them. These numbers say each one moves like Vinny
 Bass 2 and is no brighter; whether each is *good* is the producer's call.
+
+## The 1/4 wob
+
+The producer asked for wobs in 1/4 too. LFO 1 at 1/4 with Vinny Bass 2's
+bend (LFO 4 on LFO 1's speed) measured 1.25 a beat, off the grid - the bend
+that keeps 1/8 on the grid pulls 1/4 toward 1/8. A 1/4 wob turns the bend
+off: eight measured 1.0 a beat (one 0.5, its slower sweep the series'
+fundamental), movement 0.69-0.90. `tests/test_generate.py` checks four.
 
 ## How the producer can help
 

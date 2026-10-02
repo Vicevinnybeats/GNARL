@@ -72,13 +72,17 @@ const num = (s: Settings, key: string, fallback = 0): number => {
 };
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
-export function generatePatch(bases: Readonly<Record<string, string>>, seed: number): Generated {
+/**
+ * A new sound from a seed. `rhythm` ('1/4', '1/8', '1/8T', '1/16', '1/4T')
+ * fixes LFO 1's speed; otherwise the seed picks one.
+ */
+export function generatePatch(bases: Readonly<Record<string, string>>, seed: number, rhythm?: string): Generated {
   const r = random(seed);
   const choose = <T>(items: readonly T[]): T => items[Math.floor(r() * items.length)] ?? (items[0] as T);
   const available = GENERATOR_BASES.filter((b) => bases[b] !== undefined);
   if (available.length === 0) throw new Error('the generator has none of its base patches');
   const baseName = choose(available);
-  return vary(bases[baseName] as string, r, seed, 1, `from ${baseName}`);
+  return vary(bases[baseName] as string, r, seed, 1, `from ${baseName}`, rhythm);
 }
 
 type Mod = { source: string; destination: string };
@@ -92,10 +96,13 @@ function isRiddim(s: Settings): boolean {
  * The rhythms LFO 1 may take, as (lfo_1_sync, lfo_1_tempo): sync 1 is
  * straight tempo, 3 triplets; tempo 8 is 1/4, 9 is 1/8, 10 is 1/16 (Vital's
  * kSyncedFrequencyNames). 1/8 is Vinny Bass 2's; 1/8T is riddim's triplet;
- * 1/16 the stutter; 1/4T the half-time triplet. Weighted toward the first two.
+ * 1/4 the slow wob, one a beat (asked for by the producer, and every first
+ * round of the AI sheet has one); 1/16 the stutter; 1/4T the half-time
+ * triplet. Weighted toward 1/8 and 1/8T.
  */
-const RHYTHMS: readonly { sync: number; tempo: number; label: string; weight: number }[] = [
+export const RHYTHMS: readonly { sync: number; tempo: number; label: string; weight: number }[] = [
   { sync: 1, tempo: 9, label: '1/8', weight: 3 },
+  { sync: 1, tempo: 8, label: '1/4', weight: 2 },
   { sync: 3, tempo: 9, label: '1/8T', weight: 3 },
   { sync: 1, tempo: 10, label: '1/16', weight: 1 },
   { sync: 3, tempo: 8, label: '1/4T', weight: 1 },
@@ -104,7 +111,7 @@ const RHYTHMS: readonly { sync: number; tempo: number; label: string; weight: nu
 const WARM_TABLES = ['Growl', 'Vowel', 'Wub', 'Yoi', 'Hollow', 'Harmonic'] as const;
 
 function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: () => number, strength: number,
-  changes: string[]): string {
+  changes: string[], rhythmLabel?: string): string {
   const s = patch.settings;
   const between = (lo: number, hi: number): number => lo + (hi - lo) * r();
   const nudge = (v: number, by: number, lo: number, hi: number): number => clamp(v + between(-by, by) * strength, lo, hi);
@@ -119,10 +126,12 @@ function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: 
   };
 
   // The rhythm: LFO 1's speed, and how much LFO 4 bends it within the bar.
-  if (chance(0.5)) {
+  const fixed = RHYTHMS.find((x) => x.label === rhythmLabel);
+  const rolled = chance(0.5);
+  if (fixed || rolled) {
     const total = RHYTHMS.reduce((t, x) => t + x.weight, 0);
     let pick = r() * total;
-    const rhythm = RHYTHMS.find((x) => (pick -= x.weight) < 0) ?? RHYTHMS[0];
+    const rhythm = fixed ?? RHYTHMS.find((x) => (pick -= x.weight) < 0) ?? RHYTHMS[0];
     if (rhythm && (rhythm.sync !== num(s, 'lfo_1_sync') || rhythm.tempo !== num(s, 'lfo_1_tempo'))) {
       s.lfo_1_sync = rhythm.sync;
       s.lfo_1_tempo = rhythm.tempo;
@@ -130,6 +139,10 @@ function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: 
     }
   }
   scale(amount('lfo_4', 'lfo_1_tempo'), -0.6, 0.6);
+  // A 1/4 wob is a steady one a beat: LFO 4's bend, which keeps 1/8 on
+  // the grid, pulled 1/4 to 1.25 a beat (measured), so it is off for 1/4.
+  const bend = amount('lfo_4', 'lfo_1_tempo');
+  if (bend && num(s, 'lfo_1_sync') === 1 && num(s, 'lfo_1_tempo') === 8) s[bend] = 0;
 
   // The sweep: LFO 2 on the spectral low pass - how far, and how slow.
   scale(amount('lfo_2', 'osc_1_spectral_morph_amount'), -0.5, 0.7);
@@ -189,7 +202,8 @@ export function evolvePatch(parentText: string, seed: number, strength: number, 
   return vary(parentText, random(seed), seed, strength, label);
 }
 
-function vary(text: string, r: () => number, seed: number, strength: number, origin: string): Generated {
+function vary(text: string, r: () => number, seed: number, strength: number, origin: string,
+  rhythm?: string): Generated {
   const between = (lo: number, hi: number): number => (lo + (hi - lo) * r()) * strength;
   const chance = (p: number): boolean => r() < p * strength;
   const choose = <T>(items: readonly T[]): T => items[Math.floor(r() * items.length)] ?? (items[0] as T);
@@ -199,7 +213,7 @@ function vary(text: string, r: () => number, seed: number, strength: number, ori
   if (isRiddim(s)) {
     const levelBefore = (patch.gnarl_level as { volume: number; drive: number } | undefined) ??
       { volume: num(s, 'volume', 4600), drive: num(s, 'distortion_drive') };
-    const tableName = riddimVary(patch, r, strength, changes);
+    const tableName = riddimVary(patch, r, strength, changes, rhythm);
     const added = Math.max(0, num(s, 'distortion_drive') - levelBefore.drive);
     s.volume = Math.pow(Math.max(0, Math.sqrt(levelBefore.volume) - 5 - added), 2);
     patch.gnarl_level = levelBefore;

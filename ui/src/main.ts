@@ -505,7 +505,10 @@ function evolveSheet(): { open(): void } {
     }
     round = 1;
     history.length = 0;
-    candidates = Array.from({ length: 4 }, () => generatePatch(found, seed()));
+    // One of the four is always a 1/4 wob (the producer's ask), at a random
+    // place; the others take whatever their seeds pick.
+    const slow = Math.floor(Math.random() * 4);
+    candidates = Array.from({ length: 4 }, (_, i) => generatePatch(found, seed(), i === slow ? '1/4' : undefined));
     render();
   };
   const choose = (i: number): void => {
