@@ -288,7 +288,8 @@ endif()
 set(GNARL_UI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 set(GNARL_UI_HTML ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-ui.html)
 file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css
-     ${GNARL_UI_DIR}/src/web/*.ts ${GNARL_UI_DIR}/src/web/*.js)
+     ${GNARL_UI_DIR}/src/web/*.ts ${GNARL_UI_DIR}/src/web/*.js
+     ${GNARL_UI_DIR}/src/match/*.ts ${GNARL_UI_DIR}/src/match/*.js)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp

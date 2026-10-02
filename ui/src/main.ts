@@ -17,6 +17,7 @@ import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { builtInPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
 import { evolvePatch, GENERATOR_BASES, generatePatch } from './generate';
 import type { Generated } from './generate';
+import { decodeAudio, detectMidi, flNoteName, MATCH_BASE, matchSound, trimToWob } from './match/match';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -295,7 +296,23 @@ function evolveSheet(): { open(): void } {
   const back = chipButton('BACK');
   const fresh = chipButton('NEW');
   const keep = chipButton('KEEP');
-  const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint, grid,
+  // MATCH A SOUND (match/match.ts): a file of one wob in, the four closest
+  // patches out, as this round's cards.
+  const matchButton = chipButton('MATCH A SOUND');
+  matchButton.classList.add('evolve__match');
+  matchButton.title = 'Drop in an audio file of one wob (1-2 s, bass only); GNARL finds the patch';
+  const file = el('input', 'evolve__file');
+  file.type = 'file';
+  file.accept = 'audio/*,.wav,.mp3,.flac,.ogg,.aif,.aiff';
+  file.hidden = true;
+  const status = el('div', 'evolve__status');
+  const bar = el('div', 'evolve__bar', el('div', 'evolve__fill'));
+  const cancel = chipButton('STOP');
+  const progress = el('div', 'evolve__progress', status, bar, cancel);
+  progress.hidden = true;
+  matchButton.hidden = typeof window.__GNARL_WASM__ !== 'string';
+  const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint,
+    el('div', 'evolve__matchrow', matchButton, file), progress, grid,
     el('div', 'evolve__actions', back, fresh, keep));
   root.hidden = true;
   document.body.append(root);
@@ -379,6 +396,54 @@ function evolveSheet(): { open(): void } {
     ];
     render();
   };
+  let matching = false;
+  let stop = false;
+  matchButton.addEventListener('click', () => file.click());
+  cancel.addEventListener('click', () => {
+    stop = true;
+  });
+  file.addEventListener('change', () => {
+    const chosen = file.files?.[0];
+    file.value = '';
+    if (!chosen || matching) return;
+    void (async (): Promise<void> => {
+      matching = true;
+      stop = false;
+      matchButton.disabled = true;
+      progress.hidden = false;
+      const fill = bar.firstElementChild as HTMLElement;
+      fill.style.width = '0%';
+      try {
+        status.textContent = `Listening to ${chosen.name}...`;
+        const audio = trimToWob(await decodeAudio(await chosen.arrayBuffer()));
+        if (audio.length < 0.15 * 44100) throw new Error('that file is too short: one wob of 1-2 s works best');
+        const midi = detectMidi(audio) ?? 29;
+        const base = builtInPatch(MATCH_BASE);
+        if (!base) throw new Error('this build lacks the matcher\'s base patch');
+        const found = await matchSound({
+          audio, midi, baseText: base, seed: 1 + Math.floor(Math.random() * 999_999),
+          onProgress: (done, total, best) => {
+            fill.style.width = `${Math.round((100 * done) / total)}%`;
+            status.textContent = `Note ${flNoteName(midi)} - trying sounds: ${done} of ${total}, closest ${best.toFixed(2)} dB`;
+          },
+          cancelled: () => stop,
+        });
+        if (found.length === 0) throw new Error('no sound came close; try a cleaner wob');
+        history.push(candidates);
+        candidates = found;
+        round += 1;
+        render();
+        title.textContent = 'AI \u00b7 MATCHED';
+        status.textContent = `Closest four to your sound (note ${flNoteName(midi)}, closest ${(found[0]?.distance ?? 0).toFixed(2)} dB). Tap to hear, PICK to refine by ear.`;
+        fill.style.width = '100%';
+      } catch (error) {
+        status.textContent = `Could not match: ${(error as Error).message}`;
+      } finally {
+        matching = false;
+        matchButton.disabled = false;
+      }
+    })();
+  });
   back.addEventListener('click', () => {
     const previous = history.pop();
     if (!previous) return;

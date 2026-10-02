@@ -527,3 +527,17 @@ the merge commit forward: `git log 7651809..`.
   OpenL3. They follow Vinny Bass 2 in the preset list and are the AI pick
   mode's first bases (with Ref Wob 1-6).
 - A variation gets 5 dB of room (was 4.5).
+
+## 2026-10-02 - MATCH A SOUND: the matcher in the app
+
+- The AI sheet's MATCH A SOUND: choose an audio file of one wob, and the
+  sound matcher searches GNARL settings for it on the device, rendering
+  candidates with the WebAssembly engine in Web Workers; the four closest
+  come back as Match 1-4, ready for PICK. `ui/src/match/` ports
+  `tools/match.py`'s genes, patch build, log-mel measure and search.
+- The plugin's panel page now carries the WebAssembly engine as well, for
+  MATCH only; the plugin still plays through its native engine. The
+  release workflow's desktop jobs take the engine from the web job.
+- `tools/match_web.mjs`: the in-app matcher from Node.
+  `ui/tests/web.test.mjs` runs MATCH in Chromium on a known patch.
+- docs/design/phase4-04-match-in-app.md.

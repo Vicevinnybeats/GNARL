@@ -11,7 +11,9 @@
 
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { loadEngine, render as renderNote, writeWav } from '../../tools/web_render.mjs';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -278,6 +280,47 @@ await page.locator('.evolve .chip', { hasText: 'KEEP' }).tap();
 await page.waitForTimeout(2000); // the audition note's own release
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
 await page.waitForTimeout(300);
+
+// MATCH A SOUND (phase4-04-match-in-app.md): a known GNARL sound as the
+// file - Sig Wob 1 at F1, rendered here with the same engine - goes in
+// through the file picker; the matcher's workers search and the four closest
+// come back as the sheet's cards. On the matcher's measure an unrelated
+// random patch sits 5-9 dB from a target; the closest found must beat 5.
+{
+  const engineForFile = loadEngine();
+  if (engineForFile.load(readFileSync(path.join(here, '..', '..', 'presets', 'Sig Wob 1.vital'), 'utf8')) !== 0) {
+    throw new Error('web.test: Sig Wob 1 did not load');
+  }
+  const wavPath = path.join(mkdtempSync(path.join(tmpdir(), 'gnarl-match-')), 'one-wob.wav');
+  writeWav(wavPath, renderNote(engineForFile, { seconds: 1, bpm: 140, notes: [29] }));
+  await page.locator('.m .ai').tap();
+  await page.locator('.evolve:not([hidden]) .evolve__match').waitFor({ timeout: 3000 });
+  const started = Date.now();
+  await page.locator('.evolve__file').setInputFiles(wavPath);
+  await page.waitForFunction(() => document.querySelector('.evolve__title')?.textContent?.endsWith('MATCHED') ||
+    /Could not match/.test(document.querySelector('.evolve__status')?.textContent ?? ''), null, { timeout: 600_000 });
+  const matched = await page.evaluate(() => ({
+    title: document.querySelector('.evolve__title')?.textContent,
+    status: document.querySelector('.evolve__status')?.textContent,
+    cards: [...document.querySelectorAll('.evolve__card .evolve__name')].map((n) => n.textContent),
+  }));
+  const seconds = (Date.now() - started) / 1000;
+  check(matched.title?.endsWith('MATCHED') && matched.cards.length === 4 && matched.cards[0] === 'Match 1',
+    `MATCH A SOUND returns four sounds in ${seconds.toFixed(0)} s: ${JSON.stringify(matched.cards)} - ${matched.status}`);
+  // MIDI 29: F1 in the renderer's naming, F2 in FL Studio's (MIDI 60 = C5).
+  check(/note F2/.test(matched.status ?? ''), `it hears the file's note as MIDI 29, F2 in FL Studio's naming: ${matched.status}`);
+  await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__play').tap();
+  await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Match 1', null, { timeout: 5000 })
+    .catch(() => {});
+  check((await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent)) === 'Match 1',
+    'tapping Match 1 loads it in the engine');
+  const best = Number(/closest ([\d.]+) dB/.exec(matched.status ?? '')?.[1] ?? NaN);
+  check(best < 5, `the closest found is ${best} dB from the file (an unrelated patch: 5-9)`);
+  await page.locator('.evolve .chip', { hasText: 'KEEP' }).tap();
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
+  await page.waitForTimeout(300);
+}
 
 // The page's tempo (TEMPO button): 140 to start; a tap sends 145, and a
 // preset load - here the init, Vital's 120 - keeps it, as a DAW's tempo does.
