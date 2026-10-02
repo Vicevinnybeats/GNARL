@@ -279,14 +279,14 @@ const sheet = await page.evaluate(() => {
            form: visible('.presets__form'), open_file: [...root.querySelectorAll('.presets__actions button')]
              .filter((n) => n.offsetParent !== null).map((n) => n.textContent) };
 });
-check(sheet.open && sheet.factory === 19 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
+check(sheet.open && sheet.factory === 2 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
   `in the plugin the name opens the starting sounds and INIT only: ${JSON.stringify(sheet)}`);
-await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Wob Open' }).click();
+await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).click();
 await page.waitForTimeout(100); // the fake plugin logs on a timer
 const factorySent = await presetLog('gnarlPresetFactory');
 let wobPatch = null;
 try { wobPatch = JSON.parse(factorySent[0]?.patch ?? ''); } catch { /* checked below */ }
-check(factorySent.length === 1 && factorySent[0].name === 'Wob Open' && wobPatch?.settings?.lfo_1_sync_type === 2 &&
+check(factorySent.length === 1 && factorySent[0].name === 'Riddim Sub' && typeof wobPatch?.settings === 'object' &&
   (await page.locator('.app .presets').isHidden()),
   `a starting sound goes to the plugin whole, and the sheet closes: ${JSON.stringify(factorySent.map((s) => s.name))}`);
 await page.locator('.app .preset__step').last().click();

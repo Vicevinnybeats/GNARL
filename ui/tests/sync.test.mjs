@@ -147,8 +147,8 @@ await b.waitForSelector('.m .cloud__list .presets__load', { timeout: 5000 });
 check((await b.locator('.m .cloud__list .presets__load').allTextContents()).join() === 'Vinny Bass 2', 'phone B: the code opens the same list');
 
 // B loads something else first, then opens the cloud patch.
-await b.locator('.m .presets__list--factory .presets__load', { hasText: 'Frog Croak' }).tap();
-await b.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Frog Croak', null, { timeout: 5000 });
+await b.locator('.m .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).tap();
+await b.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Sub', null, { timeout: 5000 });
 await b.locator('.m .preset__name').tap();
 await b.waitForSelector('.m .cloud__list .presets__load', { timeout: 5000 });
 await b.locator('.m .cloud__list .presets__load', { hasText: 'Vinny Bass 2' }).tap();

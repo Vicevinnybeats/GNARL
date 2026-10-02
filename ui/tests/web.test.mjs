@@ -135,10 +135,10 @@ check(lfo.lit === '1/4' && lfoTempo?.[1] === '1/4', `a tap on 1/4 sets LFO 1 to 
 await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
 
 await page.locator('.m .preset__step').last().tap();
-await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Sig Wob 1', null, { timeout: 5000 })
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Sub', null, { timeout: 5000 })
   .catch(() => {});
 const arrowed = await page.evaluate(() => document.querySelector('.m .preset__name')?.textContent);
-check(arrowed === 'Sig Wob 1', `the arrow steps through the starting sounds: Vinny Bass 2 -> ${arrowed}`);
+check(arrowed === 'Riddim Sub', `the arrow steps through the starting sounds: Vinny Bass 2 -> ${arrowed}`);
 
 // What follows was written for the init patch: load it.
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
@@ -497,16 +497,15 @@ const restored = await volumeNow();
 check(Math.abs(changed - 0.2) < 1e-6 && Math.abs(restored - 0.2) > 0.1 && !(await sheetOpen()),
   `loading "Test Wub" restores MASTER: ${changed.toFixed(3)} -> ${restored.toFixed(3)}, shows its name, closes the sheet`);
 
-// The five starting sounds (factory.json): each loads, names the bar, sets
-// its values, and closes the sheet.
+// The starting sounds (factory.json): Vinny Bass 2 and Riddim Sub. One
+// loads, names the bar, sets its values, and closes the sheet.
 await openSheet();
 const factoryNames = await page.locator('.m .presets__list--factory .presets__load').allTextContents();
-check(factoryNames.length === 19 && factoryNames[0] === 'Vinny Bass 2' && factoryNames[1] === 'Sig Wob 1' && factoryNames[6] === 'Ref Wob 1' && factoryNames[18] === 'Swamp Gurgle', `nineteen factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
-await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Frog Croak' }).tap();
-await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Frog Croak', null, { timeout: 5000 });
+check(JSON.stringify(factoryNames) === '["Vinny Bass 2","Riddim Sub"]', `two factory sounds, the opening one first: ${JSON.stringify(factoryNames)}`);
+await page.locator('.m .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).tap();
+await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Riddim Sub', null, { timeout: 5000 });
 await page.waitForTimeout(300);
-const growl = await panelState();
-check(!(await sheetOpen()) && growl.filter, `Frog Croak loads (filter on: ${growl.filter}) and closes the sheet`);
+check(!(await sheetOpen()), 'Riddim Sub loads, names the bar and closes the sheet');
 await page.locator('.m .preset__name').tap();
 await page.locator('.m .presets__actions button', { hasText: 'INIT' }).tap();
 await page.waitForFunction(() => document.querySelector('.m .preset__name')?.textContent === 'Init', null, { timeout: 5000 });

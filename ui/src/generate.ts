@@ -25,11 +25,23 @@ export interface Generated {
   patch: string;
 }
 
-/** The patches a variation starts from: presets/*.vital, by name. */
-// Not Vinny Bass 2: built differently (four LFOs, its own table), its
-// variations measured 9 dB from it - a different sound, not a neighbour.
-export const GENERATOR_BASES = ['Sig Wob 1', 'Sig Wob 2', 'Sig Wob 3', 'Sig Wob 4', 'Sig Wob 5',
-  'Ref Wob 1', 'Ref Wob 2', 'Ref Wob 3', 'Ref Wob 4', 'Ref Wob 5', 'Ref Wob 6'] as const;
+/*
+ * The patch every sound starts from: Vinny Bass 2, the producer's own, and
+ * the one they call good (2026-10-02). Every sound before this was built
+ * from the matcher's patches (Sig Wob, Ref Wob), and the producer heard
+ * "all screech instead of a wob": measured, those barely move - tools/
+ * measure.py finds no beat-locked movement in Sig Wob 1 or 3 or Ref Wob 3,
+ * and Ref Wob 5's growl moves 0.07 where Vinny Bass 2's moves 0.72. The
+ * matcher copied a wob's tone frozen in time, not its rhythm.
+ *
+ * So the generator now works INSIDE Vinny Bass 2's recipe, which is where
+ * the wob lives: LFO 1 gates the level and the comb filter (the rhythm),
+ * LFO 2 sweeps a spectral low pass (the wah), LFO 4 changes LFO 1's speed
+ * within the bar, LFO 3 pushes the drive. A variation keeps all four routes
+ * and moves their timing, depth and tone (riddimVary below);
+ * tests/test_generate.py renders forty and requires each to keep a wob.
+ */
+export const GENERATOR_BASES = ['Vinny Bass 2'] as const;
 
 /** mulberry32: small, fast, and the same in every browser and in Node. */
 function random(seed: number): () => number {
@@ -69,6 +81,104 @@ export function generatePatch(bases: Readonly<Record<string, string>>, seed: num
   return vary(bases[baseName] as string, r, seed, 1, `from ${baseName}`);
 }
 
+type Mod = { source: string; destination: string };
+
+/** Vinny Bass 2's rhythm engine: LFO 1 on the level. */
+function isRiddim(s: Settings): boolean {
+  return ((s.modulations as Mod[] | undefined) ?? []).some((m) => m.source === 'lfo_1' && m.destination === 'osc_1_level');
+}
+
+/*
+ * The rhythms LFO 1 may take, as (lfo_1_sync, lfo_1_tempo): sync 1 is
+ * straight tempo, 3 triplets; tempo 8 is 1/4, 9 is 1/8, 10 is 1/16 (Vital's
+ * kSyncedFrequencyNames). 1/8 is Vinny Bass 2's; 1/8T is riddim's triplet;
+ * 1/16 the stutter; 1/4T the half-time triplet. Weighted toward the first two.
+ */
+const RHYTHMS: readonly { sync: number; tempo: number; label: string; weight: number }[] = [
+  { sync: 1, tempo: 9, label: '1/8', weight: 3 },
+  { sync: 3, tempo: 9, label: '1/8T', weight: 3 },
+  { sync: 1, tempo: 10, label: '1/16', weight: 1 },
+  { sync: 3, tempo: 8, label: '1/4T', weight: 1 },
+];
+/** Tables that keep a wob warm. Not Screech, Metal, Tear, Sync, PD or FM. */
+const WARM_TABLES = ['Growl', 'Vowel', 'Wub', 'Yoi', 'Hollow', 'Harmonic'] as const;
+
+function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: () => number, strength: number,
+  changes: string[]): string {
+  const s = patch.settings;
+  const between = (lo: number, hi: number): number => lo + (hi - lo) * r();
+  const nudge = (v: number, by: number, lo: number, hi: number): number => clamp(v + between(-by, by) * strength, lo, hi);
+  const chance = (p: number): boolean => r() < p * strength;
+  const mods = (s.modulations as Mod[] | undefined) ?? [];
+  const amount = (source: string, destination: string): string | null => {
+    const i = mods.findIndex((m) => m.source === source && m.destination === destination);
+    return i < 0 ? null : `modulation_${i + 1}_amount`;
+  };
+  const scale = (key: string | null, lo: number, hi: number): void => {
+    if (key) s[key] = clamp(num(s, key) * (1 + between(lo, hi) * strength), -1, 1);
+  };
+
+  // The rhythm: LFO 1's speed, and how much LFO 4 bends it within the bar.
+  if (chance(0.5)) {
+    const total = RHYTHMS.reduce((t, x) => t + x.weight, 0);
+    let pick = r() * total;
+    const rhythm = RHYTHMS.find((x) => (pick -= x.weight) < 0) ?? RHYTHMS[0];
+    if (rhythm && (rhythm.sync !== num(s, 'lfo_1_sync') || rhythm.tempo !== num(s, 'lfo_1_tempo'))) {
+      s.lfo_1_sync = rhythm.sync;
+      s.lfo_1_tempo = rhythm.tempo;
+      changes.push(`${rhythm.label} wob`);
+    }
+  }
+  scale(amount('lfo_4', 'lfo_1_tempo'), -0.6, 0.6);
+
+  // The sweep: LFO 2 on the spectral low pass - how far, and how slow.
+  scale(amount('lfo_2', 'osc_1_spectral_morph_amount'), -0.5, 0.7);
+  if (chance(0.3)) {
+    s.lfo_2_tempo = [6, 7, 8][Math.floor(r() * 3)] ?? 6;
+    s.lfo_2_sync = r() < 0.3 ? 3 : 1;
+  }
+  s.osc_1_spectral_morph_amount = nudge(num(s, 'osc_1_spectral_morph_amount'), 0.12, 0.6, 0.97);
+
+  // The tone: Vinny Bass 2's table is an audio file cut into a few slices,
+  // so the frame picks a slice rather than morphing - measured at D#3 FL:
+  // frames 60, 110-130 (Vinny Bass 2's own, 110), 160 and 200 are each a
+  // full-level sound of their own; 80-108 is one slice 9 dB quieter, and
+  // nudging into it made half of forty variations 12-17 dB down. Now and
+  // then a warm table instead.
+  if (chance(0.5)) s.osc_1_wave_frame = [60, 110, 110, 160, 200][Math.floor(r() * 5)] ?? 110;
+  let tableName = (s.wavetables as { name?: string }[] | undefined)?.[0]?.name ?? '';
+  if (chance(0.2)) {
+    tableName = WARM_TABLES[Math.floor(r() * WARM_TABLES.length)] ?? 'Growl';
+    const table = tableJson(tableName);
+    if (table) (s.wavetables as unknown[])[0] = JSON.parse(table);
+    s.osc_1_wave_frame = between(105, 236);
+    changes.push(`the ${tableName} table`);
+  }
+
+  // The filter LFO 1 also opens: the comb's pitch and ring, or now and then
+  // the formant filter, which makes the wob talk.
+  if (num(s, 'filter_1_model') === 6) {
+    s.filter_1_cutoff = nudge(num(s, 'filter_1_cutoff'), 10, 50, 90);
+    s.filter_1_resonance = nudge(num(s, 'filter_1_resonance'), 0.12, 0.25, 0.65);
+    if (chance(0.15)) {
+      Object.assign(s, { filter_1_model: 5, filter_1_style: 0, filter_1_formant_x: between(0.2, 0.8),
+        filter_1_formant_y: between(0.2, 0.8), filter_1_formant_resonance: between(0.6, 0.85) });
+      changes.push('a talking filter');
+    }
+  } else if (num(s, 'filter_1_model') === 5) {
+    s.filter_1_formant_x = nudge(num(s, 'filter_1_formant_x'), 0.15, 0, 1);
+    s.filter_1_formant_y = nudge(num(s, 'filter_1_formant_y'), 0.15, 0, 1);
+  }
+  scale(amount('lfo_1', 'filter_fx_cutoff'), -0.4, 0.4);
+
+  // Grit: the drive LFO 3 pushes, never past where Vinny Bass 2 sits by
+  // more than a little - added drive is added screech.
+  const driveBefore = num(s, 'distortion_drive');
+  s.distortion_drive = nudge(driveBefore, 3, 0, 9);
+  scale(amount('lfo_3', 'distortion_drive'), -0.5, 0.5);
+  return tableName;
+}
+
 /*
  * The AI button's pick-the-best mode (main.ts evolveSheet): a child of the
  * patch the producer picked. `strength` scales every step (1 = a generator
@@ -86,6 +196,15 @@ function vary(text: string, r: () => number, seed: number, strength: number, ori
   const patch = JSON.parse(text) as Record<string, unknown> & { settings: Settings };
   const s = patch.settings;
   const changes: string[] = [];
+  if (isRiddim(s)) {
+    const levelBefore = (patch.gnarl_level as { volume: number; drive: number } | undefined) ??
+      { volume: num(s, 'volume', 4600), drive: num(s, 'distortion_drive') };
+    const tableName = riddimVary(patch, r, strength, changes);
+    const added = Math.max(0, num(s, 'distortion_drive') - levelBefore.drive);
+    s.volume = Math.pow(Math.max(0, Math.sqrt(levelBefore.volume) - 5 - added), 2);
+    patch.gnarl_level = levelBefore;
+    return named(patch, NOUNS[tableName] ?? 'Wob', seed, origin, changes, choose);
+  }
 
   // Where the wob starts in the table, and how far LFO 1 takes it.
   s.osc_1_wave_frame = clamp(num(s, 'osc_1_wave_frame') + between(-25, 25), 0, 256);
@@ -164,7 +283,11 @@ function vary(text: string, r: () => number, seed: number, strength: number, ori
   s.volume = Math.pow(Math.max(0, Math.sqrt(level.volume) - 5 - added), 2);
   patch.gnarl_level = level;
 
-  const noun = NOUNS[tableName] ?? 'Wob';
+  return named(patch, NOUNS[tableName] ?? 'Wob', seed, origin, changes, choose);
+}
+
+function named(patch: Record<string, unknown>, noun: string, seed: number, origin: string, changes: string[],
+  choose: <T>(items: readonly T[]) => T): Generated {
   const name = `${choose(ADJECTIVES)} ${noun} ${seed % 1000}`;
   const about = `Generated (seed ${seed}) ${origin}` + (changes.length ? `, with ${changes.join(', ')}` : '') + '.';
   patch.preset_name = name;

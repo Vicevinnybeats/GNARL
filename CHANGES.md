@@ -557,3 +557,16 @@ the merge commit forward: `git log 7651809..`.
   `.github/workflows/backend.yml`, which tests, migrates and deploys it.
 - Tests: `backend/test/sync.test.ts`, `ui/tests/sync.test.mjs`.
   docs/design/phase8-01-sync.md.
+
+## 2026-10-02 - The AI makes wobs, inside Vinny Bass 2's recipe
+
+- The AI button's sounds are all variations of Vinny Bass 2, the
+  producer's patch, keeping its four LFO routes (the rhythm on the level
+  and comb filter, the spectral sweep, the bend, the drive) and moving
+  their timing (1/8, 1/8T, 1/16, 1/4T), depth and tone (`generate.ts`
+  `riddimVary`). The matcher's Sig and Ref Wobs, which measured no
+  beat-locked movement, are no longer bases.
+- The starting-sound list is Vinny Bass 2 and Riddim Sub.
+- `tests/test_generate.py` requires every variation to wob (movement at
+  least 0.4 at a riddim rate) and to be no harsher than Vinny Bass 2.
+  docs/design/phase4-05-riddim-recipe.md.

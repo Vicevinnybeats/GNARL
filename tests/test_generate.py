@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""The AI button's generator (ui/src/generate.ts, docs/design/phase4-01-generator.md).
+"""The AI button's generator (ui/src/generate.ts, docs/design/phase4-01-generator.md,
+phase4-05-riddim-recipe.md).
 
 Generates patches from fixed seeds through tools/generate_patches.mjs and
-renders each with the desktop renderer at 140 BPM. Each is a variation of a
-base patch (Ref Wob 1-6, Vinny Bass 2), so it is measured against its base
-on the sound matcher's own measure (tools/match.py: a smoothed log-mel
-spectrogram of the growl band) - a variation should stay a neighbour of
-the sound it came from. With --targets DIR (the matcher's target wobs,
+renders each with the desktop renderer at 140 BPM. Each is a variation of
+Vinny Bass 2, the producer's own patch, and must stay a WOB: rendered at
+the producer's note (D#3 in FL, MIDI 39) for 16 beats, tools/measure.py
+must find beat-locked movement in the growl band, as deep as 0.4 (Vinny
+Bass 2: 0.72; the matcher's Sig Wob 1: none found), at a riddim rate, and
+no more of its energy above 5 kHz than Vinny Bass 2 has plus a little -
+added highs are added screech. It is also measured against its base on
+the sound matcher's measure (tools/match.py). With --targets DIR (the matcher's target wobs,
 which never leave a session's scratch space) it also reports how close the
 variations come to the references.
 
@@ -43,6 +47,30 @@ def render(patch, note, wav):
         return None
     x, _ = sf.read(wav)
     return x
+
+
+# The rates a riddim wob takes, per beat: 1/2, 1/4, 1/8, 1/8T (3), 1/16, and
+# the 1/4T half-time triplet (1.5). LFO 4 bends LFO 1's speed within the bar,
+# so a triplet measures 3.2-3.3.
+RIDDIM_RATES = (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)
+
+
+def wob(patch, tmp):
+    """(growl movement depth, its rate per beat, % of energy above 5 kHz) at D#3 FL."""
+    wav, js = os.path.join(tmp, 'wob.wav'), os.path.join(tmp, 'wob.json')
+    subprocess.run([RENDER, '--headless', '-o', wav, '-l', '16', '-m', 'D#2', '-b', str(BPM), patch],
+                   check=True, capture_output=True)
+    subprocess.run([sys.executable, os.path.join(ROOT, 'tools/measure.py'), wav, '--bpm', str(BPM),
+                    '--from', '0.2', '--to', '6.5', '--json', js], check=True, capture_output=True)
+    g = json.load(open(js))['modulation']['growl_band']
+    x, sr = sf.read(wav)
+    seg = x.mean(1)[int(0.2 * sr):int(6.5 * sr)]
+    f = np.fft.rfftfreq(len(seg), 1 / sr)
+    p = np.abs(np.fft.rfft(seg * np.blackman(len(seg)))) ** 2
+    high = 100 * p[f > 5000].sum() / p.sum()
+    if not g or not g.get('rate'):
+        return 0.0, None, high
+    return g['depth'], g['rate']['per_beat'], high
 
 
 def main():
@@ -93,6 +121,19 @@ def main():
             for t, (feat, n) in targets.items():
                 closest[t].append(match.distance(match.features(f1, n), feat))
             print(f'     {g["seed"]:3d} {g["name"]:20s} peak {loudest:6.1f} dBFS  {d:4.2f} dB from {base}')
+        # Every variation is a wob: it moves, at a riddim rate, no harsher
+        # than the patch it came from.
+        base_depth, base_rate, base_high = wob(os.path.join(ROOT, 'presets', 'Vinny Bass 2.vital'), tmp)
+        print(f'     Vinny Bass 2: movement {base_depth:.2f} at {base_rate}/beat, {base_high:.1f}% above 5 kHz')
+        wobs = [(g['name'],) + wob(os.path.join(tmp, 'a', f'{g["seed"]}.vital'), tmp) for g in made]
+        still = [n for n, d, _, _ in wobs if d < 0.4]
+        offbeat = [n for n, d, r, _ in wobs if r is None or min(abs(r - x) for x in RIDDIM_RATES) > 0.35]
+        harsh = [n for n, _, _, h in wobs if h > base_high + 4]
+        check(not still, f'every variation wobs (movement at least 0.4): '
+              f'{min(d for _, d, _, _ in wobs):.2f}-{max(d for _, d, _, _ in wobs):.2f}; too still: {still}')
+        check(not offbeat, f'at a riddim rate ({sorted({r for *_, r, _ in wobs if r})}); off the grid: {offbeat}')
+        check(not harsh, f'no harsher than Vinny Bass 2 + 4 points above 5 kHz '
+              f'(most {max(h for *_, h in wobs):.1f}%); harsher: {harsh}')
         check(loaded == len(made), f'the renderer loads every generated patch ({loaded}/{len(made)})')
         check(finite, 'every render is finite')
         check(max(peaks) <= -1.5, f'the loudest, D1 to F2, peaks at {max(peaks):.1f} dBFS (at most -1.5)')
