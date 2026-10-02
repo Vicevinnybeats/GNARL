@@ -66,3 +66,48 @@ first.
   network policy refuses.
 - **Syntheon** (phase4-02-matcher.md) writes only a static wavetable and an
   envelope, so it cannot express a wob.
+
+## Three recognisers on the whole tracks (2026-10-02)
+
+The producer: "test with the 3 models, recognise the tracks to get a single
+wob". CLAP is reachable only through Hugging Face and Zenodo, which this
+environment refuses. The three models run instead:
+
+- **YAMNet** and **VGGish** (Google, AudioSet), from Google Storage. VGGish
+  runs in PyTorch from its own checkpoint's weights. Checked against its
+  smoke test: embedding mean/std **0.000657 / 0.343**, as published.
+- **OpenL3**, as before.
+
+**Where the drums are.** YAMNet tags the tracks "Dubstep" and "Electronic
+music". Its drum classes stay near zero even in the drops (90th percentile
+0.01–0.03), so it cannot find drum-free moments here. The percussive share
+from HPSS is used for that instead.
+
+**The wobs.** Each whole track was cut into single wobs: the bass (HPSS),
+at onsets, 0.8–2.3 beats, the louder 60%. That gave 406 wobs in all.
+
+**Which recogniser tells the tracks apart?** For each wob, the share of its
+5 nearest wobs that come from the same track:
+
+| Measure | Same-track share |
+|---|---|
+| OpenL3 | 0.85 |
+| log-mel (the matcher's) | 0.78 |
+| VGGish | 0.75 |
+| YAMNet | 0.71 |
+| chance | 0.26 |
+
+**Signature wob per track.** Among the less drummy half of a track's wobs,
+the one closest to its five nearest neighbours in the same track: the
+centre of the densest cluster. Where two measures agree, that one;
+otherwise OpenL3's.
+
+| Track | Time | Length | Drum share | Agreed by |
+|---|---|---|---|---|
+| 6:25:300 | 3:33.7 | 1.03 beats | 0.11 | VGGish, OpenL3 |
+| cemeteryf0g | 4:22.4 | 0.86 beats | 0.04 | OpenL3 only |
+| drac07 | 4:14.7 | 1.41 beats | 0.09 | VGGish, OpenL3 |
+| lily | 2:47.6 | 0.81 beats | 0.09 | YAMNet, OpenL3 |
+| meta 800 | 4:22.4 | 0.84 beats | 0.06 | YAMNet, log-mel |
+
+Timestamps only: the audio stays in the session's scratch space.
