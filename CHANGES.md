@@ -581,3 +581,6 @@ the merge commit forward: `git log 7651809..`.
 - The AI goes much further from Vinny Bass 2 on a new sound: the sweep's
   kind, a warp, unison, a second gated oscillator, the distortion's kind,
   the wob's curve and more tables - still inside the four LFO routes.
+- The AI's sounds are levelled by measurement: each is rendered by the
+  engine (in the page's workers, and in tools/generate_patches.mjs) and its
+  volume set so its peak is -5 dBFS. No formula held the wider sounds' level.

@@ -12,6 +12,7 @@ import matchCoreSource from './match-core.js?raw';
 import searchSource from './match-search.js?raw';
 import workerSource from './match-worker.js?raw';
 import { TABLE_NAMES, tableJson } from '../wavetables';
+import { LEVEL_NOTES, LEVEL_SECONDS, levelVolume } from '../generate';
 
 type Features = Float64Array[];
 interface Scored {
@@ -151,6 +152,7 @@ function base64Bytes(text: string): Uint8Array {
 /** Score batches on several workers, each with its own engine. */
 function workerPool(count: number, init: Record<string, unknown>): {
   score(genes: Genes[]): Promise<Scored[]>;
+  peaks(patches: string[]): Promise<number[]>;
   close(): void;
 } {
   const source = `${coreSource}\n${matchCoreSource}\n${workerSource}`;
@@ -186,7 +188,28 @@ function workerPool(count: number, init: Record<string, unknown>): {
       };
       w.postMessage({ type: 'score', id, genes });
     });
+  const runPeaks = (w: Worker, patches: string[]): Promise<number[]> =>
+    new Promise((resolve, reject) => {
+      const id = nextId++;
+      w.onmessage = (e: MessageEvent<{ type: string; id: number; results?: number[]; message?: string }>): void => {
+        if (e.data.id !== id) return;
+        if (e.data.type === 'peaks') resolve(e.data.results ?? []);
+        else reject(new Error(e.data.message));
+      };
+      w.postMessage({ type: 'peaks', id, patches, midis: LEVEL_NOTES, seconds: LEVEL_SECONDS });
+    });
   return {
+    async peaks(patches) {
+      await Promise.all(ready);
+      const per = Math.ceil(patches.length / workers.length);
+      const parts = await Promise.all(
+        workers.map((w, i) => {
+          const slice = patches.slice(i * per, (i + 1) * per);
+          return slice.length ? runPeaks(w, slice) : Promise.resolve([]);
+        }),
+      );
+      return parts.flat();
+    },
     async score(genes) {
       await Promise.all(ready);
       const per = Math.ceil(genes.length / workers.length);
@@ -251,5 +274,30 @@ export async function matchSound(job: MatchJob): Promise<Matched[]> {
     });
   } finally {
     pool.close();
+  }
+}
+
+/*
+ * The AI's levelling (generate.ts levelVolume): each sound rendered by the
+ * engine in workers, its volume set from its measured peak. One pool, made
+ * on first use and kept, so a round of four costs renders, not start-ups.
+ * Without an engine (a build with no wasm) the sounds come back as they
+ * went in, with the generator's own estimate of their level.
+ */
+let levelPool: ReturnType<typeof workerPool> | null = null;
+
+export async function levelPatches(patches: string[]): Promise<string[]> {
+  const wasm = window.__GNARL_WASM__;
+  if (!wasm || typeof Worker === 'undefined') return patches;
+  try {
+    levelPool ??= workerPool(Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1)), {
+      type: 'init', wasm: base64Bytes(wasm), tables: {}, baseText: '', target: [], length: 0, midi: 39,
+    });
+    const peaks = await levelPool.peaks(patches);
+    return patches.map((p, i) => levelVolume(p, peaks[i] ?? 0));
+  } catch {
+    levelPool?.close();
+    levelPool = null;
+    return patches;
   }
 }

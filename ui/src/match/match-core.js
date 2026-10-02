@@ -186,6 +186,32 @@ function createMatcherCore() {
     return out;
   }
 
+  /*
+   * A patch's loudest sample, either channel, with the note HELD for
+   * `seconds` at 140 BPM: what the AI levels its sounds by (generate.ts
+   * levelVolume). Held, unlike renderMono, because a held note is what a
+   * producer plays; both channels, because unison and the effects are wide.
+   */
+  function peakOf(engine, patchText, midi, seconds) {
+    if (engine.load(patchText) !== 0) return null;
+    engine.allNotesOff();
+    engine.bpm(BPM);
+    const block = 128;
+    const dt = 1 / SR;
+    let time = 0;
+    engine.note(midi, true);
+    let peak = 0;
+    for (let done = 0; done < seconds * SR; done += block) {
+      engine.time(time);
+      const audio = engine.process(block);
+      for (let i = 0; i < 2 * block; i += 1) peak = Math.max(peak, Math.abs(audio[i]));
+      time += block * dt;
+    }
+    engine.note(midi, false);
+    engine.allNotesOff();
+    return peak;
+  }
+
   // ---- the log-mel picture (librosa's defaults: centred frames, a periodic
   // Hann window, Slaney mel filters) ---------------------------------------
   const window = new Float64Array(N_FFT);
@@ -312,5 +338,5 @@ function createMatcherCore() {
     return sum / n;
   }
 
-  return { SR, CHOICES, CONTINUOUS, random, randomGenes, mutate, setTables, build, renderMono, features, distance };
+  return { SR, CHOICES, CONTINUOUS, random, randomGenes, mutate, setTables, build, renderMono, peakOf, features, distance };
 }

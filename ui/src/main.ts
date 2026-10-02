@@ -18,7 +18,7 @@ import { builtInPatch, currentPatch, deletePreset, exportPatch, FACTORY_SOUNDS, 
 import { deleteCloud, listCloud, newCode, readCloud, storeCode, storedCode, syncAvailable, useCode, writeCloud } from './sync';
 import { evolvePatch, GENERATOR_BASES, generatePatch } from './generate';
 import type { Generated } from './generate';
-import { decodeAudio, detectMidi, flNoteName, MATCH_BASE, matchSound, trimToWob } from './match/match';
+import { decodeAudio, detectMidi, flNoteName, levelPatches, MATCH_BASE, matchSound, trimToWob } from './match/match';
 import { drawEnvelope, drawOsc, drawScope, drawSub, drawVowel, drawWobble, setDrawnPoint, setPreviewBpm, DRAWN_STEPS } from './draw';
 import { engine, engineViews } from './engine';
 import { headerMark, mountLogo } from './logo';
@@ -502,6 +502,18 @@ function evolveSheet(): { open(): void } {
       }),
     );
   };
+  // Each round's four are levelled by measurement (generate.ts levelVolume)
+  // once the engine has rendered them, a second or two after they appear;
+  // their patches are swapped in place, so a tap meanwhile plays the
+  // generator's estimate. A newer round makes the late result moot.
+  const level = (): void => {
+    const round_ = candidates;
+    void levelPatches(round_.map((c) => c.patch)).then((patches) => {
+      if (candidates !== round_) return;
+      candidates = round_.map((c, i) => ({ ...c, patch: patches[i] ?? c.patch }));
+      render();
+    });
+  };
   const start = (): void => {
     const found = bases();
     if (Object.keys(found).length === 0) {
@@ -515,6 +527,7 @@ function evolveSheet(): { open(): void } {
     const slow = Math.floor(Math.random() * 4);
     candidates = Array.from({ length: 4 }, (_, i) => generatePatch(found, seed(), i === slow ? '1/4' : undefined));
     render();
+    level();
   };
   const choose = (i: number): void => {
     const parent = candidates[i];
@@ -531,6 +544,7 @@ function evolveSheet(): { open(): void } {
       evolvePatch(parent.patch, seed(), 1, `a wild step from ${parent.name}`),
     ];
     render();
+    level();
   };
   let matching = false;
   let stop = false;

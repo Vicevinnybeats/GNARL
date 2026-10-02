@@ -330,6 +330,32 @@ function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: 
  * variation; less as the picks go on, so the search settles where the ears
  * lead it).
  */
+/*
+ * LEVELLING BY MEASUREMENT. Forty variations and five chains of picks showed
+ * that no formula holds the level: the distortion's kind alone moves it ~5 dB
+ * (soft clip, hard clip and sine fold quieter than down-sample), and with
+ * down-sample LESS drive is LOUDER - a chain crept to +2.3 dBFS as its drive
+ * fell. So every AI sound is rendered (the WebAssembly engine, in the page's
+ * workers and in tools/generate_patches.mjs alike) at LEVEL_NOTES, held for
+ * LEVEL_SECONDS, and its volume set so that the loudest sample sits at
+ * LEVEL_TARGET_DB. The formula above stays as the first guess and the
+ * fallback where no engine is at hand.
+ */
+export const LEVEL_NOTES = [26, 39]; // D1 and D#2 (renderer naming): the low end, and the producer's D#3 in FL
+export const LEVEL_SECONDS = 1.6; // two wobs at 1/4, four at 1/8, at 140 BPM
+export const LEVEL_TARGET_DB = -5;
+
+/** The patch with its volume moved so that a measured `peak` (linear) lands on LEVEL_TARGET_DB. */
+export function levelVolume(patchText: string, peak: number): string {
+  if (!(peak > 1e-5) || !Number.isFinite(peak)) return patchText;
+  const patch = JSON.parse(patchText) as { settings: Settings };
+  const volume = num(patch.settings, 'volume', 4600);
+  const shift = LEVEL_TARGET_DB - 20 * Math.log10(peak);
+  // The volume control reads sqrt(value) - 80 dB, up to 7399.44 (+6 dB).
+  patch.settings.volume = Math.min(7399.44, Math.pow(Math.max(0, Math.sqrt(volume) + shift), 2));
+  return JSON.stringify(patch);
+}
+
 export function evolvePatch(parentText: string, seed: number, strength: number, label: string): Generated {
   return vary(parentText, random(seed), seed, strength, label);
 }

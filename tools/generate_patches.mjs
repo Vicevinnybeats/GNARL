@@ -5,14 +5,31 @@
 //   node tools/generate_patches.mjs --tables <dir>   GNARL's tables as JSON, for tools/match.py
 //   node tools/generate_patches.mjs --chain <out-dir> <seed> <depth>   a run of picks, as the AI's
 //                                       pick-the-best mode makes them (first child picked each round)
+//
+// Every patch is levelled as the app levels it (generate.ts levelVolume):
+// rendered by the browser build of the engine, its volume set from its
+// measured peak. --raw skips it, to see the generator's own estimate.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { evolvePatch, GENERATOR_BASES, generatePatch } from '../ui/src/generate.ts';
+import { evolvePatch, GENERATOR_BASES, generatePatch, LEVEL_NOTES, LEVEL_SECONDS, levelVolume } from '../ui/src/generate.ts';
+import { loadEngine } from './web_render.mjs';
 import { TABLE_NAMES, tableJson } from '../ui/src/wavetables.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const rawAt = process.argv.indexOf('--raw');
+const raw = rawAt > 0 && process.argv.splice(rawAt, 1).length > 0;
+let engine = null;
+let core = null;
+/** As the app's workers do (match/match-worker.js 'peaks'). */
+function level(text) {
+  if (raw) return text;
+  engine ??= loadEngine();
+  core ??= new Function(readFileSync(join(root, 'ui/src/match/match-core.js'), 'utf8') + '; return createMatcherCore;')()();
+  const peak = Math.max(...LEVEL_NOTES.map((m) => core.peakOf(engine, text, m, LEVEL_SECONDS) ?? 0));
+  return levelVolume(text, peak);
+}
 if (process.argv[2] === '--tables') {
   const dir = process.argv[3];
   if (!dir) throw new Error('usage: generate_patches.mjs --tables <dir>');
@@ -31,6 +48,7 @@ if (process.argv[2] === '--chain') {
   const seed = Number(seedText);
   let current = generatePatch(all, seed);
   for (let round = 1; round <= Number(depthText); round += 1) {
+    current = { ...current, patch: level(current.patch) };
     writeFileSync(join(out, `${round}.vital`), current.patch);
     console.log(JSON.stringify({ round, name: current.name, about: current.about }));
     // As main.ts evolveSheet: the strength after `round` picks.
@@ -52,6 +70,6 @@ for (const name of GENERATOR_BASES) {
 mkdirSync(out, { recursive: true });
 for (let seed = Number(first); seed < Number(first) + Number(count); seed += 1) {
   const g = generatePatch(bases, seed, rhythm);
-  writeFileSync(join(out, `${seed}.vital`), g.patch);
+  writeFileSync(join(out, `${seed}.vital`), level(g.patch));
   console.log(JSON.stringify({ seed, name: g.name, about: g.about }));
 }

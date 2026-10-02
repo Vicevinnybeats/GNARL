@@ -17,6 +17,12 @@ self.onmessage = (event) => {
       engine = engine ?? createGnarlEngine(message.wasm, core.SR);
       job = message;
       self.postMessage({ type: 'ready' });
+    } else if (message.type === 'peaks') {
+      // The AI's levelling (generate.ts levelVolume): each patch's loudest
+      // sample over the given notes, held.
+      const results = message.patches.map((text) =>
+        Math.max(...message.midis.map((m) => core.peakOf(engine, text, m, message.seconds) ?? 0)));
+      self.postMessage({ type: 'peaks', id: message.id, results });
     } else if (message.type === 'score') {
       const results = message.genes.map((g) => {
         const patch = JSON.stringify(core.build(g, job.baseText, 'Matched'));

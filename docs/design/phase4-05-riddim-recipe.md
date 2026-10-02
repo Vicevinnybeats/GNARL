@@ -125,6 +125,24 @@ Forty new ones: movement 0.41-1.33, highs at most 14.4% above 5 kHz, peaks
 -11.6 to -3.4 dBFS, average tone 457-2400 Hz (976-2019 before: wider both
 ways).
 
+## Levelled by measurement
+
+The wider moves broke the level formula: tests/test_generate.py found a
+sound at +0.3 dBFS and chains of picks from -18.5 to +2.3. Traced round by
+round, the distortion's kind alone moved the level ~5 dB (soft clip, hard
+clip and sine fold quieter than down-sample), and with down-sample LESS
+drive was LOUDER: one chain climbed to +2.3 dBFS as its drive fell. No
+fixed formula holds that, so every AI sound is now rendered by the engine -
+in the page's workers (match.ts levelPatches, the engine MATCH already
+carries) and in tools/generate_patches.mjs alike - at D1 and D#2
+(renderer naming), held 1.6 s, and its volume set so its loudest sample is
+-5 dBFS (generate.ts levelVolume). The cards appear at once with the
+generator's estimate and are swapped for the levelled patches a second or
+two later.
+
+Forty levelled: at D#2 -7.8 to -3.4 dBFS (median -5.4), the loudest from D1
+to F2 -2.5; before levelling the same forty ran -13 to +0.3.
+
 ## The reminder
 
 Under the AI sheet's four sounds a line says how to steer the next ones -

@@ -259,8 +259,29 @@ await page.waitForFunction(() => window.__seen.tables?.[0] === 'Init', null, { t
 check((await seen()).tables?.[0] === 'Init', 'INIT puts the init table back');
 
 // The AI button (pick-the-best): a tapped sound loads in the engine, which
-// names it and shows its table, and plays; PICK grows round 2.
+// names it and shows its table, and plays; PICK grows round 2. Each round is
+// levelled by the engine in workers (generate.ts levelVolume): the page asks
+// for the four sounds' peaks and gets them back.
+await page.evaluate(() => {
+  const Native = window.Worker;
+  window.__peaks = { asked: 0, answered: 0 };
+  window.Worker = class extends Native {
+    constructor(...args) {
+      super(...args);
+      this.addEventListener('message', (e) => { if (e.data?.type === 'peaks') window.__peaks.answered += 1; });
+    }
+    postMessage(m, ...rest) {
+      if (m?.type === 'peaks') window.__peaks.asked += 1;
+      return super.postMessage(m, ...rest);
+    }
+  };
+});
 await page.locator('.m .ai').tap();
+await page.waitForFunction(() => window.__peaks.asked > 0 && window.__peaks.answered >= window.__peaks.asked, null,
+  { timeout: 20000 }).catch(() => {});
+const peaksSeen = await page.evaluate(() => window.__peaks);
+check(peaksSeen.asked > 0 && peaksSeen.answered === peaksSeen.asked,
+  `the AI's four are levelled by the engine in workers: ${JSON.stringify(peaksSeen)}`);
 await page.locator('.evolve:not([hidden]) .evolve__card').first().waitFor({ timeout: 3000 }).catch(() => {});
 await resetPeak();
 await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__play').tap();
