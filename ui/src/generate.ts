@@ -347,7 +347,12 @@ function vary(text: string, r: () => number, seed: number, strength: number, ori
       { volume: num(s, 'volume', 4600), drive: num(s, 'distortion_drive') };
     const tableName = riddimVary(patch, r, strength, changes, rhythm);
     const added = Math.max(0, num(s, 'distortion_drive') - levelBefore.drive);
-    s.volume = Math.pow(Math.max(0, Math.sqrt(levelBefore.volume) - 5 - added), 2);
+    // Unison voices can line up: forty variations at D1-F2 put the loudest,
+    // with two voices, at +0.3 dBFS, the next at -3.1; 3 dB more room for
+    // any unison. Worked out from the patch's state, not its last step, so a
+    // chain of picks cannot accumulate it.
+    const unison = num(s, 'osc_1_unison_voices', 1) > 1 ? 3 : 0;
+    s.volume = Math.pow(Math.max(0, Math.sqrt(levelBefore.volume) - 5 - added - unison), 2);
     patch.gnarl_level = levelBefore;
     return named(patch, NOUNS[tableName] ?? 'Wob', seed, origin, changes, choose);
   }
