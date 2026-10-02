@@ -549,7 +549,10 @@ function evolveSheet(): { open(): void } {
         const base = builtInPatch(MATCH_BASE);
         if (!base) throw new Error('this build lacks the matcher\'s base patch');
         const found = await matchSound({
-          audio, midi, baseText: base, seed: 1 + Math.floor(Math.random() * 999_999),
+          // A fresh search each time; a page may pin it (tests/web.test.mjs):
+          // the closest found varies with the seed (phase4-04).
+          audio, midi, baseText: base,
+          seed: (window as { __GNARL_MATCH_SEED__?: number }).__GNARL_MATCH_SEED__ ?? 1 + Math.floor(Math.random() * 999_999),
           onProgress: (done, total, best) => {
             fill.style.width = `${Math.round((100 * done) / total)}%`;
             status.textContent = `Note ${flNoteName(midi)} - trying sounds: ${done} of ${total}, closest ${best.toFixed(2)} dB`;

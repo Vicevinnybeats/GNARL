@@ -48,10 +48,19 @@ The file never leaves the device. Nothing is fetched; there is no server.
 | JS log-mel vs Python on the same audio | within ~0.1 dB |
 | In-app render vs desktop render of one patch | 0.20 dB on the measure (was 6.08 dB: the worker held the note; it now releases at 1 s, as match.py's renders do) |
 | Known patch (Sig Wob 1's render), Node, 448 renders | closest 3.86 dB; match.py reached 3.38 in 1,320; a random patch scores 5.55 |
-| Same, in Chromium through the page, 4 workers | 88 s; four matches 3.34–3.95 dB |
+| Same, eight seeds (1–8), Node | closest 3.15, 4.22, 4.76, 4.12, 3.12, 3.76, 3.24, 3.77: median 3.77, worst 4.76 |
+| Same, in Chromium through the page, seed 1 | 92 s; closest 3.15 dB, the Node figure for seed 1 exactly |
+| One unpinned run in Chromium | 5.19 dB: a bad seed, near a random patch's 5.55 |
+
+**The result depends on the seed.** Each MATCH starts a fresh random
+search, and over eight seeds the closest found ran from 3.12 to 4.76 dB; one
+browser run reached only 5.19. Running MATCH again is a real second
+chance, not a repeat. A bigger budget or several searches from different
+seeds would narrow it, at the cost of time on a phone.
 
 `ui/tests/web.test.mjs` runs MATCH end to end in Chromium on Sig Wob 1's
-render and requires the closest under 5 dB. With the held-note bug put
+render with the seed pinned to 1 (`window.__GNARL_MATCH_SEED__`) and
+requires the closest under 5 dB. With the held-note bug put
 back, it fails at 8.03 dB.
 
 `tools/match_web.mjs` runs the in-app matcher from Node on one thread:

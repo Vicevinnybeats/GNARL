@@ -296,6 +296,9 @@ await page.waitForTimeout(300);
   await page.locator('.m .ai').tap();
   await page.locator('.evolve:not([hidden]) .evolve__match').waitFor({ timeout: 3000 });
   const started = Date.now();
+  // Seed 1: the search varies with its seed (3.1-4.8 over eight in Node,
+// phase4-04), and this checks the plumbing, not the luck.
+  await page.evaluate(() => (window.__GNARL_MATCH_SEED__ = 1));
   await page.locator('.evolve__file').setInputFiles(wavPath);
   await page.waitForFunction(() => document.querySelector('.evolve__title')?.textContent?.endsWith('MATCHED') ||
     /Could not match/.test(document.querySelector('.evolve__status')?.textContent ?? ''), null, { timeout: 600_000 });
