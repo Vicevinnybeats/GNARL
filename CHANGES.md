@@ -572,3 +572,6 @@ the merge commit forward: `git log 7651809..`.
   docs/design/phase4-05-riddim-recipe.md.
 - The AI also makes 1/4 wobs (one a beat, LFO 4's bend off for them); each
   first round of four has one.
+- AI sounds get delay or reverb on some, not all: dry, a tempo-synced
+  delay, reverb with its lows cut, or Vinny Bass 2's light both. The AI
+  sheet ends with how to say what is wrong.

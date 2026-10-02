@@ -441,7 +441,12 @@ function evolveSheet(): { open(): void } {
   matchButton.hidden = typeof window.__GNARL_WASM__ !== 'string';
   const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint,
     el('div', 'evolve__matchrow', matchButton, file), progress, grid,
-    el('div', 'evolve__actions', back, fresh, keep));
+    el('div', 'evolve__actions', back, fresh, keep),
+    // The producer asked to be reminded, after the sounds, how to steer
+    // what comes next (phase4-05).
+    el('p', 'evolve__help', 'None right? Tell Claude what is wrong, in sound words: wob too slow or too fast, ' +
+      'needs more sub, too thin, too bright or screechy, too much distortion, too much delay or reverb. ' +
+      'Or send a .vital patch of yours you like: each one is a new recipe for the AI.'));
   root.hidden = true;
   document.body.append(root);
 

@@ -50,6 +50,7 @@ A variation keeps all four routes and moves only:
 | Tone | one of the table's full-level slices (frames 60, 110, 160, 200), or 20%: a warm GNARL table (Growl, Vowel, Wub, Yoi, Hollow, Harmonic — never Screech, Metal, Tear, Sync, PD, FM) |
 | Filter | comb pitch ±10, ring 0.25–0.65; 15%: the formant filter (a talking wob) |
 | Drive | ±3, never above 9; LFO 3's push × 0.5–1.5 |
+| Space | a new sound is dry (40%), delayed (25%: the echo on the wob's own grid - its rhythm, straight or triplet, at its speed or one slower - mix 12–22%, feedback 25–45%, its filter a band around the growl; a dotted echo, or a triplet one over a straight wob, filled the gaps between hits and measured movement down to 0.33), reverbed (20%: mix 18–30%, input cut below ~150–260 Hz so the sub stays dry), or keeps Vinny Bass 2's light both (15%). A pick's children keep its choice unless re-rolled (0.6 × strength) |
 
 No reverb, phaser or flanger is added any more.
 
@@ -90,6 +91,19 @@ bend (LFO 4 on LFO 1's speed) measured 1.25 a beat, off the grid - the bend
 that keeps 1/8 on the grid pulls 1/4 toward 1/8. A 1/4 wob turns the bend
 off: eight measured 1.0 a beat (one 0.5, its slower sweep the series'
 fundamental), movement 0.69-0.90. `tests/test_generate.py` checks four.
+
+## Measured with space
+
+Forty new sounds after it: 13 dry, 11 delayed, 7 reverbed, 9 with both.
+Movement 0.54–1.18 (delayed ones 0.66–1.18: an echo on the grid
+strengthens the wob), every rate on the riddim grid, highs 3–14% above
+5 kHz, peaks −13.2 to −2.8 dBFS.
+
+## The reminder
+
+Under the AI sheet's four sounds a line says how to steer the next ones -
+what is wrong, in sound words, or a patch to add - because the producer
+asked to be reminded after the sounds.
 
 ## How the producer can help
 

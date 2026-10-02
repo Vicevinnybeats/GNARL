@@ -1531,6 +1531,7 @@ body[data-mode='phone'] .toast {
   background: none; border: 0; color: var(--text-dim); font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px;
 }
 .evolve__hint { margin: 0; font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+.evolve__help { margin: 0; font-size: 10px; color: var(--text-faint); line-height: 1.5; }
 .evolve__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .evolve__card {
   position: relative;

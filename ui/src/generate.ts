@@ -184,6 +184,44 @@ function riddimVary(patch: Record<string, unknown> & { settings: Settings }, r: 
   }
   scale(amount('lfo_1', 'filter_fx_cutoff'), -0.4, 0.4);
 
+  // Space: Vinny Bass 2 carries a little delay (13%, unsynced) and reverb
+  // (15%). The producer wants them on SOME wobs, not all: a sound is dry,
+  // delayed, reverbed, or keeps both as Vinny Bass 2 has them. A pick's
+  // children usually keep its choice (re-rolled at chance 0.6 x
+  // strength; a new sound always rolls). Both are kept off the low end: the delay's filter is a band
+  // around the growl, the reverb's input is cut below about 150-250 Hz, so
+  // the sub stays dry.
+  if (r() < (strength >= 1 ? 1 : 0.6 * strength)) {
+    const roll = r();
+    if (roll < 0.4) {
+      Object.assign(s, { delay_on: 0, reverb_on: 0 });
+      patch.gnarl_delay_synced = 0;
+      changes.push('dry');
+    } else if (roll < 0.65) {
+      patch.gnarl_delay_synced = 1;
+      Object.assign(s, { delay_on: 1, reverb_on: 0, delay_style: 0,
+        delay_dry_wet: between(0.12, 0.22), delay_feedback: between(0.25, 0.45),
+        delay_filter_cutoff: between(70, 90), delay_filter_spread: between(0.6, 1) });
+      changes.push('a delay');
+    } else if (roll < 0.85) {
+      patch.gnarl_delay_synced = 0;
+      Object.assign(s, { delay_on: 0, reverb_on: 1, reverb_dry_wet: between(0.18, 0.3), reverb_size: between(0.5, 0.9),
+        reverb_decay_time: between(0.5, 2), reverb_pre_low_cutoff: between(52, 60) });
+      changes.push('reverb');
+    }
+    // else: both, as Vinny Bass 2 has them.
+  }
+  // An echo lands ON the wob's grid: the wob's own rhythm (straight or
+  // triplet), at its speed or one slower. Off it - a dotted echo, or a
+  // triplet one over a straight wob - it filled the gaps between the hits:
+  // eleven delayed variations measured movement down to 0.33 and one at
+  // 2.75 a beat. Re-locked every time, since a pick may change the rhythm.
+  // (patch.gnarl_delay_synced, which the engine ignores, as gnarl_level.)
+  if (patch.gnarl_delay_synced === 1) {
+    s.delay_sync = num(s, 'lfo_1_sync') === 3 ? 3 : 1;
+    s.delay_tempo = r() < 0.7 ? num(s, 'lfo_1_tempo', 9) : Math.max(4, num(s, 'lfo_1_tempo', 9) - 1);
+  }
+
   // Grit: the drive LFO 3 pushes, never past where Vinny Bass 2 sits by
   // more than a little - added drive is added screech.
   const driveBefore = num(s, 'distortion_drive');
