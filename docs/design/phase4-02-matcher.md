@@ -105,3 +105,23 @@ The AI button now makes variations of Ref Wob 1–6 (phase4-01-generator.md).
 
 With every variation forced to swap its table, the "stays near its base"
 check fails (median 3.33 dB).
+
+## Tried and rejected: Syntheon
+
+[Syntheon](https://github.com/gudgud96/syntheon) (Apache-2.0) is the open
+model that writes Vital presets from audio, so the obvious candidate. I ran
+it from source, with three fixes for current librosa, numpy and torchcrepe.
+
+Its Vital model infers ONE single-cycle wavetable and an ADSR: no LFO, no
+filter, no movement. It also needs exactly 4 s of input, so each wob was
+looped to fill it.
+
+On the matcher's measure:
+
+| Target | Syntheon | Ref Wob |
+|---|---|---|
+| drac07 #1 | 20.69 dB | 4.10 dB |
+| meta 800 #1 | 24.49 dB | 3.14 dB |
+
+The other two targets crashed it with a length mismatch inside the model.
+A wob is its movement, which this model cannot express.
