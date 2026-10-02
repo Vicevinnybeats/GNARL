@@ -1,6 +1,9 @@
 # GNARL backend — licence activation
 
-A Cloudflare Worker and a D1 database. That is the whole licensing service.
+A Cloudflare Worker and a D1 database. That is the whole licensing service,
+and since Phase 8 the preset sync too (`src/sync.ts`,
+docs/design/phase8-01-sync.md): one list of patches for the plugin and the
+phone, opened by a sync code.
 
 ```
 backend/
@@ -15,12 +18,20 @@ backend/
 
 ## Deploy it
 
-You need a Cloudflare account and `wrangler` logged in. Everything here fits
+**From GitHub, no wrangler here:** add the repository secret
+`CLOUDFLARE_API_TOKEN` (Cloudflare dashboard -> My Profile -> API Tokens ->
+the "Edit Cloudflare Workers" template, with D1 Edit added), then Actions ->
+backend -> Run workflow. It tests, migrates, deploys and prints the address.
+Set the repository variable `GNARL_BACKEND_URL` to that address and the next
+release's panel shows CLOUD.
+
+**By hand** you need a Cloudflare account and `wrangler` logged in. Everything here fits
 inside the free tier — Workers allow 100k requests a day, and this service
 handles a few per customer per day.
 
 **The D1 database already exists** (`gnarl`, WEUR, id in `wrangler.toml`)
-and its tables are created, so deploying is two commands:
+and its tables are created, payments' and sync's migrations included
+(applied 2026-10-02), so deploying is two commands:
 
 ```bash
 cd backend

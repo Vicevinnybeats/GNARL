@@ -1444,6 +1444,38 @@ body[data-mode='phone'] .toast {
   display: none;
 }
 
+/* CLOUD: preset sync (src/sync.ts). */
+.cloud__section,
+.cloud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cloud__section {
+  gap: 14px;
+}
+.cloud__hint,
+.cloud__status {
+  margin: 0;
+  font: 11px/1.5 var(--mono);
+  color: var(--text-dim);
+}
+.cloud__status:empty {
+  display: none;
+}
+.cloud__input {
+  flex: none;
+  width: 100%;
+  cursor: text;
+}
+.cloud__input[hidden] {
+  display: none;
+}
+.cloud__code {
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 .webstart__source {
   font-size: 10px;
   letter-spacing: 0.06em;

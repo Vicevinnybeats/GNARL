@@ -121,6 +121,17 @@ export async function savePatch(name: string): Promise<{ json: string; stored: b
   return { json: reply.json, stored: await storePreset(name, reply.json) };
 }
 
+/**
+ * The current patch as .vital JSON, not stored here: for the cloud (sync.ts).
+ * The plugin answers too (web_panel.cpp), with nothing while its licence
+ * keeps saving off.
+ */
+export async function currentPatch(name: string): Promise<string> {
+  const reply = await ask<{ name: string; json: string }>('gnarlPresetSave', { name }, 'gnarlPresetSaved');
+  if (!reply.json) throw new Error('Saving is off in this copy (see the licence banner).');
+  return reply.json;
+}
+
 export function loadPatch(json: string): Promise<LoadResult> {
   return ask<LoadResult>('gnarlPresetLoad', { json }, 'gnarlPresetLoaded');
 }
@@ -152,6 +163,11 @@ export function builtInPatch(name: string): string | undefined {
 export function loadFactory(sound: FactorySound): void {
   const patch = sound.patch === undefined ? undefined : PATCHES[sound.patch];
   window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });
+}
+
+/** Any patch's .vital text, as a starting sound loads (the plugin's way). */
+export function loadPatchText(name: string, patch: string): void {
+  window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', { name, patch });
 }
 
 /** Why a load was refused, in the page's words. */

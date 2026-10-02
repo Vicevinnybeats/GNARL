@@ -17,6 +17,7 @@
 */
 
 import { licenceForSession, stripeWebhook } from "./stripe";
+import { sync } from "./sync";
 
 export interface Env {
     DB: D1Database;
@@ -195,6 +196,12 @@ export default {
             }
 
             return licenceForSession(request, env);
+        }
+
+        // Preset sync (src/sync.ts): one list of patches for the plugin and
+        // the phone, opened by a sync code.
+        if (url.pathname === "/sync" || url.pathname.startsWith("/sync/")) {
+            return sync(request, env);
         }
 
         return json({ error: "not found" }, 404);

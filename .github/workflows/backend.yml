@@ -1,0 +1,70 @@
+#  DEPLOY THE BACKEND (backend/: licences, payments, preset sync) to
+#  Cloudflare. Run by hand from the Actions tab ("Run workflow"); nothing
+#  deploys on a push.
+#
+#  It needs ONE repository secret, set once (Settings -> Secrets and
+#  variables -> Actions):
+#    CLOUDFLARE_API_TOKEN  - a token from the Cloudflare dashboard (My Profile
+#                            -> API Tokens -> "Edit Cloudflare Workers"
+#                            template, plus D1 Edit)
+#  and, if that token can see more than one account, CLOUDFLARE_ACCOUNT_ID.
+#
+#  The tests run first, in workerd against a local D1, exactly as build.yml
+#  runs them; a red test deploys nothing. The database migrations are
+#  applied before the Worker, and each is safe to run again
+#  (`if not exists`); the Stripe one is not, so it is skipped once its
+#  columns exist. docs/design/phase8-01-sync.md, backend/README.md.
+name: backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: The token is set
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Add the repository secret CLOUDFLARE_API_TOKEN first (see the top of .github/workflows/backend.yml)."
+            exit 1
+          fi
+      - name: Test
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc --noEmit -p .
+          npm test
+      - name: Migrate the database
+        run: |
+          columns() { npx wrangler d1 execute gnarl --remote --json \
+                        --command "select name from pragma_table_info('licenses')"; }
+          # A database from before payments lacks their columns, and schema.sql
+          # indexes one of them: migrate it first. A new one gets them from
+          # schema.sql itself.
+          if columns | grep -q '"key"' && ! columns | grep -q stripe_session_id; then
+            npm run migrate:remote
+          fi
+          npx wrangler d1 execute gnarl --remote --file=./schema.sql
+      - name: Deploy
+        run: |
+          set -o pipefail
+          npx wrangler deploy | tee deploy.log
+      - name: Check it answers
+        run: |
+          url=$(grep -o 'https://[^ ]*workers\.dev' deploy.log | head -1)
+          echo "The backend is at $url"
+          curl -fsS "$url/health"
+          echo "Point the plugin and the phone page at it: set the repository variable GNARL_BACKEND_URL to $url"

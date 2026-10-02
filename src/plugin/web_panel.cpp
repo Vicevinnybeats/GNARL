@@ -10,6 +10,7 @@
 
 #include "GnarlUiData.h"
 #include "line_generator.h"
+#include "load_save.h"
 #include "synth_constants.h"
 #include "synth_module.h"
 #include "synth_plugin.h"
@@ -39,6 +40,10 @@
 //                                               the wobble shape (ui/src/web/
 //                                               factory.json)
 //                  gnarlPresetInit {}           the init patch
+//                  gnarlPresetSave {name}       the current patch as .vital
+//                                               JSON, for preset sync (ui/src/
+//                                               sync.ts); answered by
+//                                               gnarlPresetSaved
 //                  gnarlWavetable {osc, table}  osc 0 or 1; table is a
 //                                               wavetable's JSON text
 //
@@ -46,6 +51,8 @@
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
 //                                               whenever it changes
 //                  gnarlFrame {scope, wobblePhase, preset, curve?, tables?}
+//                  gnarlPresetSaved {name, json}  json is empty when saving
+//                                               is not allowed (the licence)
 //                  gnarlLicence {status, message, saving, hasKey}  the licence
 //                                               banner, whenever it changes
 //                                               (licensed builds only)
@@ -64,6 +71,8 @@ namespace {
   const Identifier kLicenceKey("gnarlLicenceKey");
   const Identifier kPresetFactory("gnarlPresetFactory");
   const Identifier kPresetInit("gnarlPresetInit");
+  const Identifier kPresetSave("gnarlPresetSave");
+  const Identifier kPresetSaved("gnarlPresetSaved");
   const Identifier kWavetable("gnarlWavetable");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
@@ -116,6 +125,7 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kLicenceKey, [this](const var& event) { setLicenceKey(event); })
       .withEventListener(kPresetFactory, [this](const var& event) { loadFactory(event); })
       .withEventListener(kPresetInit, [this](const var&) { loadInit(); })
+      .withEventListener(kPresetSave, [this](const var& event) { savePatch(event); })
       .withEventListener(kWavetable, [this](const var& event) { loadWavetable(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
@@ -342,6 +352,27 @@ void WebPanel::loadFactory(const var& event) {
   }
   synth_.setPresetName(event["name"].toString());
   curve_changed_ = true;
+}
+
+// The current patch for the page, which uploads it (preset sync). Saving to
+// the cloud is saving: the licence's one gate (CLAUDE.md section 8) closes it
+// as it closes saving to disk, and the page says why.
+void WebPanel::savePatch(const var& event) {
+  DynamicObject::Ptr reply = new DynamicObject();
+  String name = event["name"].toString().trim();
+  reply->setProperty("name", name);
+  if (!synth_.presetSavingAllowed()) {
+    reply->setProperty("json", String());
+  }
+  else {
+    if (name.isNotEmpty())
+      synth_.setPresetName(name);
+    // What a DAW saves with a project (SynthPlugin::getStateInformation),
+    // without the host's tuning: the patch as a .vital file holds it.
+    json patch = LoadSave::stateToJson(&synth_, synth_.getCallbackLock());
+    reply->setProperty("json", String(patch.dump()));
+  }
+  browser_->emitEventIfBrowserIsVisible(kPresetSaved, var(reply.get()));
 }
 
 // The matrix as the page shows it: every connection with its amount, which

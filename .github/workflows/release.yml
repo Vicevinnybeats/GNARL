@@ -24,6 +24,13 @@ on:
 permissions:
   contents: write
 
+#  The backend's address (preset sync, docs/design/phase8-01-sync.md), baked
+#  into the panel. A repository VARIABLE, set once the backend is deployed
+#  (.github/workflows/backend.yml prints it); while it is unset the panel
+#  shows no CLOUD section and makes no request.
+env:
+  VITE_GNARL_SYNC_URL: ${{ vars.GNARL_BACKEND_URL }}
+
 jobs:
   windows:
     needs: web

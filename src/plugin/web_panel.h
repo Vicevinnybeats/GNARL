@@ -62,6 +62,7 @@ class WebPanel : public Component, private Timer {
     // The starting sounds (ui/src/web/factory.json) and the init patch.
     void loadFactory(const var& event);
     void loadInit();
+    void savePatch(const var& event);
     // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
     void loadWavetable(const var& event);
     String wavetableNames();

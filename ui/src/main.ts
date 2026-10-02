@@ -14,7 +14,8 @@ import './fonts.css';
 import './styles.css';
 import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
-import { builtInPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadProblem, savePatch } from './web/presets';
+import { builtInPatch, currentPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadPatchText, loadProblem, savePatch } from './web/presets';
+import { deleteCloud, listCloud, newCode, readCloud, storeCode, storedCode, syncAvailable, useCode, writeCloud } from './sync';
 import { evolvePatch, GENERATOR_BASES, generatePatch } from './generate';
 import type { Generated } from './generate';
 import { decodeAudio, detectMidi, flNoteName, MATCH_BASE, matchSound, trimToWob } from './match/match';
@@ -174,6 +175,8 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
     actions,
   );
   root.hidden = true;
+  const cloud = cloudSection(web, () => close());
+  if (cloud) root.insertBefore(cloud.root, actions);
   // Saving, the saved list and files are the web build's (IndexedDB); the
   // plugin has Vital's browser for those.
   if (!web) {
@@ -191,6 +194,7 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
   for (const type of ['keydown', 'keyup'] as const) nameInput.addEventListener(type, (e) => e.stopPropagation());
 
   const render = async (): Promise<void> => {
+    if (cloud) void cloud.render();
     factoryList.replaceChildren(
       ...FACTORY_SOUNDS.map((sound) => {
         const load = el('button', 'presets__load', sound.name);
@@ -271,6 +275,130 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
       }
     },
   };
+}
+
+/*
+ * CLOUD (sync.ts, docs/design/phase8-01-sync.md): the same list of patches
+ * in the plugin and on the phone. Without a code: NEW CODE or USE CODE.
+ * With one: the code (tap to copy), UPLOAD the current patch, the list (tap
+ * to load, x to delete), FORGET. Null when this build has no server.
+ */
+function cloudSection(web: boolean, done: () => void): { root: HTMLElement; render(): Promise<void> } | null {
+  if (!syncAvailable()) return null;
+  const body = el('div', 'cloud');
+  const list = el('ul', 'presets__list cloud__list');
+  const status = el('p', 'cloud__status');
+  const say = (text: string): void => {
+    status.textContent = text;
+  };
+  const fail = (error: unknown): void => say(error instanceof Error ? error.message : String(error));
+
+  const render = async (): Promise<void> => {
+    const code = storedCode();
+    if (!code) {
+      const make = chipButton('NEW CODE');
+      const use = chipButton('USE CODE');
+      const input = el('input', 'presets__input cloud__input');
+      input.type = 'text';
+      input.placeholder = 'SYNC-XXXX-XXXX-XXXX-XXXX';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.hidden = true;
+      for (const type of ['keydown', 'keyup'] as const) input.addEventListener(type, (e) => e.stopPropagation());
+      make.addEventListener('click', () => {
+        say('Making a code...');
+        newCode().then((made) => {
+          say(`Your code is ${made}. Enter it on your other device to share this list.`);
+          return render();
+        }).catch(fail);
+      });
+      use.addEventListener('click', () => {
+        if (input.hidden) {
+          input.hidden = false;
+          input.focus();
+          return;
+        }
+        say('Checking...');
+        useCode(input.value).then(() => {
+          say('');
+          return render();
+        }).catch(fail);
+      });
+      body.replaceChildren(
+        el('p', 'cloud__hint', 'One list of patches for the plugin and your phone. No account: a code opens it.'),
+        el('div', 'presets__actions', make, use),
+        input,
+        status,
+      );
+      return;
+    }
+    const codeButton = chipButton(code);
+    codeButton.classList.add('cloud__code');
+    codeButton.title = 'Copy the code';
+    codeButton.addEventListener('click', () => {
+      void navigator.clipboard?.writeText(code).then(() => say('Code copied.'), () => say(code));
+    });
+    const upload = chipButton('UPLOAD');
+    const forget = chipButton('FORGET');
+    upload.addEventListener('click', () => {
+      const name = (engine.preset || 'Untitled').slice(0, 64);
+      say(`Uploading ${name}...`);
+      currentPatch(name)
+        .then((json) => writeCloud(name, json))
+        .then(() => {
+          say(`${name} is in the cloud.`);
+          return refresh();
+        })
+        .catch(fail);
+    });
+    forget.addEventListener('click', () => {
+      storeCode(null);
+      say(`Forgotten on this device. The list stays in the cloud under ${code}.`);
+      void render();
+    });
+    body.replaceChildren(el('div', 'presets__actions', codeButton, upload, forget), list, status);
+    await refresh();
+  };
+
+  const refresh = async (): Promise<void> => {
+    try {
+      const patches = await listCloud();
+      list.replaceChildren(
+        ...(patches.length === 0
+          ? [el('li', 'presets__empty', 'UPLOAD puts the current patch here.')]
+          : patches.map((p) => {
+              const load = el('button', 'presets__load', p.name);
+              load.type = 'button';
+              load.dataset.on = p.name === engine.preset ? 'true' : 'false';
+              load.addEventListener('click', () => {
+                say(`Opening ${p.name}...`);
+                readCloud(p.name)
+                  .then(async (json) => {
+                    if (web) {
+                      if (!(await openPatch(json))) return;
+                    } else {
+                      loadPatchText(p.name, json);
+                    }
+                    say('');
+                    done();
+                  })
+                  .catch(fail);
+              });
+              const remove = el('button', 'presets__delete', '\u00d7');
+              remove.type = 'button';
+              remove.setAttribute('aria-label', `Delete ${p.name} from the cloud`);
+              remove.addEventListener('click', () => void deleteCloud(p.name).then(refresh).catch(fail));
+              return el('li', 'presets__item', load, remove);
+            })),
+      );
+    } catch (error) {
+      list.replaceChildren();
+      fail(error);
+    }
+  };
+
+  const root = el('div', 'cloud__section', el('div', 'presets__label', 'CLOUD'), body);
+  return { root, render };
 }
 
 /*

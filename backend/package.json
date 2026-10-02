@@ -9,7 +9,8 @@
     "test": "vitest run",
     "schema:local": "wrangler d1 execute gnarl --local --file=./schema.sql",
     "schema:remote": "wrangler d1 execute gnarl --remote --file=./schema.sql",
-    "migrate:remote": "wrangler d1 execute gnarl --remote --file=./migrations/0002_stripe.sql"
+    "migrate:remote": "wrangler d1 execute gnarl --remote --file=./migrations/0002_stripe.sql",
+    "migrate:sync": "wrangler d1 execute gnarl --remote --file=./migrations/0003_sync.sql"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.40",

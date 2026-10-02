@@ -541,3 +541,19 @@ the merge commit forward: `git log 7651809..`.
 - `tools/match_web.mjs`: the in-app matcher from Node.
   `ui/tests/web.test.mjs` runs MATCH in Chromium on a known patch.
 - docs/design/phase4-04-match-in-app.md.
+
+## 2026-10-02 - Preset sync; deploying the backend
+
+- CLOUD in the preset sheet (plugin and phone): one list of patches opened
+  by a sync code, SYNC-XXXX-XXXX-XXXX-XXXX, with no account. NEW CODE or
+  USE CODE; UPLOAD the current patch; tap to load; x to delete; FORGET.
+  `ui/src/sync.ts`; off until a build names a server
+  (`VITE_GNARL_SYNC_URL`, the release workflow's `GNARL_BACKEND_URL`).
+- The plugin answers `gnarlPresetSave` with the current patch (the JSON a
+  DAW saves), or nothing while the licence keeps saving off.
+- The backend's `/sync` endpoints (`backend/src/sync.ts`, stores a hash of
+  each code, bounded sizes and counts, 503 on its own faults), its tables
+  (`schema.sql`, `migrations/0003_sync.sql`), and
+  `.github/workflows/backend.yml`, which tests, migrates and deploys it.
+- Tests: `backend/test/sync.test.ts`, `ui/tests/sync.test.mjs`.
+  docs/design/phase8-01-sync.md.
