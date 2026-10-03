@@ -204,6 +204,37 @@ the classic MATRIX tab with the same source, destination and amount.
 `updateFullGui()`, so the classic editor redraws connections the panel made
 while it was hidden.
 
+## VOLUME: the gate wob in one tap (2026-10-03)
+
+The producer, in Vital, makes a wob by turning an oscillator's LEVEL to 0
+and putting an LFO on it at 1.0, so the LFO alone opens and shuts the
+sound - and GNARL's panel has no LEVEL knob to turn to 0. VOLUME, the last
+chip under the WOBBLE LFO's destinations, does it in one tap
+(`ui/src/bridge.ts` setVolumeWob): every playing oscillator's level to 0
+and the wobble on it at +1.0 through the matrix, so RATE and SHAPE are the
+rhythm. A second tap removes the routes and gives the levels back. The
+chip is lit whenever the engine reports wobble -> osc 1 level above zero,
+so a patch that already has it shows it. With VOLUME on, the wobble is the
+movement, so RATE moves the wobble and not LFO 1.
+
+Measured in `ui/tests/web.test.mjs` on the scope, frame by frame, over a
+held note of the init patch: the 10th-90th percentile swing is 0.9 dB
+without it and 27.6 dB with it.
+
+## The matrix slides (2026-10-03)
+
+"Sliding doesn't work in the route section, I have to click all the time."
+The amount bar did take a drag, but every step sends the route, the engine
+answers with the whole matrix, and that answer redrew the rows - replacing
+the bar under the pointer, which ended the drag after one step. While a
+row is dragged the matrix is no longer redrawn; it is drawn from the
+engine's answer when the pointer is let go. The source and destination
+buttons slide too (right or up for the next, left or down for the one
+before, a step every 18 px; a click still steps once), and each row has an
+x to delete it (right-click still works). `ui/tests/bridge.test.mjs`: one
+drag reaches 0.90, a 60 px slide steps three destinations, the x deletes;
+with the redraw put back, the drag stops at 0.20 and the slide at one step.
+
 ## Not done
 
 - **Nobody has listened.** Every number above is a measurement of

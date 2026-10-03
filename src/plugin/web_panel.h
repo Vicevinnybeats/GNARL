@@ -63,6 +63,14 @@ class WebPanel : public Component, private Timer {
     void loadFactory(const var& event);
     void loadInit();
     void savePatch(const var& event);
+    // SAVE in the plugin: .vital files in GNARL's user preset folder
+    // (LoadSave::getUserPresetDirectory), listed, opened and binned from
+    // the panel. Each answers with gnarlPresetFiles.
+    void writePresetFile(const var& event);
+    void openPresetFile(const var& event);
+    void removePresetFile(const var& event);
+    void sendPresetFiles(const String& saved, const String& error);
+    File presetFile(const String& name) const;
     // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
     void loadWavetable(const var& event);
     String wavetableNames();

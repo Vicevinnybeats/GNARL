@@ -346,7 +346,7 @@ const LFO_RATES = [
 ];
 
 function lfoDrivesMovement(): boolean {
-  const wobbleSilent = [...wobbleAmounts.values()].every((a) => a === 0);
+  const wobbleSilent = [...wobbleAmounts.values()].every((a) => a === 0) && !volumeWobOn();
   return wobbleSilent && (engine.routes ?? []).some((r) => r.source === 'lfo_1');
 }
 
@@ -549,6 +549,36 @@ export function sendRoute(source: string, destination: string, amount: number, r
   send('gnarlRoute', { source, destination, amount, remove });
 }
 
+/*
+ * VOLUME WOB: the gate wob made in one tap. The producer's recipe in Vital is
+ * an oscillator's LEVEL at 0 with an LFO on it at 1.0, so the LFO alone opens
+ * and shuts the sound - and the panel has no LEVEL knob to turn to 0. On:
+ * each playing oscillator's level to 0 and the wobble on it at +1.0, so the
+ * wobble's RATE and SHAPE are the rhythm. Off: the routes go and the levels
+ * come back. The wobble is a block-rate source here, as on every other route.
+ */
+const VOLUME_DESTS = ['osc_1_level', 'osc_2_level'];
+const DEFAULT_LEVEL = 0.70710678; // Vital's default oscillator level (-3 dB)
+const levelsBefore = new Map<string, number>();
+
+export function volumeWobOn(): boolean {
+  return (engine.routes ?? []).some((r) => r.source === 'wobble' && r.destination === 'osc_1_level' && r.amount > 0);
+}
+
+export function setVolumeWob(on: boolean): void {
+  const playing = VOLUME_DESTS.filter((_d, i) => i === 0 || (lastEntry.get(`osc_${i + 1}_on`)?.[0] ?? 0) > 0.5);
+  for (const dest of on ? playing : VOLUME_DESTS) {
+    if (on) {
+      levelsBefore.set(dest, lastEntry.get(dest)?.[0] || DEFAULT_LEVEL);
+      send('gnarlSet', { name: dest, value: 0 });
+      sendRoute('wobble', dest, 1);
+    } else if ((engine.routes ?? []).some((r) => r.source === 'wobble' && r.destination === dest)) {
+      sendRoute('wobble', dest, 0, true);
+      send('gnarlSet', { name: dest, value: levelsBefore.get(dest) ?? DEFAULT_LEVEL });
+    }
+  }
+}
+
 function receiveRoutes(routes: EngineRoute[]): void {
   engine.routes = routes;
   applyWobbleSource();
@@ -581,7 +611,7 @@ export async function connect(): Promise<void> {
   });
 
   buildBindings();
-  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES, ...LFO_NAMES])];
+  const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES, ...LFO_NAMES, ...VOLUME_DESTS, 'osc_2_on'])];
   const result = (await call('gnarlConnect', names)) as ConnectResult;
   steps = result.steps;
   if (result.preset !== undefined) lastPreset = engine.preset = result.preset;

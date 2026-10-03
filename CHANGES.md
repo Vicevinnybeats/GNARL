@@ -600,3 +600,14 @@ the merge commit forward: `git log 7651809..`.
   patch now loaded (three close, one wild step), read back from the engine
   as `.vital` JSON and levelled like any round. A producer's own Vital
   patch becomes an AI base by opening it. docs/design/phase4-05-riddim-recipe.md.
+## 2026-10-03 - VOLUME wob, a sliding matrix, SAVE in the plugin
+
+- VOLUME in the wobble panel: one tap sets the oscillators' level to 0
+  and the wobble on it at full - the gate wob made as in Vital, without a
+  LEVEL knob. docs/design/phase2-08-panel-controls.md.
+- The mod matrix slides: a drag on a route's amount no longer stops after
+  one step, the source and destination slide through their choices, and
+  each route has a delete button.
+- SAVE in the plugin's preset sheet: the patch as a .vital file in GNARL's
+  user preset folder, listed under MY PRESETS (open, move to the bin).
+  docs/design/phase2-12-presets.md.

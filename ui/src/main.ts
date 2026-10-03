@@ -12,9 +12,9 @@
 
 import './fonts.css';
 import './styles.css';
-import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, showClassic } from './bridge';
+import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, setVolumeWob, showClassic, volumeWobOn } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
-import { builtInPatch, currentPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadPatchText, loadProblem, savePatch } from './web/presets';
+import { builtInPatch, currentPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadPatchText, loadProblem, presetFiles, savePatch } from './web/presets';
 import { deleteCloud, listCloud, newCode, readCloud, storeCode, storedCode, syncAvailable, useCode, writeCloud } from './sync';
 import { evolvePatch, GENERATOR_BASES, generatePatch } from './generate';
 import type { Generated } from './generate';
@@ -177,13 +177,17 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
   root.hidden = true;
   const cloud = cloudSection(web, () => close());
   if (cloud) root.insertBefore(cloud.root, actions);
-  // Saving, the saved list and files are the web build's (IndexedDB); the
-  // plugin has Vital's browser for those.
+  // The web build keeps its patches in the browser (IndexedDB); the plugin
+  // writes .vital files to GNARL's preset folder on disk (presetFiles), where
+  // the producer's own Vital patches can go too. Files in and out of the
+  // browser (OPEN FILE, EXPORT) are the web build's: the folder is the
+  // plugin's way.
+  const savedLabel = [...root.querySelectorAll<HTMLElement>('.presets__label')].find((n) => n.textContent === 'SAVED');
+  const folderNote = el('p', 'presets__folder');
   if (!web) {
-    form.hidden = true;
-    list.hidden = true;
-    for (const node of root.querySelectorAll<HTMLElement>('.presets__label')) node.hidden = node.textContent === 'SAVED';
     open.hidden = exportButton.hidden = true;
+    if (savedLabel) savedLabel.textContent = 'MY PRESETS';
+    list.after(folderNote);
   }
   const close = (): void => {
     root.hidden = true;
@@ -207,7 +211,14 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
         return el('li', 'presets__item', load);
       }),
     );
-    if (!web) return;
+    if (!web) {
+      try {
+        showFiles(await presetFiles('list'));
+      } catch {
+        list.replaceChildren(el('li', 'presets__empty', 'Saving needs the plugin.'));
+      }
+      return;
+    }
     const saved = await listPresets();
     list.replaceChildren(
       ...(saved.length === 0
@@ -226,9 +237,49 @@ function presetSheet(web: boolean): { root: HTMLElement; toggle(): void; close()
     );
   };
 
+  // The plugin's folder: tap to open, x to move to the bin.
+  function showFiles(files: { presets: string[]; folder: string }): void {
+    folderNote.textContent = `Saved in ${files.folder}. Put your own .vital patches there to see them here.`;
+    list.replaceChildren(
+      ...(files.presets.length === 0
+        ? [el('li', 'presets__empty', 'Type a name and press SAVE: your patches appear here.')]
+        : files.presets.map((name) => {
+            const load = el('button', 'presets__load', name);
+            load.type = 'button';
+            load.dataset.on = name === engine.preset || name.split('/').pop() === engine.preset ? 'true' : 'false';
+            load.addEventListener('click', () => {
+              void presetFiles('open', name).then((r) => {
+                if (r.error) toast(r.error);
+                else close();
+              });
+            });
+            const remove = el('button', 'presets__delete', '\u00d7');
+            remove.type = 'button';
+            remove.setAttribute('aria-label', `Delete ${name}`);
+            remove.title = 'Move to the bin';
+            remove.addEventListener('click', () => void presetFiles('remove', name).then(showFiles));
+            return el('li', 'presets__item', load, remove);
+          })),
+    );
+  }
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const patchName = nameInput.value.trim() || engine.preset || 'Untitled';
+    if (!web) {
+      void presetFiles('write', patchName).then((r) => {
+        if (r.error) {
+          toast(r.error);
+          return;
+        }
+        toast(`Saved ${r.saved}.`);
+        nameInput.value = '';
+        nameInput.blur();
+        showFiles(r);
+        close();
+      });
+      return;
+    }
     savePatch(patchName)
       .then(({ stored }) => {
         toast(stored ? `Saved ${patchName}.` : `Saved ${patchName} for this visit (this browser keeps no storage).`);
@@ -457,6 +508,8 @@ function evolveSheet(): { open(): void } {
   document.body.append(root);
 
   let round = 1;
+  // A round's own heading (FROM YOUR SOUND, MATCHED); empty for a plain round.
+  let heading = '';
   let candidates: Generated[] = [];
   const history: Generated[][] = [];
   let playing: number | null = null;
@@ -490,7 +543,7 @@ function evolveSheet(): { open(): void } {
     render();
   };
   const render = (): void => {
-    title.textContent = `AI \u00b7 ROUND ${round}`;
+    title.textContent = heading || `AI \u00b7 ROUND ${round}`;
     back.disabled = history.length === 0;
     grid.replaceChildren(
       ...candidates.map((g, i) => {
@@ -527,6 +580,7 @@ function evolveSheet(): { open(): void } {
       return;
     }
     round = 1;
+    heading = '';
     history.length = 0;
     // One of the four is always a 1/4 wob (the producer's ask), at a random
     // place; the others take whatever their seeds pick.
@@ -541,6 +595,7 @@ function evolveSheet(): { open(): void } {
     load(parent);
     history.push(candidates);
     round += 1;
+    heading = '';
     // Steps shrink as the picks go on (1, 0.74, 0.59 ... never below 0.25),
     // so the search settles where the producer's picks lead it.
     const strength = Math.max(0.25, 1 / (1 + 0.35 * (round - 1)));
@@ -566,8 +621,8 @@ function evolveSheet(): { open(): void } {
           ...Array.from({ length: 3 }, () => evolvePatch(text, seed(), 0.6, label)),
           evolvePatch(text, seed(), 1, `a wild step from ${name}`),
         ];
+        heading = 'AI \u00b7 FROM YOUR SOUND';
         render();
-        title.textContent = 'AI \u00b7 FROM YOUR SOUND';
         level();
       })
       .catch((error: Error) => toast(`Could not read the loaded sound: ${error.message}`))
@@ -615,8 +670,8 @@ function evolveSheet(): { open(): void } {
         history.push(candidates);
         candidates = found;
         round += 1;
+        heading = 'AI \u00b7 MATCHED';
         render();
-        title.textContent = 'AI \u00b7 MATCHED';
         status.textContent = `Closest four to your sound (note ${flNoteName(midi)}, closest ${(found[0]?.distance ?? 0).toFixed(2)} dB). Tap to hear, PICK to refine by ear.`;
         fill.style.width = '100%';
       } catch (error) {
@@ -632,6 +687,7 @@ function evolveSheet(): { open(): void } {
     if (!previous) return;
     candidates = previous;
     round -= 1;
+    heading = '';
     render();
   });
   fresh.addEventListener('click', start);
@@ -939,6 +995,25 @@ function wobblePanel(): HTMLElement {
     'chips',
     ...WOBBLE_DESTINATIONS.map((dest) => toggle(dest.id, dest.label, 'violet')),
   );
+  // VOLUME: the gate wob in one tap (bridge.ts setVolumeWob) - the
+  // oscillators' LEVEL to 0 and the wobble on it at full, as in Vital.
+  const volume = chipButton('VOLUME', 'violet');
+  volume.title = 'The wobble opens and shuts the sound: a real wob. Tap again to turn it off.';
+  const syncVolume = (): void => {
+    const on = volumeWobOn();
+    volume.dataset.on = on ? 'true' : 'false';
+    volume.setAttribute('aria-pressed', on ? 'true' : 'false');
+  };
+  volume.addEventListener('click', () => {
+    if (!engine.connected) {
+      toast('VOLUME needs the engine: open GNARL in your DAW or press START.');
+      return;
+    }
+    setVolumeWob(!volumeWobOn());
+  });
+  engineViews.add(syncVolume);
+  syncVolume();
+  destinations.append(volume);
 
   return panel(
     { title: 'WOBBLE LFO', aside: wobbleAside(), accent: 'violet', power: 'wobble.on', cls: 'wobble' },
@@ -1012,7 +1087,13 @@ const MAX_ROUTES = 4;
 // Engine connections this panel has no names for (made in the full editor).
 let hiddenRoutes = 0;
 const routeViews = new Set<() => void>();
+// While a route is dragged its row must stay the same element: the engine
+// answers every step with the whole matrix, and redrawing on that replaced
+// the bar under the pointer, which dropped the drag after one step - "I
+// have to click all the time". The redraw waits for the release.
+let routeDragging = false;
 const rerenderRoutes = (): void => {
+  if (routeDragging) return;
   for (const v of routeViews) v();
 };
 
@@ -1028,7 +1109,7 @@ function routesFromEngine(): void {
   routes.splice(0, routes.length, ...shown);
 }
 engineViews.add(() => {
-  if (!engine.connected) return;
+  if (!engine.connected || routeDragging) return;
   routesFromEngine();
   rerenderRoutes();
 });
@@ -1054,33 +1135,95 @@ function modPanel(): HTMLElement {
   const list = el('div', 'routes');
   const count = el('span', 'panel__aside');
 
+  // A drag ends wherever the pointer is let go: then the matrix is drawn
+  // again from the engine's answer.
+  const endDrag = (): void => {
+    if (!routeDragging) return;
+    routeDragging = false;
+    if (engine.connected) routesFromEngine();
+    rerenderRoutes();
+  };
+
+  /*
+   * A source or destination button: a click steps to the next free one, and
+   * a drag slides through them - right or up for the next, left or down for
+   * the one before, a step every 18 px.
+   */
+  const slider = (button: HTMLButtonElement, count: number, current: () => number, label: (n: number) => string,
+    free: (n: number) => boolean, move: (n: number) => void): void => {
+    const step = (from: number, dir: number): number => {
+      for (let k = 1; k <= count; k += 1) {
+        const next = (((from + dir * k) % count) + count) % count;
+        if (free(next)) return next;
+      }
+      return from;
+    };
+    let startX = 0;
+    let startY = 0;
+    let done = 0;
+    let slid = false;
+    button.style.touchAction = 'none';
+    button.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      button.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+      startY = e.clientY;
+      done = 0;
+      slid = false;
+      routeDragging = true;
+    });
+    button.addEventListener('pointermove', (e) => {
+      if (!button.hasPointerCapture(e.pointerId)) return;
+      const travel = e.clientX - startX - (e.clientY - startY);
+      if (Math.abs(travel) > 6) slid = true;
+      const want = Math.trunc(travel / 18);
+      while (done !== want) {
+        const dir = want > done ? 1 : -1;
+        move(step(current(), dir));
+        done += dir;
+      }
+      button.textContent = label(current());
+    });
+    // A tap is left to the click (redrawing now would take the button away
+    // before its click arrives); a slide ends here.
+    button.addEventListener('pointerup', () => {
+      if (slid) endDrag();
+      else routeDragging = false;
+    });
+    button.addEventListener('pointercancel', endDrag);
+    button.addEventListener('click', () => {
+      if (slid) return;
+      move(step(current(), 1));
+      button.textContent = label(current());
+      rerenderRoutes();
+    });
+  };
+
+  const remove = (route: Route): void => {
+    if (engine.connected) sendRoute(...names(route), 0, true);
+    const at = routes.indexOf(route);
+    if (at >= 0) routes.splice(at, 1);
+    rerenderRoutes();
+  };
+
   const render = (): void => {
     list.replaceChildren(
-      ...routes.map((route, i) => {
+      ...routes.map((route) => {
         const src = chipButton(MOD_SOURCES[route.source] ?? '', 'violet');
         src.dataset.on = 'true';
-        src.title = 'Click to change the source';
-        src.addEventListener('click', () => {
-          for (let k = 1; k <= MOD_SOURCES.length; k += 1) {
-            const next = (route.source + k) % MOD_SOURCES.length;
-            if (!taken(next, route.dest, route)) return retarget(route, next, route.dest);
-          }
-        });
+        src.classList.add('route__src');
+        src.title = 'Click or slide to change the source';
+        slider(src, MOD_SOURCES.length, () => route.source, (n) => MOD_SOURCES[n] ?? '',
+          (n) => !taken(n, route.dest, route), (n) => retarget(route, n, route.dest));
 
         const dest = el('button', 'route__dest', MOD_DESTINATIONS[route.dest] ?? '');
         dest.type = 'button';
-        dest.title = 'Click to change the destination; right-click to remove';
-        dest.addEventListener('click', () => {
-          for (let k = 1; k <= MOD_DESTINATIONS.length; k += 1) {
-            const next = (route.dest + k) % MOD_DESTINATIONS.length;
-            if (!taken(route.source, next, route)) return retarget(route, route.source, next);
-          }
-        });
+        dest.title = 'Click or slide to change the destination';
+        slider(dest, MOD_DESTINATIONS.length, () => route.dest, (n) => MOD_DESTINATIONS[n] ?? '',
+          (n) => !taken(route.source, n, route), (n) => retarget(route, route.source, n));
         dest.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          if (engine.connected) sendRoute(...names(route), 0, true);
-          routes.splice(i, 1);
-          rerenderRoutes();
+          remove(route);
         });
 
         // Bipolar, as Vital's matrix: the centre is zero, left of it a
@@ -1101,13 +1244,21 @@ function modPanel(): HTMLElement {
           draw();
           if (engine.connected) sendRoute(...names(route), route.amount);
         };
-        bar.addEventListener('pointerup', rerenderRoutes);
         bar.addEventListener('pointerdown', (e) => {
           bar.setPointerCapture(e.pointerId);
+          routeDragging = true;
           setFrom(e);
         });
         bar.addEventListener('pointermove', (e) => bar.hasPointerCapture(e.pointerId) && setFrom(e));
-        return el('div', 'route', src, dest, bar);
+        bar.addEventListener('pointerup', endDrag);
+        bar.addEventListener('pointercancel', endDrag);
+
+        const del = el('button', 'route__delete', '\u00d7');
+        del.type = 'button';
+        del.title = 'Delete this route';
+        del.setAttribute('aria-label', 'Delete this route');
+        del.addEventListener('click', () => remove(route));
+        return el('div', 'route', src, dest, bar, del);
       }),
     );
     const add = el('button', 'route__add', '+ ADD ROUTE');

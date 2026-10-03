@@ -196,6 +196,54 @@ check((s.routes ?? []).some((r) => r.source === 'wobble' && r.destination === 'o
 await page.evaluate(() =>
   window.__JUCE__.backend.emitEvent('gnarlRoute', { source: 'wobble', destination: 'osc_1_level', remove: true }));
 await page.waitForTimeout(300);
+// VOLUME (the wobble panel): the gate wob in one tap - osc 1's LEVEL to 0,
+// the wobble on it at +1.0. Measured on the scope, frame by frame, over a
+// held note: the init patch without it holds steady; with it, the sound
+// opens and shuts.
+{
+  await page.evaluate(() => {
+    window.__frames = [];
+    window.__JUCE__.backend.addEventListener('gnarlFrame', (f) => {
+      if (f.scope) window.__frames.push(Math.max(...f.scope.map(Math.abs)));
+    });
+  });
+  const swing = async () => {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.8);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    await page.evaluate(() => (window.__frames = []));
+    await page.waitForTimeout(1500);
+    const peaks = await page.evaluate(() => window.__frames);
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const sorted = [...peaks].sort((a, b) => a - b);
+    const lo = sorted[Math.floor(sorted.length * 0.1)] ?? 0;
+    const hi = sorted[Math.floor(sorted.length * 0.9)] ?? 0;
+    return { hi, lo, db: 20 * Math.log10((hi + 1e-6) / (lo + 1e-6)), n: peaks.length };
+  };
+  const before = await swing();
+  await page.locator('.m__tabs .chip', { hasText: 'WOBBLE' }).tap();
+  const volume = page.locator('.m .wobble .chip', { hasText: 'VOLUME' });
+  check(await volume.isVisible() && (await volume.getAttribute('data-on')) === 'false', 'the wobble panel has VOLUME, off');
+  await volume.tap();
+  await page.waitForTimeout(300);
+  s = await seen();
+  const gate = (s.routes ?? []).find((r) => r.source === 'wobble' && r.destination === 'osc_1_level');
+  check(gate?.amount === 1 && Number(s.values.osc_1_level?.[0]) === 0 && (await volume.getAttribute('data-on')) === 'true',
+    `VOLUME sets osc 1 LEVEL to 0 and the wobble on it at 1.0: ${JSON.stringify(gate)}, level ${JSON.stringify(s.values.osc_1_level)}`);
+  await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
+  const after = await swing();
+  check(before.db < 6 && after.db > 20,
+    `and the sound opens and shuts: 10th-90th percentile swing ${before.db.toFixed(1)} dB without, ${after.db.toFixed(1)} dB with (${after.n} frames)`);
+  await page.locator('.m__tabs .chip', { hasText: 'WOBBLE' }).tap();
+  await volume.tap();
+  await page.waitForTimeout(300);
+  s = await seen();
+  check(!(s.routes ?? []).some((r) => r.source === 'wobble' && r.destination === 'osc_1_level') &&
+    Math.abs(Number(s.values.osc_1_level?.[0]) - 0.7071) < 0.01 && (await volume.getAttribute('data-on')) === 'false',
+    `a second tap takes it off and gives the level back: ${JSON.stringify(s.values.osc_1_level)}`);
+  await page.locator('.m__tabs .chip', { hasText: 'OSC' }).tap();
+}
 // The same from the matrix itself: a route turned to OSC1 LEVEL, its amount
 // bar pulled left of centre - a negative amount, which cuts the level.
 await page.locator('.m__tabs .chip', { hasText: 'MOD' }).tap();

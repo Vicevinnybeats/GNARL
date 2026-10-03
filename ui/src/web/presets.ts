@@ -104,7 +104,7 @@ function ask<T>(event: string, payload: unknown, answer: string): Promise<T> {
   if (!backend) return Promise.reject(new Error('no engine'));
   if (!listening) {
     listening = true;
-    for (const id of ['gnarlPresetSaved', 'gnarlPresetLoaded']) {
+    for (const id of ['gnarlPresetSaved', 'gnarlPresetLoaded', 'gnarlPresetFiles']) {
       backend.addEventListener(id, (reply) => waiting.get(id)?.shift()?.(reply));
     }
   }
@@ -119,6 +119,23 @@ export async function savePatch(name: string): Promise<{ json: string; stored: b
   const reply = await ask<{ name: string; json: string }>('gnarlPresetSave', { name }, 'gnarlPresetSaved');
   if (!reply.json) throw new Error('the engine could not save this patch');
   return { json: reply.json, stored: await storePreset(name, reply.json) };
+}
+
+/**
+ * The plugin's saved patches: .vital files in GNARL's user preset folder
+ * (src/plugin/web_panel.cpp). Every request answers with the folder's list;
+ * `saved` names a file just written, `error` says what went wrong in words.
+ */
+export interface PresetFiles {
+  presets: string[];
+  folder: string;
+  saved: string;
+  error: string;
+}
+
+export function presetFiles(request: 'list' | 'write' | 'open' | 'remove', name = ''): Promise<PresetFiles> {
+  const event = { list: 'gnarlPresetList', write: 'gnarlPresetWrite', open: 'gnarlPresetOpen', remove: 'gnarlPresetRemove' }[request];
+  return ask<PresetFiles>(event, { name }, 'gnarlPresetFiles');
 }
 
 /**

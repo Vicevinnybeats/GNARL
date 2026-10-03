@@ -46,6 +46,11 @@
 //                                               gnarlPresetSaved
 //                  gnarlWavetable {osc, table}  osc 0 or 1; table is a
 //                                               wavetable's JSON text
+//                  gnarlPresetWrite {name}      save the patch as a .vital
+//                                               file in the user preset folder
+//                  gnarlPresetList {}           list that folder
+//                  gnarlPresetOpen {name}       load one of its files
+//                  gnarlPresetRemove {name}     move one to the bin
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
@@ -53,6 +58,10 @@
 //                  gnarlFrame {scope, wobblePhase, preset, curve?, tables?}
 //                  gnarlPresetSaved {name, json}  json is empty when saving
 //                                               is not allowed (the licence)
+//                  gnarlPresetFiles {presets, folder, saved, error}  the
+//                                               folder's patches (names, no
+//                                               extension), after any of the
+//                                               four above
 //                  gnarlLicence {status, message, saving, hasKey}  the licence
 //                                               banner, whenever it changes
 //                                               (licensed builds only)
@@ -74,6 +83,11 @@ namespace {
   const Identifier kPresetSave("gnarlPresetSave");
   const Identifier kPresetSaved("gnarlPresetSaved");
   const Identifier kWavetable("gnarlWavetable");
+  const Identifier kPresetWrite("gnarlPresetWrite");
+  const Identifier kPresetList("gnarlPresetList");
+  const Identifier kPresetOpen("gnarlPresetOpen");
+  const Identifier kPresetRemove("gnarlPresetRemove");
+  const Identifier kPresetFiles("gnarlPresetFiles");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -127,6 +141,10 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kPresetInit, [this](const var&) { loadInit(); })
       .withEventListener(kPresetSave, [this](const var& event) { savePatch(event); })
       .withEventListener(kWavetable, [this](const var& event) { loadWavetable(event); })
+      .withEventListener(kPresetWrite, [this](const var& event) { writePresetFile(event); })
+      .withEventListener(kPresetList, [this](const var&) { sendPresetFiles({}, {}); })
+      .withEventListener(kPresetOpen, [this](const var& event) { openPresetFile(event); })
+      .withEventListener(kPresetRemove, [this](const var& event) { removePresetFile(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -373,6 +391,75 @@ void WebPanel::savePatch(const var& event) {
     reply->setProperty("json", String(patch.dump()));
   }
   browser_->emitEventIfBrowserIsVisible(kPresetSaved, var(reply.get()));
+}
+
+// A name from the page, as a file in the user preset folder - or nothing if
+// it would land anywhere else ("../x", an absolute path).
+File WebPanel::presetFile(const String& name) const {
+  File folder = LoadSave::getUserPresetDirectory();
+  String clean = name.trim();
+  if (clean.isEmpty())
+    return {};
+  File file = folder.getChildFile(clean.replaceCharacter('/', File::getSeparatorChar()) + "." +
+                                  String(vital::kPresetExtension));
+  if (!file.isAChildOf(folder))
+    return {};
+  return file;
+}
+
+void WebPanel::writePresetFile(const var& event) {
+  // One name is one file: characters a file system refuses are dropped.
+  String name = File::createLegalFileName(event["name"].toString().trim()).trim();
+  if (name.isEmpty())
+    name = "Untitled";
+  if (!synth_.presetSavingAllowed()) {
+    sendPresetFiles({}, "Saving is off in this copy (see the licence banner).");
+    return;
+  }
+  File file = presetFile(name);
+  if (file == File() || !synth_.saveToFile(file)) {
+    sendPresetFiles({}, "Could not write " + name + " in " + LoadSave::getUserPresetDirectory().getFullPathName());
+    return;
+  }
+  sendPresetFiles(name, {});
+}
+
+void WebPanel::openPresetFile(const var& event) {
+  File file = presetFile(event["name"].toString());
+  std::string error;
+  if (file == File() || !synth_.loadFromFile(file, error)) {
+    sendPresetFiles({}, error.empty() ? String("That patch is not in the folder any more.") : String(error));
+    return;
+  }
+  curve_changed_ = true;
+  sendPresetFiles({}, {});
+}
+
+void WebPanel::removePresetFile(const var& event) {
+  // To the bin, not deleted: a wrong tap can be undone from the desktop.
+  File file = presetFile(event["name"].toString());
+  if (file.existsAsFile())
+    file.moveToTrash();
+  sendPresetFiles({}, {});
+}
+
+void WebPanel::sendPresetFiles(const String& saved, const String& error) {
+  File folder = LoadSave::getUserPresetDirectory();
+  Array<File> files = folder.findChildFiles(File::findFiles, true, String("*.") + vital::kPresetExtension);
+  StringArray names;
+  for (const File& file : files)
+    names.add(file.getRelativePathFrom(folder).upToLastOccurrenceOf(".", false, false).replaceCharacter('\\', '/'));
+  names.sortNatural();
+
+  DynamicObject::Ptr reply = new DynamicObject();
+  Array<var> list;
+  for (const String& name : names)
+    list.add(name);
+  reply->setProperty("presets", list);
+  reply->setProperty("folder", folder.getFullPathName());
+  reply->setProperty("saved", saved);
+  reply->setProperty("error", error);
+  browser_->emitEventIfBrowserIsVisible(kPresetFiles, var(reply.get()));
 }
 
 // The matrix as the page shows it: every connection with its amount, which

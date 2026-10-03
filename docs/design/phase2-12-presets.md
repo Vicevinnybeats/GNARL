@@ -203,3 +203,19 @@ The references' medians are 1874–2233 Hz, from about 1.6 kHz (10%) to
 Brightness and length are now in the references' range; Tear Growl and
 Hollow Bark sit about 250 Hz above it. What these numbers do NOT say is
 whether a sound has the references' character - that is the producer's ear.
+
+## SAVE in the plugin (2026-10-03)
+
+"I made a sound inside GNARL but I can't save it on the desktop version."
+The plugin's preset sheet had no SAVE: saving was left to Vital's browser
+behind ADVANCED. Now SAVE writes the patch as a `.vital` file to GNARL's
+user preset folder (`LoadSave::getUserPresetDirectory`: Documents/GNARL/
+User/Presets on Windows, ~/Music/GNARL/User/Presets on a Mac), through
+`SynthBase::saveToFile` - Vital's own save, so the licence gate holds
+(CLAUDE.md section 8). MY PRESETS lists that folder, subfolders included;
+a tap opens a patch (`SynthBase::loadFromFile`), x moves it to the bin. The
+sheet names the folder, so the producer's own Vital patches can be put
+there and opened from the panel - and then grown with FROM MY SOUND.
+`web_panel.cpp` gnarlPresetWrite / List / Open / Remove, answered by
+gnarlPresetFiles; a name that would land outside the folder is refused.
+The phone keeps its patches in the browser, as before.

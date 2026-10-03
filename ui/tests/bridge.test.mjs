@@ -92,6 +92,21 @@ function fakeJuce(init) {
             // As web_panel.cpp: the key is stored and checked; the answer
             // arrives as a new banner state.
             emitToPage('gnarlLicence', { status: 'licensed', message: '', saving: true, hasKey: true });
+          } else if (['gnarlPresetWrite', 'gnarlPresetList', 'gnarlPresetOpen', 'gnarlPresetRemove'].includes(id)) {
+            // As web_panel.cpp: .vital files in the user preset folder, the
+            // folder's list after every request.
+            const files = (window.__fake.files ??= []);
+            let saved = '';
+            let error = '';
+            if (id === 'gnarlPresetWrite') {
+              saved = payload.name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Untitled';
+              if (!files.includes(saved)) files.push(saved);
+            } else if (id === 'gnarlPresetOpen' && !files.includes(payload.name)) {
+              error = 'That patch is not in the folder any more.';
+            } else if (id === 'gnarlPresetRemove') {
+              files.splice(files.indexOf(payload.name) >>> 0, files.includes(payload.name) ? 1 : 0);
+            }
+            emitToPage('gnarlPresetFiles', { presets: [...files].sort(), folder: '/home/x/GNARL/User/Presets', saved, error });
           } else if (id === 'gnarlRoute') {
             const i = routes.findIndex((r) => r.source === payload.source && r.destination === payload.destination);
             if (payload.remove) {
@@ -196,7 +211,7 @@ check(JSON.stringify(litMode) === '["SYNC"]', `osc 1 lights ${JSON.stringify(lit
 
 // The matrix: engine routes in, edits out.
 const rows = () => page.evaluate(() => [...document.querySelectorAll('.app .route')].map((r) =>
-  [...r.querySelectorAll('button')].map((b) => b.textContent).join(' > ')));
+  [...r.querySelectorAll('button:not(.route__delete)')].map((b) => b.textContent).join(' > ')));
 const matrixAside = await page.evaluate(() => [...document.querySelectorAll('.app .panel')].find((p) =>
   p.textContent.includes('MOD MATRIX'))?.querySelector('.panel__aside')?.textContent);
 check(JSON.stringify(await rows()) === '["WOBBLE > FILTER CUTOFF"]' && matrixAside === '1/4 +1 in ADVANCED',
@@ -214,6 +229,48 @@ await page.click('.app .route .route__dest', { button: 'right' });
 await settle();
 routes = await page.evaluate(() => window.__fake.routes.map((r) => `${r.source}>${r.destination}`));
 check(!routes.includes('wobble>filter_1_formant_x'), `right-click disconnects it: ${JSON.stringify(routes)}`);
+
+// Sliding, not clicking: one drag along the amount bar keeps going to where
+// the pointer stops, though the engine answers every step with the whole
+// matrix (that redraw used to drop the drag after its first step).
+{
+  const bar = await page.locator('.app .route .amount').first().boundingBox();
+  const y = bar.y + bar.height / 2;
+  await page.mouse.move(bar.x + bar.width * 0.55, y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i += 1) {
+    await page.mouse.move(bar.x + bar.width * (0.55 + (0.4 * i) / 8), y);
+    await page.waitForTimeout(30); // the fake engine answers each step
+  }
+  await page.mouse.up();
+  await settle();
+  const shown = (await rows())[0] ?? '';
+  const amount = await page.evaluate(() => window.__fake.routes.find((r) => r.source === 'lfo_1')?.amount);
+  check(amount > 0.75, `one drag slides the amount all the way: ${amount?.toFixed(2)} (${shown})`);
+
+  // The destination slides too: a drag right steps through them.
+  const before = (await rows())[0];
+  const button = await page.locator('.app .route .route__dest').first().boundingBox();
+  await page.mouse.move(button.x + 10, button.y + button.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i += 1) {
+    await page.mouse.move(button.x + 10 + i * 10, button.y + button.height / 2);
+    await page.waitForTimeout(30);
+  }
+  await page.mouse.up();
+  await settle();
+  const after = (await rows())[0];
+  const destNames = ['OSC1 WT POS', 'OSC2 WT POS', 'FILTER CUTOFF', 'VOWEL MORPH', 'OSC1 WARP', 'SUB LEVEL', 'FOLD AMOUNT',
+    'OSC1 LEVEL', 'OSC2 LEVEL'];
+  const moved = (destNames.indexOf(after.split(' > ')[1]) - destNames.indexOf(before.split(' > ')[1]) + 9) % 9;
+  check(moved === 3, `a 60 px slide on the destination steps three: ${before} -> ${after}`);
+
+  // And each row has its own delete button.
+  const count = (await rows()).length;
+  await page.click('.app .route .route__delete');
+  await settle();
+  check((await rows()).length === count - 1, `the x deletes the route: ${count} -> ${(await rows()).length} rows`);
+}
 
 // The wheels: a drag sends pitch_wheel / mod_wheel; pitch springs back to the
 // centre before the gesture ends, so a DAW records the return; mod stays.
@@ -279,8 +336,36 @@ const sheet = await page.evaluate(() => {
            form: visible('.presets__form'), open_file: [...root.querySelectorAll('.presets__actions button')]
              .filter((n) => n.offsetParent !== null).map((n) => n.textContent) };
 });
-check(sheet.open && sheet.factory === 18 && sheet.form === 0 && JSON.stringify(sheet.open_file) === '["INIT"]',
-  `in the plugin the name opens the starting sounds and INIT only: ${JSON.stringify(sheet)}`);
+check(sheet.open && sheet.factory === 18 && sheet.form === 1 && JSON.stringify(sheet.open_file) === '["INIT"]',
+  `in the plugin the name opens the starting sounds, SAVE and INIT: ${JSON.stringify(sheet)}`);
+
+// SAVE in the plugin: the patch as a .vital file in GNARL's preset folder,
+// listed under MY PRESETS; a tap opens it, x moves it to the bin.
+{
+  const myList = () => page.evaluate(() =>
+    [...document.querySelectorAll('.app .presets__list:not(.presets__list--factory) .presets__load')].map((n) => n.textContent));
+  await page.locator('.app .presets__input').fill('My Wob');
+  await page.locator('.app .presets__form .chip', { hasText: 'SAVE' }).click();
+  await page.waitForTimeout(150);
+  const written = await presetLog('gnarlPresetWrite');
+  check(written.length === 1 && written[0].name === 'My Wob' && (await page.locator('.app .presets').isHidden()),
+    `SAVE writes the patch to the preset folder and closes the sheet: ${JSON.stringify(written)}`);
+  await page.locator('.app .preset__name').click();
+  await page.waitForTimeout(150);
+  const mine = await myList();
+  const note = await page.locator('.app .presets__folder').textContent();
+  check(JSON.stringify(mine) === '["My Wob"]' && /GNARL\/User\/Presets/.test(note ?? ''),
+    `MY PRESETS lists it, and says where the folder is: ${JSON.stringify(mine)} - ${note}`);
+  await page.locator('.app .presets__list:not(.presets__list--factory) .presets__load', { hasText: 'My Wob' }).click();
+  await page.waitForTimeout(150);
+  check((await presetLog('gnarlPresetOpen')).at(-1)?.name === 'My Wob' && (await page.locator('.app .presets').isHidden()),
+    'a tap opens it from the folder');
+  await page.locator('.app .preset__name').click();
+  await page.waitForTimeout(150);
+  await page.locator('.app .presets__list:not(.presets__list--factory) .presets__delete').first().click();
+  await page.waitForTimeout(150);
+  check(JSON.stringify(await myList()) === '[]', `x moves it to the bin: ${JSON.stringify(await myList())}`);
+}
 await page.locator('.app .presets__list--factory .presets__load', { hasText: 'Riddim Sub' }).click();
 await page.waitForTimeout(100); // the fake plugin logs on a timer
 const factorySent = await presetLog('gnarlPresetFactory');
