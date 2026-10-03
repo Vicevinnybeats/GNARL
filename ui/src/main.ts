@@ -429,6 +429,12 @@ function evolveSheet(): { open(): void } {
   const matchButton = chipButton('MATCH A SOUND');
   matchButton.classList.add('evolve__match');
   matchButton.title = 'Drop in an audio file of one wob (1-2 s, bass only); GNARL finds the patch';
+  // FROM MY SOUND: the four grow from the patch now loaded - one of the
+  // producer's own (a .vital they opened), a starting sound, or the last AI
+  // sound heard - so any patch becomes a base without a new build.
+  const mineButton = chipButton('FROM MY SOUND');
+  mineButton.classList.add('evolve__mine');
+  mineButton.title = 'Four new sounds grown from the patch you have loaded now';
   const file = el('input', 'evolve__file');
   file.type = 'file';
   file.accept = 'audio/*,.wav,.mp3,.flac,.ogg,.aif,.aiff';
@@ -440,13 +446,13 @@ function evolveSheet(): { open(): void } {
   progress.hidden = true;
   matchButton.hidden = typeof window.__GNARL_WASM__ !== 'string';
   const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint,
-    el('div', 'evolve__matchrow', matchButton, file), progress, grid,
+    el('div', 'evolve__matchrow', mineButton, matchButton, file), progress, grid,
     el('div', 'evolve__actions', back, fresh, keep),
     // The producer asked to be reminded, after the sounds, how to steer
     // what comes next (phase4-05).
     el('p', 'evolve__help', 'None right? Tell Claude what is wrong, in sound words: wob too slow or too fast, ' +
       'needs more sub, too thin, too bright or screechy, too much distortion, too much delay or reverb. ' +
-      'Or send a .vital patch of yours you like: each one is a new recipe for the AI.'));
+      'Or open a .vital patch of yours you like and press FROM MY SOUND: the AI grows four from it.'));
   root.hidden = true;
   document.body.append(root);
 
@@ -546,6 +552,30 @@ function evolveSheet(): { open(): void } {
     render();
     level();
   };
+  const fromMine = (): void => {
+    const name = engine.preset || 'your sound';
+    mineButton.disabled = true;
+    currentPatch(name)
+      .then((text) => {
+        history.push(candidates);
+        round += 1;
+        // Closer to the producer's patch than a first round from Vinny Bass 2
+        // (strength 0.6), and one wild step, as after a PICK.
+        const label = `from ${name}`;
+        candidates = [
+          ...Array.from({ length: 3 }, () => evolvePatch(text, seed(), 0.6, label)),
+          evolvePatch(text, seed(), 1, `a wild step from ${name}`),
+        ];
+        render();
+        title.textContent = 'AI \u00b7 FROM YOUR SOUND';
+        level();
+      })
+      .catch((error: Error) => toast(`Could not read the loaded sound: ${error.message}`))
+      .finally(() => {
+        mineButton.disabled = false;
+      });
+  };
+  mineButton.addEventListener('click', fromMine);
   let matching = false;
   let stop = false;
   matchButton.addEventListener('click', () => file.click());

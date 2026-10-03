@@ -149,11 +149,30 @@ Under the AI sheet's four sounds a line says how to steer the next ones -
 what is wrong, in sound words, or a patch to add - because the producer
 asked to be reminded after the sounds.
 
+## From the producer's own sound
+
+FROM MY SOUND, beside MATCH in the AI sheet (2026-10-03): the four grow
+from whatever patch is loaded - a `.vital` of the producer's opened in
+GNARL, a starting sound, or the last AI sound heard. The page asks the
+engine for the patch as `.vital` JSON (`currentPatch`, the same request
+CLOUD's UPLOAD makes; the plugin answers through `gnarlPresetSave`), makes
+three at strength 0.6 and one wild step at 1, as after a PICK, and levels
+them in the workers. A patch with Vinny Bass 2's gate (LFO 1 on the
+oscillator's level) gets the recipe's moves above; any other gets the
+first generator's gentler ones (frame, LFO 1's points and amounts, drive,
+filter, now and then a table or an effect), which keep the patch's own
+routing. So a patch the producer makes in Vital becomes a base without a
+new build. `ui/tests/web.test.mjs` presses it after a PICK and checks four
+cards, levelled in the workers, that play.
+
+Nobody here has measured variations of a patch that is not built like
+Vinny Bass 2: whether they still wob depends on how that patch wobs.
+
 ## How the producer can help
 
 - **More patches like Vinny Bass 2.** Each patch the producer made and
   likes becomes another recipe the AI can work inside. Vital patches open
-  as they are (`.vital`).
+  as they are (`.vital`); open one and press FROM MY SOUND.
 - **PICK in the AI sheet.** Four sounds, all wobs now; the pick steers.
 - **Say what is wrong in sound words** ("too thin", "needs more sub",
   "the wob is too slow", "too much distortion") — each maps to one of the

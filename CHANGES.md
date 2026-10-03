@@ -593,3 +593,10 @@ the merge commit forward: `git log 7651809..`.
   `tools/match_web.mjs` runs the same search. Against a known triplet wob:
   5.23-6.24 on the matcher's measure, at the right rhythm, where thirty
   random sounds of the recipe score 7.40 at best.
+
+## 2026-10-03 - FROM MY SOUND
+
+- A FROM MY SOUND button in the AI sheet: four new sounds grown from the
+  patch now loaded (three close, one wild step), read back from the engine
+  as `.vital` JSON and levelled like any round. A producer's own Vital
+  patch becomes an AI base by opening it. docs/design/phase4-05-riddim-recipe.md.

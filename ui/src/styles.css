@@ -1557,8 +1557,8 @@ body[data-mode='phone'] .toast {
   background: var(--violet); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
 }
 .evolve__actions { display: flex; gap: 8px; justify-content: flex-end; }
-.evolve__matchrow { display: flex; }
-.evolve__match { width: 100%; }
+.evolve__matchrow { display: flex; gap: 8px; }
+.evolve__match, .evolve__mine { flex: 1; }
 .evolve__progress { display: flex; flex-direction: column; gap: 6px; }
 .evolve__progress[hidden] { display: none; }
 .evolve__status { font-size: 11px; color: var(--text-dim); }

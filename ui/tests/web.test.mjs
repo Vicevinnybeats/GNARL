@@ -297,6 +297,26 @@ check(madePeak > 0.05 && madePeak < 1, `and plays its note: scope peak ${madePea
 await page.locator('.evolve .evolve__card').nth(0).locator('.evolve__pick').tap();
 await page.waitForTimeout(200);
 check((await page.locator('.evolve__title').textContent())?.endsWith('ROUND 2'), 'PICK starts round 2');
+// FROM MY SOUND: the four grow from the patch now loaded (the pick, here),
+// read back from the engine as .vital JSON and levelled like any round.
+{
+  const asked = (await page.evaluate(() => window.__peaks)).asked;
+  await page.locator('.evolve .evolve__mine').tap();
+  await page.waitForFunction(() => document.querySelector('.evolve__title')?.textContent?.endsWith('FROM YOUR SOUND'), null,
+    { timeout: 5000 }).catch(() => {});
+  const mine = await page.evaluate(() => ({
+    title: document.querySelector('.evolve__title')?.textContent,
+    cards: [...document.querySelectorAll('.evolve__card .evolve__name')].map((n) => n.textContent),
+  }));
+  check(mine.title?.endsWith('FROM YOUR SOUND') && mine.cards.length === 4,
+    `FROM MY SOUND makes four from the loaded patch: ${JSON.stringify(mine.cards)}`);
+  await page.waitForFunction((n) => window.__peaks.asked > n && window.__peaks.answered >= window.__peaks.asked, asked,
+    { timeout: 20000 }).catch(() => {});
+  check((await page.evaluate(() => window.__peaks)).asked > asked, 'and levels them in the workers');
+  await page.locator('.evolve .evolve__card').nth(3).locator('.evolve__play').tap();
+  await page.waitForTimeout(300);
+  check(await page.locator('.evolve .evolve__card').nth(3).getAttribute('data-on') === 'true', 'its wild step plays');
+}
 await page.locator('.evolve .chip', { hasText: 'KEEP' }).tap();
 await page.waitForTimeout(2000); // the audition note's own release
 await page.evaluate(() => window.__JUCE__.backend.emitEvent('gnarlPresetInit', { name: 'Init' }));
