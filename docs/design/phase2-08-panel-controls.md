@@ -235,6 +235,18 @@ x to delete it (right-click still works). `ui/tests/bridge.test.mjs`: one
 drag reaches 0.90, a 60 px slide steps three destinations, the x deletes;
 with the redraw put back, the drag stops at 0.20 and the slide at one step.
 
+## TIPS (2026-10-03)
+
+The producer asked for "tips with a popup window with steps how to make a
+sound like a wobble". TIPS sits beside the AI button (desktop header and
+phone) and opens seven recipes - BASIC WOB, MOVING TONE, TALKING WOB, GROWL,
+MAKE IT HEAVY, SUB + SPACE, LET THE AI DO IT - each a numbered list naming
+the section and the control as the panel labels them (`main.ts` RECIPES).
+Text only: `ui/tests/bridge.test.mjs` opens it, switches recipes, closes it
+with Escape and checks nothing was sent to the engine. The steps were
+checked against the engine: the formant model ignores CUTOFF (CLAUDE.md
+section 5), so MOVING TONE says so and points to VOWEL.
+
 ## Not done
 
 - **Nobody has listened.** Every number above is a measurement of

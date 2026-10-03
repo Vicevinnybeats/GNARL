@@ -60,6 +60,17 @@ Negative controls, run:
 - with signature checking switched off, four of the refusal tests fail;
 - without the one-key-per-session guard, the triple-delivery test fails.
 
+### Turning it on from GitHub alone (no wrangler)
+
+1. Repository secret `CLOUDFLARE_API_TOKEN`; run the `backend` workflow;
+   its log prints the Worker URL.
+2. Stripe Payment Link and webhook as in 2-3 below, with the endpoint
+   `<worker URL>/stripe/webhook`; its signing secret goes in the repository
+   secret `STRIPE_WEBHOOK_SECRET`, and the `backend` workflow is run again
+   (it hands the secret to the Worker).
+3. Steps 4-5 below (the site's two strings, the plugin's endpoint) are
+   repository edits.
+
 ### Turning it on (a person, once)
 
 1. **Worker:** `cd backend && npm install && npx wrangler login`, then

@@ -712,6 +712,156 @@ function evolveSheet(): { open(): void } {
   return evolveSheetSingleton;
 }
 
+/*
+ * TIPS: how to make a wob on this panel, step by step - the producer asked
+ * for "a popup with steps how to make a sound like a wobble". Each recipe
+ * names the tab, the section and the control exactly as the panel labels
+ * them, so the steps can be followed with the panel beside them. Text only:
+ * nothing here changes the sound.
+ */
+interface Recipe {
+  title: string;
+  about: string;
+  steps: string[];
+}
+const RECIPES: Recipe[] = [
+  {
+    title: 'BASIC WOB',
+    about: 'The riddim wob: the sound chopped open and shut in time.',
+    steps: [
+      'Tap the preset name and choose INIT, or start from any sound.',
+      'OSC 1: tap the table name and pick Growl or Wub.',
+      'WOBBLE LFO: switch it on with the dot in its corner.',
+      'RATE: 1/8 for a straight wob, 1/8T for the triplet riddim wob, 1/4 for a slow one.',
+      'SHAPE: SOFT SQR chops hard, SINE wubs smoothly, DRAW lets you draw it.',
+      'Tap VOLUME: the wobble now opens and shuts the sound. Tap again to undo.',
+      'Hold D#3 to hear it.',
+    ],
+  },
+  {
+    title: 'MOVING TONE',
+    about: 'The wob changes colour as it moves, not just volume.',
+    steps: [
+      'Make the BASIC WOB first.',
+      'WOBBLE LFO: turn on WT POS and CUTOFF under DESTINATION.',
+      'DEPTH: 60-80%. Higher moves the tone further.',
+      'OSC 1: WT POS sets where the movement starts.',
+      'VOWEL FILTER: switch it on and set CUTOFF near the middle; the wobble\'s CUTOFF opens it on each hit. (Once a vowel is picked, CUTOFF does nothing: use VOWEL, see TALKING WOB.)',
+      'SMOOTH softens the edges of each wob; PHASE moves where in the beat it opens.',
+    ],
+  },
+  {
+    title: 'TALKING WOB',
+    about: 'The "yoi" / "wow" wob: a vowel that changes on every hit.',
+    steps: [
+      'VOWEL FILTER: switch it on with the dot in its corner.',
+      'Pick a vowel: O or U for a dark "wow", A or E for a bright "yoi".',
+      'RES 50-70% makes it speak more.',
+      'WOBBLE LFO: turn on VOWEL under DESTINATION. The wobble now moves through the vowels.',
+      'OSC 1 on the Vowel or Yoi table makes it talk even more.',
+    ],
+  },
+  {
+    title: 'GROWL',
+    about: 'A dirtier, metallic growl from FM.',
+    steps: [
+      'OSC 1: turn FM up to 30-50%.',
+      'Try the modes under it: FORMANT, SYNC, BEND, FOLD - each growls differently.',
+      'WARP sets how hard that mode works.',
+      'WOBBLE LFO: turn on FM under DESTINATION so the growl moves with the wob.',
+      'UNISON 2-5 with a little DETUNE makes it wider.',
+    ],
+  },
+  {
+    title: 'MAKE IT HEAVY',
+    about: 'Distortion and OTT: where riddim gets its weight.',
+    steps: [
+      'FX, DRIVE page (bottom left): switch DIST on, mode TUBE, DRIVE 50-70%.',
+      'FOLD AMOUNT 20-40% adds grit; too much turns to noise.',
+      'CRUSH for a lo-fi edge: BITS around 8, a little RATE.',
+      'OTT on, DEPTH 40-60%: the classic squashed, loud riddim sound.',
+      'Too loud or clipping? Turn MASTER down, not the drive.',
+    ],
+  },
+  {
+    title: 'SUB + SPACE',
+    about: 'A clean sub under the wob, and some room around it.',
+    steps: [
+      'SUB: switch it on, LEVEL 60-70%, MONO on, -1 OCT for deeper.',
+      'The sub stays clean while the wob above it moves.',
+      'FX, SPACE page: DELAY LINE MIX 15-20% - try a STEPS value that fits the rhythm.',
+      'REVERB MIX 15-25% with a small SIZE keeps it tight.',
+      'Keep space light on the wob: too much fills the gaps between hits.',
+    ],
+  },
+  {
+    title: 'LET THE AI DO IT',
+    about: 'Four wobs at a time, steered by your ears.',
+    steps: [
+      'Tap AI: four new wobs. Tap each to hear it.',
+      'PICK the best: the next four grow from it. BACK goes back, NEW starts over.',
+      'FROM MY SOUND: four new ones grown from the sound you have loaded.',
+      'MATCH A SOUND: give it a 1-2 s audio file of one wob; it finds GNARL patches close to it.',
+      'Like one? Tap the preset name, type a name, SAVE.',
+    ],
+  },
+];
+
+let tipsSheetSingleton: { open(): void } | null = null;
+
+function tipsSheet(): { open(): void } {
+  if (tipsSheetSingleton) return tipsSheetSingleton;
+  const closeButton = el('button', 'evolve__close', '\u00d7');
+  closeButton.type = 'button';
+  closeButton.setAttribute('aria-label', 'Close the tips');
+  const tabs = el('div', 'chips tips__tabs');
+  const body = el('div', 'tips__body');
+  const root = el('div', 'evolve tips', el('div', 'evolve__head', el('span', 'evolve__title', 'HOW TO MAKE A WOB'), closeButton),
+    tabs, body,
+    el('p', 'evolve__help', 'Each step names a section as the panel does. On a phone, the sections are under the tabs: ' +
+      'OSC (OSC 1, OSC 2, SUB), FILTER (VOWEL FILTER), WOBBLE, MOD, FX.'));
+  root.hidden = true;
+  document.body.append(root);
+  let at = 0;
+  const show = (i: number): void => {
+    at = i;
+    const recipe = RECIPES[i];
+    if (!recipe) return;
+    for (const [k, chip] of [...tabs.children].entries()) (chip as HTMLElement).dataset.on = k === i ? 'true' : 'false';
+    body.replaceChildren(
+      el('p', 'tips__about', recipe.about),
+      el('ol', 'tips__steps', ...recipe.steps.map((step) => el('li', 'tips__step', step))),
+    );
+  };
+  RECIPES.forEach((recipe, i) => {
+    const chip = chipButton(recipe.title, 'violet');
+    chip.addEventListener('click', () => show(i));
+    tabs.append(chip);
+  });
+  const close = (): void => {
+    root.hidden = true;
+  };
+  closeButton.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !root.hidden) close();
+  });
+  tipsSheetSingleton = {
+    open(): void {
+      show(at);
+      root.hidden = false;
+    },
+  };
+  return tipsSheetSingleton;
+}
+
+function tipsButton(): HTMLButtonElement {
+  const b = chipButton('TIPS');
+  b.classList.add('tips__open');
+  b.title = 'How to make a wob, step by step';
+  b.addEventListener('click', () => tipsSheet().open());
+  return b;
+}
+
 function aiButton(label: string): HTMLButtonElement {
   const ai = el('button', 'ai', el('span', 'ai__spark', '\u2726'), label);
   ai.type = 'button';
@@ -866,6 +1016,7 @@ function header(): HTMLElement {
     el('div', 'brand', headerMark(), el('span', 'brand__word', 'GNARL')),
     presetPicker(),
     aiButton('AI PRESET'),
+    tipsButton(),
     advancedButton(),
     licenceChip(),
     el('div', 'top__spacer'),
@@ -1709,7 +1860,7 @@ function phone(): HTMLElement {
       'm__side',
       el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), licenceChip(),
         ...[tempoChip()].filter((x): x is HTMLElement => x !== null), masterKnob()),
-      el('div', 'm__preset', presetPicker(), aiButton('AI')),
+      el('div', 'm__preset', presetPicker(), aiButton('AI'), tipsButton()),
       scope(320, 64),
       el('div', 'play', wheels(), keyboard()),
     ),

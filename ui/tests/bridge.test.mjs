@@ -429,6 +429,25 @@ await page.locator('.app .presets__actions button', { hasText: 'INIT' }).click()
 await page.waitForTimeout(100);
 check((await presetLog('gnarlPresetInit')).length === 1, 'INIT asks the plugin for the init patch');
 
+// TIPS: a popup of step-by-step recipes for a wob; text only, so opening
+// and reading it sends nothing to the engine.
+{
+  const sentBefore = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
+  await page.locator('.app .tips__open').click();
+  const tips = page.locator('.tips:not([hidden])');
+  const recipes = await tips.locator('.tips__tabs .chip').allTextContents();
+  const first = await tips.locator('.tips__step').allTextContents();
+  check(recipes.length === 7 && recipes[0] === 'BASIC WOB' && first.some((t) => /Tap VOLUME/.test(t)),
+    `TIPS opens the wob recipes: ${JSON.stringify(recipes)}, ${first.length} steps in the first`);
+  await tips.locator('.tips__tabs .chip', { hasText: 'TALKING WOB' }).click();
+  const talking = await tips.locator('.tips__step').allTextContents();
+  check(talking.some((t) => /VOWEL FILTER/.test(t)), `a recipe's tab shows its own steps: ${talking[0]}`);
+  await page.keyboard.press('Escape');
+  check(await page.locator('.tips').isHidden(), 'Escape closes the tips');
+  const sentAfter = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
+  check(sentAfter === sentBefore, `reading the tips changes nothing in the engine (${sentAfter - sentBefore} values sent)`);
+}
+
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
 const before = await sets();

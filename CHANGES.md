@@ -611,3 +611,9 @@ the merge commit forward: `git log 7651809..`.
 - SAVE in the plugin's preset sheet: the patch as a .vital file in GNARL's
   user preset folder, listed under MY PRESETS (open, move to the bin).
   docs/design/phase2-12-presets.md.
+- TIPS beside the AI button: a popup of step-by-step recipes for a wob
+  (basic gate wob, moving tone, talking wob, growl, heavy FX, sub and
+  space, the AI), each naming the panel's own sections and controls.
+- The backend deploy workflow hands Stripe's webhook signing secret to the
+  Worker when the repository has STRIPE_WEBHOOK_SECRET, so payments can be
+  switched on from GitHub alone.

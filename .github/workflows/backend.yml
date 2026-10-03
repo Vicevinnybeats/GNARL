@@ -8,6 +8,9 @@
 #                            -> API Tokens -> "Edit Cloudflare Workers"
 #                            template, plus D1 Edit)
 #  and, if that token can see more than one account, CLOUDFLARE_ACCOUNT_ID.
+#  For payments, also STRIPE_WEBHOOK_SECRET (Stripe -> Developers -> Webhooks
+#  -> the endpoint's signing secret, whsec_...): the run gives it to the
+#  Worker. Run the workflow again after adding or changing it.
 #
 #  The tests run first, in workerd against a local D1, exactly as build.yml
 #  runs them; a red test deploys nothing. The database migrations are
@@ -62,6 +65,19 @@ jobs:
         run: |
           set -o pipefail
           npx wrangler deploy | tee deploy.log
+      # Stripe's webhook signing secret, if the repository has it: handed to
+      # the Worker as a Worker secret, so nobody needs wrangler on their own
+      # machine. Without it the webhook refuses every request (400), which
+      # is the safe default before payments exist.
+      - name: Stripe webhook secret
+        env:
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
+            echo "No STRIPE_WEBHOOK_SECRET in the repository: payments stay off."
+          else
+            printf '%s' "$STRIPE_WEBHOOK_SECRET" | npx wrangler secret put STRIPE_WEBHOOK_SECRET
+          fi
       - name: Check it answers
         run: |
           url=$(grep -o 'https://[^ ]*workers\.dev' deploy.log | head -1)

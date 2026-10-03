@@ -1596,3 +1596,12 @@ body[data-mode='phone'] .toast {
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+
+/* TIPS: how to make a wob (main.ts tipsSheet), in the AI sheet's frame. */
+.tips__tabs { flex-wrap: wrap; gap: 6px; }
+.tips__tabs .chip { width: auto; padding: 0 10px; }
+.tips__about { margin: 0; color: var(--text); font: 500 12px var(--mono); line-height: 1.5; }
+.tips__steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.tips__step { color: var(--text); font: 400 12px var(--mono); line-height: 1.5; }
+.tips__step::marker { color: var(--violet-soft); font-weight: 700; }
+.tips__open { flex: none; }
