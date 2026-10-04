@@ -27,7 +27,7 @@ FAILS = []
 BPM = 140
 BEAT = 60 / BPM
 # Vital's tempo indices (kSyncedFrequencyNames) and sync modes (TempoChooser).
-TEMPO_1_8, TEMPO_1_16 = 9, 10
+TEMPO_1_2, TEMPO_1_4, TEMPO_1_8, TEMPO_1_16 = 7, 8, 9, 10  # kSyncedFrequencyNames
 SYNC_FREE, SYNC_TEMPO, SYNC_TRIPLET = 0, 1, 3
 
 
@@ -87,6 +87,9 @@ cases = [
     ('3 x 1/16', dict(delay_sync=SYNC_TEMPO, delay_tempo=TEMPO_1_16, delay_steps=3), 3 * BEAT / 4),
     ('16 x 1/16 (one bar)', dict(delay_sync=SYNC_TEMPO, delay_tempo=TEMPO_1_16, delay_steps=16), 4 * BEAT),
     ('3 x 1/8T', dict(delay_sync=SYNC_TRIPLET, delay_tempo=TEMPO_1_8, delay_steps=3), 3 * BEAT / 3),
+    # The panel's longer step lengths (2026-10-04): 1/4 is a beat, 1/2 two.
+    ('1 x 1/4', dict(delay_sync=SYNC_TEMPO, delay_tempo=TEMPO_1_4, delay_steps=1), BEAT),
+    ('2 x 1/2', dict(delay_sync=SYNC_TEMPO, delay_tempo=TEMPO_1_2, delay_steps=2), 4 * BEAT),
     # Free time: delay_frequency 2 is 2^2 Hz, 250 ms. STEPS does not apply.
     ('MS 250 with 5 steps', dict(delay_sync=SYNC_FREE, delay_frequency=2, delay_steps=5), 0.25),
 ]

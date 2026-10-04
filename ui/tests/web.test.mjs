@@ -501,10 +501,17 @@ for (let k = 0; k < 2; k += 1) await page.locator('.m .ddl__step').first().tap()
 await page.waitForTimeout(200);
 let v = await engineValue('delay_steps');
 check((await led()) === '3 steps' && v?.[1] === '3', `two taps on up: the LED says ${await led()}, the engine ${JSON.stringify(v)}`);
-await page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').tap();
-await page.waitForTimeout(200);
-let tempos = [await engineValue('delay_tempo'), await engineValue('delay_aux_tempo')];
-check(tempos.every((x) => x?.[1] === '1/16'), `STEP LENGTH 1/8 -> 1/16, both taps: ${JSON.stringify(tempos)}`);
+// The step length cycles 1/16, 1/8T, 1/8, 1/4, 1/2: from 1/8, on to the
+// two long ones, then round to 1/16.
+let tempos;
+for (const want of ['1/4', '1/2', '1/16']) {
+  await page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').tap();
+  await page.waitForTimeout(200);
+  tempos = [await engineValue('delay_tempo'), await engineValue('delay_aux_tempo')];
+  const syncsNow = [await engineValue('delay_sync'), await engineValue('delay_aux_sync')];
+  check(tempos.every((x) => x?.[1] === want) && syncsNow.every((x) => !/trip/i.test(x?.[1] ?? '')) &&
+    (await lengthShown()) === want, `STEP LENGTH -> ${want}, both taps: ${JSON.stringify(tempos)}`);
+}
 await page.locator('.m .chips--cycle[data-param="delay.length"] .chip[data-on="true"]').tap();
 await page.waitForTimeout(200);
 let syncs = [await engineValue('delay_sync'), await engineValue('delay_aux_sync')];

@@ -617,3 +617,8 @@ the merge commit forward: `git log 7651809..`.
 - The backend deploy workflow hands Stripe's webhook signing secret to the
   Worker when the repository has STRIPE_WEBHOOK_SECRET, so payments can be
   switched on from GitHub alone.
+
+## 2026-10-04 - Delay step lengths 1/4 and 1/2
+
+- The delay line's STEP LENGTH also offers 1/4 and 1/2 (after 1/16, 1/8T,
+  1/8). docs/design/phase2-11-ddl.md.

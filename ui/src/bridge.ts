@@ -276,6 +276,10 @@ const STEP_LENGTHS = [
   { sync: 1, tempo: 10 }, // 1/16
   { sync: 3, tempo: 9 }, // 1/8 in triplet mode: 1/8T
   { sync: 1, tempo: 9 }, // 1/8: Vital's init delay, so a new patch reads true
+  // Longer echoes. 1/2 at 140 bpm is 0.86 s, so from 5 steps on it reaches
+  // the delay's 4 s buffer and is held there (delay_module.cpp).
+  { sync: 1, tempo: 8 }, // 1/4
+  { sync: 1, tempo: 7 }, // 1/2
 ];
 // delay_tempo's lowest index (4/1), and delay_frequency's range: 2^x Hz for
 // x in -2..9, so 4 s down to 1.95 ms (synth_parameters.cpp).

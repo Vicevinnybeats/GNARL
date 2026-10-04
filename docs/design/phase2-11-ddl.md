@@ -79,3 +79,13 @@ so the first sound in the render is the echo, at 140 bpm:
   this delay has.
 - The longest delay is Vital's 4 s buffer: 16 steps of 1/8T reach it below
   80 bpm, and longer times are clamped there.
+
+## 1/4 and 1/2 (2026-10-04)
+
+The producer asked for longer step lengths: STEP LENGTH now cycles 1/16,
+1/8T, 1/8, 1/4, 1/2 (`bridge.ts` STEP_LENGTHS: delay_tempo 8 and 7, straight
+sync). They come after the first three so the per-effect PRESET buttons,
+which store the index, keep their lengths. Measured by `tests/test_ddl.py`
+at 140 bpm: 1 x 1/4 echoes at 428.6 ms (one beat), 2 x 1/2 at 1714.3 ms (four
+beats), each within 0.1 ms. 1/2 is 0.86 s at 140 bpm, so from 5 steps on it
+reaches the 4 s buffer and is held there.

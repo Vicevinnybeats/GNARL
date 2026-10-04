@@ -184,7 +184,9 @@ export const CHOICES: readonly Choice[] = [
   // tempo-synced 1/16, 1/8T is 1/8 in triplet mode, and 1/8 is
   // the init patch's delay.
   { id: 'delay.unit', options: ['STEPS', 'MS'], def: 0, vital: null },
-  { id: 'delay.length', options: ['1/16', '1/8T', '1/8'], def: 2, vital: null },
+  // 1/4 and 1/2 (2026-10-04, the producer's ask) come after the first three,
+  // so a saved PRESET button's index still names the same length.
+  { id: 'delay.length', options: ['1/16', '1/8T', '1/8', '1/4', '1/2'], def: 2, vital: null },
   // Vital's delay styles 0 Mono, 1 Stereo, 2 Ping Pong.
   { id: 'delay.style', options: ['MONO', 'STEREO', 'PING'], def: 0, vital: 'delay_style', values: [0, 1, 2] },
 ];
