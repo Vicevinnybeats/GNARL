@@ -51,6 +51,11 @@
 //                  gnarlPresetList {}           list that folder
 //                  gnarlPresetOpen {name}       load one of its files
 //                  gnarlPresetRemove {name}     move one to the bin
+//                  gnarlExportWav {name, data}  a WAV (base64) from DRUMS or
+//                                               RIDDIMIZE, written to the
+//                                               exports folder; answered by
+//                                               gnarlExported {path} or {error}
+//                  gnarlRevealExports {}        open that folder
 //
 //   here -> page   gnarlValues {name: [value, text]}     only what changed
 //                  gnarlRoutes [{source, destination, amount}]  the matrix,
@@ -88,6 +93,9 @@ namespace {
   const Identifier kPresetOpen("gnarlPresetOpen");
   const Identifier kPresetRemove("gnarlPresetRemove");
   const Identifier kPresetFiles("gnarlPresetFiles");
+  const Identifier kExportWav("gnarlExportWav");
+  const Identifier kExported("gnarlExported");
+  const Identifier kRevealExports("gnarlRevealExports");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -145,6 +153,8 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kPresetList, [this](const var&) { sendPresetFiles({}, {}); })
       .withEventListener(kPresetOpen, [this](const var& event) { openPresetFile(event); })
       .withEventListener(kPresetRemove, [this](const var& event) { removePresetFile(event); })
+      .withEventListener(kExportWav, [this](const var& event) { exportWav(event); })
+      .withEventListener(kRevealExports, [this](const var&) { revealExports(); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -460,6 +470,48 @@ void WebPanel::sendPresetFiles(const String& saved, const String& error) {
   reply->setProperty("saved", saved);
   reply->setProperty("error", error);
   browser_->emitEventIfBrowserIsVisible(kPresetFiles, var(reply.get()));
+}
+
+// Exports are rendered audio, not presets: the licence does not gate them.
+namespace {
+  File exportsFolder() {
+    return LoadSave::getDataDirectory().getChildFile("Exports");
+  }
+}
+
+void WebPanel::exportWav(const var& event) {
+  DynamicObject::Ptr reply = new DynamicObject();
+  File folder = exportsFolder();
+  String name = File::createLegalFileName(event["name"].toString().trim());
+  if (!name.endsWithIgnoreCase(".wav"))
+    name += ".wav";
+  MemoryOutputStream bytes;
+  bool decoded = Base64::convertFromBase64(bytes, event["data"].toString());
+  // A WAV starts RIFF....WAVE; anything else is not written.
+  const char* head = static_cast<const char*>(bytes.getData());
+  bool wav = decoded && bytes.getDataSize() > 44 && std::memcmp(head, "RIFF", 4) == 0 &&
+             std::memcmp(head + 8, "WAVE", 4) == 0;
+  if (!wav) {
+    reply->setProperty("error", "That sound could not be saved (not a WAV).");
+  }
+  else if (!folder.createDirectory().wasOk()) {
+    reply->setProperty("error", "Could not make the folder " + folder.getFullPathName());
+  }
+  else {
+    // Never overwrite: "Drums.wav", then "Drums (2).wav" and so on.
+    File file = folder.getNonexistentChildFile(File(name).getFileNameWithoutExtension(), ".wav", false);
+    if (file.replaceWithData(bytes.getData(), bytes.getDataSize()))
+      reply->setProperty("path", file.getFullPathName());
+    else
+      reply->setProperty("error", "Could not write " + file.getFullPathName());
+  }
+  browser_->emitEventIfBrowserIsVisible(kExported, var(reply.get()));
+}
+
+void WebPanel::revealExports() {
+  File folder = exportsFolder();
+  folder.createDirectory();
+  folder.startAsProcess();
 }
 
 // The matrix as the page shows it: every connection with its amount, which

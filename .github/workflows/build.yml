@@ -156,6 +156,13 @@ jobs:
           npm run build
           node tests/web.test.mjs
           node tests/sync.test.mjs
+      #  DRUMS and RIDDIMIZE (docs/design/phase4-06-drums-riddimize.md): each
+      #  drum row's hits on their steps, the drum instrument's accuracy on
+      #  GNARL's own loops, RIDDIMIZE's rhythms measured.
+      - name: DRUMS and RIDDIMIZE
+        run: |
+          python3 -m pip install --quiet --user --break-system-packages librosa soundfile
+          python3 tests/test_drums_riddimize.py
       - uses: actions/upload-artifact@v4
         with:
           name: GNARL-mobile-web

@@ -23,6 +23,10 @@ self.onmessage = (event) => {
       const results = message.patches.map((text) =>
         Math.max(...message.midis.map((m) => core.peakOf(engine, text, m, message.seconds) ?? 0)));
       self.postMessage({ type: 'peaks', id: message.id, results });
+    } else if (message.type === 'render') {
+      // RIDDIMIZE's USE MY SOUND: the loaded patch's held note, as audio.
+      const audio = core.renderHeld(engine, message.patch, message.midi, message.seconds);
+      self.postMessage({ type: 'rendered', id: message.id, audio }, audio ? [audio.buffer] : []);
     } else if (message.type === 'scoreText') {
       // MATCH inside the riddim recipe (recipe-search.ts): whole patches,
       // rendered and judged as the genes are below.

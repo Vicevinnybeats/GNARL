@@ -1605,3 +1605,38 @@ body[data-mode='phone'] .toast {
 .tips__step { color: var(--text); font: 400 12px var(--mono); line-height: 1.5; }
 .tips__step::marker { color: var(--violet-soft); font-weight: 700; }
 .tips__open { flex: none; }
+
+/* DRUMS and RIDDIMIZE (drums/sheet.ts, riddimize/sheet.ts), in the AI sheet's frame. */
+.tool__open { flex: none; }
+.m__tools { display: flex; gap: 8px; }
+.m__tools .chip { flex: 1; height: 34px; }
+.drums { width: min(680px, calc(100vw - 32px)); }
+.drums__top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.drums__generate { padding: 0 18px; }
+.drums__from { font: 500 11px var(--mono); color: var(--text-dim); }
+.drums__bars { gap: 6px; }
+.drums__grid { display: flex; flex-direction: column; gap: 6px; }
+.drums__row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; }
+.drums__label { font: 600 9.5px var(--mono); letter-spacing: 0.08em; color: var(--chip-text); }
+.drums__cells { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+.drums__cell {
+  height: 26px; min-width: 0; padding: 0; border: 1px solid var(--chip-border); border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04); cursor: pointer;
+}
+.drums__cell[data-beat='true'] { background: rgba(255, 255, 255, 0.09); }
+.drums__cell[data-on='true'] { background: var(--violet-soft); border-color: var(--violet-soft); box-shadow: 0 0 8px rgba(176, 107, 255, 0.5); }
+.drums__knobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 14px; }
+.drums__knob { display: flex; flex-direction: column; gap: 4px; }
+.drums__slider { width: 100%; accent-color: var(--violet-soft); }
+.drums__actions { flex-wrap: wrap; }
+.drums__status { min-height: 1.4em; }
+.riddim__controls { display: flex; flex-direction: column; gap: 10px; }
+.riddim__chips { flex-wrap: wrap; align-items: center; gap: 6px; }
+.riddim__chips .drums__label { width: 60px; }
+.riddim__chips .chip { width: auto; padding: 0 10px; }
+.m .drums__cell, .drums__cell { touch-action: manipulation; }
+@media (max-width: 520px) {
+  .drums__row { grid-template-columns: 52px 1fr; }
+  .drums__cells { gap: 2px; }
+  .drums__cell { height: 30px; }
+}

@@ -212,6 +212,34 @@ function createMatcherCore() {
     return peak;
   }
 
+  /*
+   * A patch's note HELD for `seconds`, mono, at 140 BPM: what RIDDIMIZE
+   * takes when the producer chooses USE MY SOUND (docs/design/phase4-06-
+   * drums-riddimize.md). A patch the engine refuses gives null.
+   */
+  function renderHeld(engine, patchText, midi, seconds) {
+    if (engine.load(patchText) !== 0) return null;
+    engine.allNotesOff();
+    engine.bpm(BPM);
+    const block = 128;
+    const dt = 1 / SR;
+    let time = 0;
+    const total = Math.round(seconds * SR);
+    const out = new Float32Array(total);
+    engine.note(midi, true);
+    for (let done = 0; done < total;) {
+      const n = Math.min(block, total - done);
+      engine.time(time);
+      const audio = engine.process(n);
+      for (let i = 0; i < n; i += 1) out[done + i] = 0.5 * (audio[2 * i] + audio[2 * i + 1]);
+      time += n * dt;
+      done += n;
+    }
+    engine.note(midi, false);
+    engine.allNotesOff();
+    return out;
+  }
+
   // ---- the log-mel picture (librosa's defaults: centred frames, a periodic
   // Hann window, Slaney mel filters) ---------------------------------------
   const window = new Float64Array(N_FFT);
@@ -338,5 +366,5 @@ function createMatcherCore() {
     return sum / n;
   }
 
-  return { SR, CHOICES, CONTINUOUS, random, randomGenes, mutate, setTables, build, renderMono, peakOf, features, distance };
+  return { SR, CHOICES, CONTINUOUS, random, randomGenes, mutate, setTables, build, renderMono, peakOf, renderHeld, features, distance };
 }

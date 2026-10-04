@@ -649,6 +649,45 @@ const sent = await page.evaluate(() => {
 });
 check(sent === 0, `idle for 0.6 s, the page sent ${sent} values`);
 
+// DRUMS and RIDDIMIZE on the phone (phase4-06): EXPORT is a download.
+{
+  await page.locator('.m__tools .chip', { hasText: 'DRUMS' }).tap();
+  const drums = page.locator('.drums:not(.riddim):not([hidden])');
+  await drums.locator('.chip', { hasText: 'GENERATE' }).tap();
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 10000 }),
+    drums.locator('.chip', { hasText: 'EXPORT WAV' }).tap(),
+  ]);
+  const file = await download.path();
+  const bytes = readFileSync(file);
+  const frames = Math.round((4 * 60 / 140) * 44100 * 4);
+  check(bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.length === 44 + frames * 6 && /\.wav$/.test(download.suggestedFilename()),
+    `DRUMS on the phone downloads a 4-bar WAV: ${download.suggestedFilename()}, ${bytes.length} bytes`);
+  await drums.locator('.evolve__close').tap();
+
+  await page.locator('.m__tools .chip', { hasText: 'RIDDIMIZE' }).tap();
+  const riddim = page.locator('.riddim:not([hidden])');
+  // A sound in through the file picker: Wob Triplet Dry's note, rendered here.
+  const engineForFile = loadEngine();
+  engineForFile.load(readFileSync(path.join(here, '..', '..', 'presets', 'Wob Triplet Dry.vital'), 'utf8'));
+  const wav = path.join(mkdtempSync(path.join(tmpdir(), 'gnarl-riddim-')), 'my growl.wav');
+  writeWav(wav, renderNote(engineForFile, { seconds: 1.5, bpm: 140, notes: [39] }));
+  await riddim.locator('input[type=file]').setInputFiles(wav);
+  await page.waitForFunction(() => /Ready|Could not/.test(document.querySelector('.riddim .drums__status')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => {});
+  check(/my growl: \d\.\d s/.test((await riddim.locator('.drums__from').textContent()) ?? ''),
+    `RIDDIMIZE takes a file: ${await riddim.locator('.drums__from').textContent()} - ${await riddim.locator('.drums__status').textContent()}`);
+  await riddim.locator('.chip', { hasText: '2 BARS' }).tap();
+  const [d2] = await Promise.all([
+    page.waitForEvent('download', { timeout: 10000 }),
+    riddim.locator('.chip', { hasText: 'EXPORT WAV' }).tap(),
+  ]);
+  const b2 = readFileSync(await d2.path());
+  const f2 = Math.round((8 * 60 / 140) * 44100);
+  check(b2.toString('ascii', 0, 4) === 'RIFF' && b2.length === 44 + f2 * 6 && /my growl riddim/.test(d2.suggestedFilename()),
+    `and downloads a 2-bar one-shot: ${d2.suggestedFilename()}, ${b2.length} bytes`);
+  await riddim.locator('.evolve__close').tap();
+}
+
 check(errors.length === 0, `no page errors ${JSON.stringify(errors)}`);
 await browser.close();
 server.close();

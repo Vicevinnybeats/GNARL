@@ -138,6 +138,7 @@ function base64Bytes(text: string): Uint8Array {
 function workerPool(count: number, init: Record<string, unknown>): {
   scoreTexts(patches: string[]): Promise<Scored[]>;
   peaks(patches: string[]): Promise<number[]>;
+  render(patch: string, midi: number, seconds: number): Promise<Float32Array | null>;
   close(): void;
 } {
   const source = `${coreSource}\n${matchCoreSource}\n${workerSource}`;
@@ -206,6 +207,20 @@ function workerPool(count: number, init: Record<string, unknown>): {
       );
       return parts.flat();
     },
+    async render(patch, midi, seconds) {
+      await Promise.all(ready);
+      const w = workers[0];
+      if (!w) return null;
+      return new Promise((resolve, reject) => {
+        const id = nextId++;
+        w.onmessage = (e: MessageEvent<{ type: string; id: number; audio?: Float32Array | null; message?: string }>): void => {
+          if (e.data.id !== id) return;
+          if (e.data.type === 'rendered') resolve(e.data.audio ?? null);
+          else reject(new Error(e.data.message));
+        };
+        w.postMessage({ type: 'render', id, patch, midi, seconds });
+      });
+    },
     close() {
       for (const w of workers) w.terminate();
     },
@@ -269,13 +284,29 @@ export async function matchSound(job: MatchJob): Promise<Matched[]> {
  */
 let levelPool: ReturnType<typeof workerPool> | null = null;
 
+function enginePool(wasm: string): ReturnType<typeof workerPool> {
+  levelPool ??= workerPool(Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1)), {
+    type: 'init', wasm: base64Bytes(wasm), tables: {}, baseText: '', target: [], length: 0, midi: 39,
+  });
+  return levelPool;
+}
+
+/**
+ * A patch's note held for `seconds` at `midi`, mono at 44.1 kHz, rendered by
+ * the page's engine (RIDDIMIZE's USE MY SOUND); null without an engine.
+ */
+export async function renderPatch(patch: string, midi: number, seconds: number): Promise<Float32Array | null> {
+  const wasm = window.__GNARL_WASM__;
+  if (!wasm || typeof Worker === 'undefined') return null;
+  return enginePool(wasm).render(patch, midi, seconds);
+}
+
 export async function levelPatches(patches: string[]): Promise<string[]> {
   const wasm = window.__GNARL_WASM__;
   if (!wasm || typeof Worker === 'undefined') return patches;
   try {
-    levelPool ??= workerPool(Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1)), {
-      type: 'init', wasm: base64Bytes(wasm), tables: {}, baseText: '', target: [], length: 0, midi: 39,
-    });
+    enginePool(wasm);
+    if (!levelPool) return patches;
     const peaks = await levelPool.peaks(patches);
     return patches.map((p, i) => levelVolume(p, peaks[i] ?? 0));
   } catch {

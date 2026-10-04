@@ -33,6 +33,8 @@ import {
 import { gesture, get, resetAll, set, subscribe } from './store';
 import { chipButton, choiceRow, display, el, knob, panel, resizeDisplay, toggle, wheel } from './widgets';
 import type { Display } from './widgets';
+import { drumsSheet } from './drums/sheet';
+import { riddimizeSheet } from './riddimize/sheet';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
 import { TABLE_NAMES, TABLES } from './wavetables';
 import { FX_PRESETS } from './fxpresets';
@@ -854,6 +856,20 @@ function tipsSheet(): { open(): void } {
   return tipsSheetSingleton;
 }
 
+// DRUMS and RIDDIMIZE (docs/design/phase4-06-drums-riddimize.md): each
+// opens its sheet, made on first use.
+function toolButton(label: string, title: string, open: () => void): HTMLButtonElement {
+  const b = chipButton(label);
+  b.classList.add('tool__open');
+  b.title = title;
+  b.addEventListener('click', open);
+  return b;
+}
+const drumsButton = (): HTMLButtonElement =>
+  toolButton('DRUMS', 'Riddim drum loops from your reference tracks, exported as WAV', () => drumsSheet().open());
+const riddimizeButton = (): HTMLButtonElement =>
+  toolButton('RIDDIMIZE', 'Any sample in, a riddim one-shot out, as WAV', () => riddimizeSheet().open());
+
 function tipsButton(): HTMLButtonElement {
   const b = chipButton('TIPS');
   b.classList.add('tips__open');
@@ -1016,6 +1032,8 @@ function header(): HTMLElement {
     el('div', 'brand', headerMark(), el('span', 'brand__word', 'GNARL')),
     presetPicker(),
     aiButton('AI PRESET'),
+    drumsButton(),
+    riddimizeButton(),
     tipsButton(),
     advancedButton(),
     licenceChip(),
@@ -1861,6 +1879,7 @@ function phone(): HTMLElement {
       el('header', 'm__top', logoCanvas('m__logo'), el('span', 'brand__word', 'GNARL'), el('div', 'top__spacer'), licenceChip(),
         ...[tempoChip()].filter((x): x is HTMLElement => x !== null), masterKnob()),
       el('div', 'm__preset', presetPicker(), aiButton('AI'), tipsButton()),
+      el('div', 'm__tools', drumsButton(), riddimizeButton()),
       scope(320, 64),
       el('div', 'play', wheels(), keyboard()),
     ),

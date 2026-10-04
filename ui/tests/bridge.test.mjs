@@ -51,6 +51,8 @@ const engineInit = {
     distortion_type: 6, distortion_tube: 2, osc_1_distortion_type: 13, osc_2_distortion_type: 13,
     osc_1_fold: 2, osc_2_fold: 2, distortion_crush_mode: 2, compressor_enabled_bands: 4,
   },
+  // The patch the plugin answers gnarlPresetSave with (RIDDIMIZE's USE MY SOUND).
+  patch: (await import('node:fs')).readFileSync(path.join(here, '..', '..', 'presets', 'Vinny Bass 2.vital'), 'utf8'),
   // The matrix as web_panel.cpp reports it; the second has no panel names.
   routes: [
     { source: 'wobble', destination: 'filter_1_cutoff', amount: 0.45 },
@@ -92,6 +94,13 @@ function fakeJuce(init) {
             // As web_panel.cpp: the key is stored and checked; the answer
             // arrives as a new banner state.
             emitToPage('gnarlLicence', { status: 'licensed', message: '', saving: true, hasKey: true });
+          } else if (id === 'gnarlExportWav') {
+            // As web_panel.cpp: the WAV written to the exports folder.
+            window.__fake.exported = (window.__fake.exported ?? []).concat([{ name: payload.name, bytes: atob(payload.data).length, head: atob(payload.data).slice(0, 4) + atob(payload.data).slice(8, 12) }]);
+            emitToPage('gnarlExported', { path: `/home/x/GNARL/Exports/${payload.name}` });
+          } else if (id === 'gnarlPresetSave') {
+            // The current patch, as the plugin answers (RIDDIMIZE's USE MY SOUND).
+            emitToPage('gnarlPresetSaved', { name: payload.name, json: init.patch });
           } else if (['gnarlPresetWrite', 'gnarlPresetList', 'gnarlPresetOpen', 'gnarlPresetRemove'].includes(id)) {
             // As web_panel.cpp: .vital files in the user preset folder, the
             // folder's list after every request.
@@ -454,6 +463,48 @@ const before = await sets();
 await page.waitForTimeout(500);
 const after = await sets();
 check(after === before, `idle for 0.5 s, the page sent ${after - before} values (an echo loop sends forever)`);
+
+// DRUMS (phase4-06): a loop on a grid, exported to the plugin's exports
+// folder as a 4-bar WAV; OPEN FOLDER asks the plugin to show it.
+{
+  await page.locator('.app .tool__open', { hasText: 'DRUMS' }).click();
+  const sheet = page.locator('.drums:not(.riddim):not([hidden])');
+  check((await sheet.locator('.drums__cell').count()) === 64, `DRUMS opens a grid of 4 rows x 16 steps: ${await sheet.locator('.drums__cell').count()}`);
+  const cell = sheet.locator('.drums__cell').nth(2 * 16 + 3);
+  const was = await cell.getAttribute('data-on');
+  await cell.click();
+  check((await cell.getAttribute('data-on')) !== was, 'a tap on a step toggles it');
+  await sheet.locator('.chip', { hasText: 'EXPORT WAV' }).click();
+  await page.waitForFunction(() => /Saved/.test(document.querySelector('.drums:not(.riddim) .drums__status')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
+  const exported = await page.evaluate(() => window.__fake.exported ?? []);
+  const frames = Math.round((4 * 60 / 140) * 44100 * 4);
+  check(exported.length === 1 && exported[0].head === 'RIFFWAVE' && /\.wav$/.test(exported[0].name) && exported[0].bytes === 44 + frames * 2 * 3,
+    `EXPORT hands the plugin a 4-bar 24-bit stereo WAV: ${JSON.stringify(exported)} (${44 + frames * 6} bytes expected)`);
+  check(/Saved .* in \/home\/x\/GNARL\/Exports/.test(await sheet.locator('.drums__status').textContent() ?? ''),
+    `and says where it went: ${await sheet.locator('.drums__status').textContent()}`);
+  await sheet.locator('.chip', { hasText: 'OPEN FOLDER' }).click();
+  await settle();
+  check((await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlRevealExports').length)) === 1, 'OPEN FOLDER asks the plugin to show the folder');
+  await sheet.locator('.evolve__close').click();
+}
+
+// RIDDIMIZE (phase4-06): USE MY SOUND renders the plugin's current patch with
+// the page's engine, and EXPORT hands back a one-bar WAV.
+{
+  await page.locator('.app .tool__open', { hasText: 'RIDDIMIZE' }).click();
+  const sheet = page.locator('.riddim:not([hidden])');
+  await sheet.locator('.chip', { hasText: 'USE MY SOUND' }).click();
+  await page.waitForFunction(() => /Ready|Could not/.test(document.querySelector('.riddim .drums__status')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
+  const said = await sheet.locator('.drums__status').textContent();
+  check(/Ready/.test(said ?? ''), `USE MY SOUND renders the loaded patch: ${said} / ${await sheet.locator('.drums__from').textContent()}`);
+  await sheet.locator('.chip', { hasText: 'EXPORT WAV' }).click();
+  await page.waitForFunction(() => (window.__fake.exported ?? []).length === 2, null, { timeout: 5000 }).catch(() => {});
+  const e = (await page.evaluate(() => window.__fake.exported ?? []))[1];
+  const frames = Math.round((4 * 60 / 140) * 44100);
+  check(e?.head === 'RIFFWAVE' && /riddim/.test(e.name) && e.bytes === 44 + frames * 2 * 3,
+    `RIDDIMIZE exports a one-bar WAV: ${JSON.stringify(e)}`);
+  await sheet.locator('.evolve__close').click();
+}
 
 check(errors.length === 0, `no page errors ${JSON.stringify(errors)}`);
 await browser.close();

@@ -71,6 +71,10 @@ class WebPanel : public Component, private Timer {
     void removePresetFile(const var& event);
     void sendPresetFiles(const String& saved, const String& error);
     File presetFile(const String& name) const;
+    // DRUMS and RIDDIMIZE: a rendered WAV from the page, written to
+    // GNARL's exports folder, and that folder opened for the producer.
+    void exportWav(const var& event);
+    void revealExports();
     // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
     void loadWavetable(const var& event);
     String wavetableNames();

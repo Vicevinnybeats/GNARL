@@ -622,3 +622,17 @@ the merge commit forward: `git log 7651809..`.
 
 - The delay line's STEP LENGTH also offers 1/4 and 1/2 (after 1/16, 1/8T,
   1/8). docs/design/phase2-11-ddl.md.
+
+## 2026-10-04 - DRUMS and RIDDIMIZE
+
+- DRUMS: riddim drum loops (kick, snare, hat, open hat), synthesized, from
+  patterns and sounds measured off the producer's reference tracks
+  (tools/measure_drums.py -> references/drums.json -> tools/drum_templates.py);
+  a 16-step grid, GENERATE, PLAY, EXPORT as a 4-bar WAV.
+- RIDDIMIZE: a sample (or GNARL's loaded sound) into a riddim one-shot -
+  rhythm gate, filter sweep, drive/fold/crush, OTT-like squash, sub - EXPORT
+  as WAV.
+- The plugin writes exports to Documents/GNARL/Exports and opens the folder
+  (web_panel.cpp gnarlExportWav, gnarlRevealExports); the phone downloads.
+- tools/render_tools.mjs renders both from the command line;
+  tests/test_drums_riddimize.py measures them. docs/design/phase4-06-drums-riddimize.md.

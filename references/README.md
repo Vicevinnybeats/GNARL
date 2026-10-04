@@ -35,3 +35,11 @@ python3 tools/measure.py "Track.mp3" --bpm auto --isolate hpss --scan 8 \
 
 Measured so far: five tracks by phompy (`phompy-*`): `-drops` (every drop,
 with and without drums) and `-scan` (the whole track).
+
+## The drums (`drums.json`)
+
+`tools/measure_drums.py` measures where kick, snare and hats fall in a bar
+and how each sounds, over each drop: numbers only, the audio deleted as soon
+as it is decoded. `drums.json` holds the fifteen tracks the producer sent;
+`tools/drum_templates.py` makes the DRUMS tab's templates from it
+(docs/design/phase4-06-drums-riddimize.md).
