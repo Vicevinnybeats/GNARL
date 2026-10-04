@@ -688,6 +688,34 @@ check(sent === 0, `idle for 0.6 s, the page sent ${sent} values`);
   await riddim.locator('.evolve__close').tap();
 }
 
+// TIPS on the phone: the pointer turns to the tab a control is on - FX for
+// DIST, and the DRIVE page inside it - and lands on the control in view.
+{
+  await page.locator('.m .tips__open').tap();
+  const bubble = page.locator('.tour:not([hidden]) .tour__bubble');
+  await bubble.locator('.tour__choices .chip', { hasText: 'MAKE IT HEAVY' }).tap();
+  await page.waitForTimeout(300);
+  const at = async () => page.evaluate(() => {
+    const r = document.querySelector('.tour__ring').getBoundingClientRect();
+    const under = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { param: under?.closest('[data-param]')?.dataset.param ?? '', inView: r.top >= 0 && r.bottom <= innerHeight };
+  });
+  const first = await at();
+  check(first.param === 'dist.on' && first.inView, `on the phone the tour opens FX and points at DIST's switch: ${JSON.stringify(first)}`);
+  for (let k = 0; k < 7; k += 1) await bubble.locator('.tour__actions .chip', { hasText: /NEXT|DONE/ }).tap();
+  await page.waitForTimeout(300);
+  const last = await at();
+  check(last.param === 'master' && last.inView, `...and finds MASTER at the top: ${JSON.stringify(last)}`);
+  await bubble.locator('.tour__actions .chip', { hasText: 'DONE' }).tap();
+  await bubble.locator('.tour__choices .chip', { hasText: 'BASIC WOB' }).tap();
+  for (let k = 0; k < 2; k += 1) await bubble.locator('.tour__actions .chip', { hasText: 'NEXT' }).tap();
+  await page.waitForTimeout(300);
+  const wob = await at();
+  check(wob.param === 'wobble.on' && wob.inView, `and opens WOBBLE for its switch: ${JSON.stringify(wob)}`);
+  await page.screenshot({ path: process.env.TOUR_SHOT ?? '/dev/null' }).catch(() => {});
+  await bubble.locator('.evolve__close').tap();
+}
+
 check(errors.length === 0, `no page errors ${JSON.stringify(errors)}`);
 await browser.close();
 server.close();

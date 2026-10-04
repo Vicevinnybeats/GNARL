@@ -247,6 +247,23 @@ with Escape and checks nothing was sent to the engine. The steps were
 checked against the engine: the formant model ignores CUTOFF (CLAUDE.md
 section 5), so MOVING TONE says so and points to VOWEL.
 
+**A pointer, not a list (2026-10-04).** The producer: "for the tips I want a
+pointer where you have to click instead of a menu style". TIPS is now a
+guided tour (`ui/src/tour.ts`): pick a recipe, and a pulsing ring and an
+arrow sit on the control for each step, the rest of the panel dimmed, a
+bubble saying what to do with BACK / NEXT. Every step names its control as
+the panel tags it (`data-param`, or a button's label inside one), so the
+same steps work on the desktop and the phone; a control behind a phone tab
+or an FX page is brought forward by clicking that tab. Tapping a pointed-at
+button does its job and moves on; a knob is turned, then NEXT. The tour
+sits above the sheets, so LET THE AI DO IT follows into the AI sheet. It
+only points: it sets nothing. `bridge.test.mjs` walks all 43 desktop steps
+and checks the control under the ring's centre is on screen, that the tour
+turns the FX rack to SPACE for DELAY LINE, that tapping the WOBBLE dot moves
+on, that the AI recipe's pointer lands inside the AI sheet, and that
+stepping sends no value; `web.test.mjs` checks the phone opens FX for DIST,
+WOBBLE for its switch, and finds MASTER at the top.
+
 ## Not done
 
 - **Nobody has listened.** Every number above is a measurement of

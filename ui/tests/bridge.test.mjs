@@ -438,23 +438,87 @@ await page.locator('.app .presets__actions button', { hasText: 'INIT' }).click()
 await page.waitForTimeout(100);
 check((await presetLog('gnarlPresetInit')).length === 1, 'INIT asks the plugin for the init patch');
 
-// TIPS: a popup of step-by-step recipes for a wob; text only, so opening
-// and reading it sends nothing to the engine.
+// TIPS: a guided tour - a ring and a pointer on each control to touch, in
+// turn. Every step of every recipe must find its control on the page (one
+// behind an FX page is brought forward), and stepping through sends nothing
+// to the engine: the tour only points.
 {
   const sentBefore = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
   await page.locator('.app .tips__open').click();
-  const tips = page.locator('.tips:not([hidden])');
-  const recipes = await tips.locator('.tips__tabs .chip').allTextContents();
-  const first = await tips.locator('.tips__step').allTextContents();
-  check(recipes.length === 7 && recipes[0] === 'BASIC WOB' && first.some((t) => /Tap VOLUME/.test(t)),
-    `TIPS opens the wob recipes: ${JSON.stringify(recipes)}, ${first.length} steps in the first`);
-  await tips.locator('.tips__tabs .chip', { hasText: 'TALKING WOB' }).click();
-  const talking = await tips.locator('.tips__step').allTextContents();
-  check(talking.some((t) => /VOWEL FILTER/.test(t)), `a recipe's tab shows its own steps: ${talking[0]}`);
-  await page.keyboard.press('Escape');
-  check(await page.locator('.tips').isHidden(), 'Escape closes the tips');
+  const bubble = page.locator('.tour:not([hidden]) .tour__bubble');
+  const recipes = await bubble.locator('.tour__choices .chip').allTextContents();
+  check(recipes.length === 7 && recipes[0] === 'BASIC WOB', `TIPS offers the recipes: ${JSON.stringify(recipes)}`);
+  const missed = [];
+  let steps = 0;
+  for (const name of recipes) {
+    if (name === 'LET THE AI DO IT') continue; // its steps are inside the AI sheet: below
+    await bubble.locator('.tour__choices .chip', { hasText: name }).click();
+    for (;;) {
+      await page.waitForTimeout(60);
+      const state = await page.evaluate(() => {
+        const ring = document.querySelector('.tour__ring');
+        const r = ring.getBoundingClientRect();
+        // What is under the ring's centre must be the control (or inside it).
+        const under = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return {
+          ring: !ring.hidden,
+          inView: r.top >= -8 && r.bottom <= innerHeight + 8,
+          say: document.querySelector('.tour__say').textContent,
+          count: document.querySelector('.tour__count').textContent,
+          optional: document.querySelector('.tour__bubble').dataset.optional === 'true',
+          under: under ? under.closest('[data-param], button, .keys, .table-pick')?.className ?? under.className : '',
+        };
+      });
+      steps += 1;
+      if (!state.optional && !state.ring || !state.inView || /Not on screen/.test(state.say)) missed.push(`${name} ${state.count}: ${state.say}`);
+      const next = bubble.locator('.tour__actions .chip', { hasText: /NEXT|DONE/ });
+      const done = (await next.textContent()) === 'DONE';
+      await next.click();
+      if (done) break;
+    }
+  }
+  check(missed.length === 0 && steps > 40, `every tour step points at its control on screen (${steps} steps)${missed.length ? ': ' + missed.join(' | ') : ''}`);
+  check(/done/.test(await bubble.locator('.tour__say').textContent()), 'the last step ends back at the recipes');
   const sentAfter = await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
-  check(sentAfter === sentBefore, `reading the tips changes nothing in the engine (${sentAfter - sentBefore} values sent)`);
+  check(sentAfter === sentBefore, `stepping through the tips changes nothing in the engine (${sentAfter - sentBefore} values sent)`);
+
+  // A control behind another FX page: the tour turns to SPACE to show it.
+  await bubble.locator('.tour__choices .chip', { hasText: 'SUB + SPACE' }).click();
+  for (let k = 0; k < 4; k += 1) await bubble.locator('.tour__actions .chip', { hasText: 'NEXT' }).click();
+  check(await page.locator('.app [data-param="delay.on"]').isVisible(), 'the tour opens the SPACE page to point at DELAY LINE');
+
+  // Tapping the pointed-at button does its job and moves the tour on.
+  await page.keyboard.press('Escape');
+  await page.locator('.app .tips__open').click();
+  await bubble.locator('.tour__choices .chip', { hasText: 'BASIC WOB' }).click();
+  await bubble.locator('.tour__actions .chip', { hasText: 'NEXT' }).click();
+  await bubble.locator('.tour__actions .chip', { hasText: 'NEXT' }).click();
+  await page.locator('.app [data-param="wobble.on"]').click({ force: true });
+  await page.waitForTimeout(500);
+  check(/RATE/.test(await bubble.locator('.tour__say').textContent()),
+    `tapping the pointed-at WOBBLE dot moves on to RATE (${await bubble.locator('.tour__count').textContent()})`);
+  await page.locator('.app [data-param="wobble.on"]').click({ force: true }); // put it back
+  await page.keyboard.press('Escape');
+  check(await page.locator('.tour').isHidden(), 'Escape ends the tips');
+
+  // LET THE AI DO IT: tapping the pointed-at AI button opens the AI sheet
+  // and the pointer follows into it.
+  await page.locator('.app .tips__open').click();
+  await bubble.locator('.tour__choices .chip', { hasText: 'LET THE AI DO IT' }).click();
+  await page.locator('.app .ai').click({ force: true });
+  await page.waitForTimeout(600);
+  const inSheet = await page.evaluate(() => {
+    const ring = document.querySelector('.tour__ring');
+    const sheet = document.querySelector('.evolve:not([hidden])');
+    if (!sheet || ring.hidden) return { ok: false, say: document.querySelector('.tour__say').textContent };
+    const r = ring.getBoundingClientRect();
+    const s = sheet.getBoundingClientRect();
+    return { ok: r.left >= s.left - 10 && r.right <= s.right + 10, say: document.querySelector('.tour__say').textContent };
+  });
+  check(inSheet.ok, `after AI the pointer is inside the AI sheet: ${inSheet.say}`);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => document.querySelectorAll('.evolve').forEach((e) => (e.hidden = true)));
 }
 
 // Left alone, the page sends nothing: an echo must never be sent back.

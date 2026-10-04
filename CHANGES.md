@@ -636,3 +636,9 @@ the merge commit forward: `git log 7651809..`.
   (web_panel.cpp gnarlExportWav, gnarlRevealExports); the phone downloads.
 - tools/render_tools.mjs renders both from the command line;
   tests/test_drums_riddimize.py measures them. docs/design/phase4-06-drums-riddimize.md.
+
+## 2026-10-04 - TIPS as a guided tour
+
+- TIPS points at each control in turn (ring, arrow, a bubble with BACK /
+  NEXT) instead of listing steps; it opens the phone tab or FX page a
+  control is on. ui/src/tour.ts; the recipe list moved there from main.ts.

@@ -1597,13 +1597,42 @@ body[data-mode='phone'] .toast {
   overflow-wrap: anywhere;
 }
 
-/* TIPS: how to make a wob (main.ts tipsSheet), in the AI sheet's frame. */
-.tips__tabs { flex-wrap: wrap; gap: 6px; }
-.tips__tabs .chip { width: auto; padding: 0 10px; }
-.tips__about { margin: 0; color: var(--text); font: 500 12px var(--mono); line-height: 1.5; }
-.tips__steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
-.tips__step { color: var(--text); font: 400 12px var(--mono); line-height: 1.5; }
-.tips__step::marker { color: var(--violet-soft); font-weight: 700; }
+/* TIPS as a guided tour (tour.ts): a ring and a pointer on the control to
+   touch, a bubble saying what to do. Above every sheet, so it can point into
+   the AI sheet; only the bubble takes taps, the control under the ring stays
+   live. */
+.tour { position: fixed; inset: 0; z-index: 95; pointer-events: none; }
+.tour [hidden] { display: none !important; }
+.tour__ring {
+  position: fixed; border: 2px solid var(--violet-soft); border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(4, 2, 10, 0.45), 0 0 18px var(--violet-soft);
+  animation: tour-pulse 1.2s ease-in-out infinite; transition: all 0.18s ease-out;
+}
+@keyframes tour-pulse { 50% { border-color: #fff; } }
+.tour__hand {
+  position: fixed; width: 0; height: 0;
+  border-left: 18px solid transparent; border-right: 18px solid transparent;
+  transition: all 0.18s ease-out; animation: tour-bob 0.9s ease-in-out infinite;
+}
+.tour__hand[data-dir='up'] { border-bottom: 30px solid var(--violet-soft); filter: drop-shadow(0 0 8px var(--violet)); }
+.tour__hand[data-dir='down'] { border-top: 30px solid var(--violet-soft); filter: drop-shadow(0 0 8px var(--violet)); }
+@keyframes tour-bob { 50% { transform: translateY(5px); } }
+.tour__hand[data-dir='up'] { animation-name: tour-bob-up; }
+@keyframes tour-bob-up { 50% { transform: translateY(-5px); } }
+.tour__bubble {
+  position: fixed; pointer-events: auto; width: min(340px, calc(100vw - 16px));
+  background: var(--bg); border: 1px solid var(--violet-soft); border-radius: 12px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+.tour__head { display: flex; align-items: center; gap: 8px; }
+.tour__title { font: 700 12px var(--mono); color: var(--violet-soft); letter-spacing: 0.08em; }
+.tour__count { font: 500 11px var(--mono); color: var(--text); opacity: 0.7; flex: 1; }
+.tour__say { margin: 0; color: var(--text); font: 500 13px var(--mono); line-height: 1.5; }
+.tour__choices { flex-wrap: wrap; gap: 6px; }
+.tour__choices .chip, .tour__actions .chip { width: auto; padding: 0 12px; }
+.tour__actions { display: flex; justify-content: flex-end; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .tour__ring, .tour__hand { animation: none; transition: none; } }
 .tips__open { flex: none; }
 
 /* DRUMS and RIDDIMIZE (drums/sheet.ts, riddimize/sheet.ts), in the AI sheet's frame. */
