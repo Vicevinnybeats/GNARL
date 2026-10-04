@@ -573,10 +573,26 @@ check(after === before, `idle for 0.5 s, the page sent ${after - before} values 
 {
   await page.locator('.app .tool__open', { hasText: 'RIDDIMIZE' }).click();
   const sheet = page.locator('.riddim:not([hidden])');
-  await sheet.locator('.chip', { hasText: 'USE MY SOUND' }).click();
+  // USE MY SOUND needs the page's engine (wasm/build.sh). Without it - CI
+  // runs this before building the engine, and again after - the button is
+  // hidden and a chosen file is the sound instead.
+  const withEngine = await page.evaluate(() => document.getElementById('gnarl-wasm') !== null);
+  if (withEngine) {
+    await sheet.locator('.chip', { hasText: 'USE MY SOUND' }).click();
+  } else {
+    check(await sheet.locator('.chip', { hasText: 'USE MY SOUND' }).isHidden(), 'without the engine, USE MY SOUND is hidden');
+    const sr = 44100, n = sr;
+    const wav = Buffer.alloc(44 + n * 2);
+    wav.write('RIFF', 0); wav.writeUInt32LE(36 + n * 2, 4); wav.write('WAVEfmt ', 8);
+    wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(sr, 24); wav.writeUInt32LE(sr * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34);
+    wav.write('data', 36); wav.writeUInt32LE(n * 2, 40);
+    for (let i = 0; i < n; i += 1) wav.writeInt16LE(Math.round(12000 * (((i * 78 / sr) % 1) * 2 - 1)), 44 + i * 2);
+    await sheet.locator('input[type=file]').setInputFiles({ name: 'My sound.wav', mimeType: 'audio/wav', buffer: wav });
+  }
   await page.waitForFunction(() => /Ready|Could not/.test(document.querySelector('.riddim .drums__status')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
   const said = await sheet.locator('.drums__status').textContent();
-  check(/Ready/.test(said ?? ''), `USE MY SOUND renders the loaded patch: ${said} / ${await sheet.locator('.drums__from').textContent()}`);
+  check(/Ready/.test(said ?? ''), `${withEngine ? 'USE MY SOUND renders the loaded patch' : 'a chosen file is the sound'}: ${said} / ${await sheet.locator('.drums__from').textContent()}`);
   await sheet.locator('.chip', { hasText: 'EXPORT WAV' }).click();
   await page.waitForFunction(() => (window.__fake.exported ?? []).length === 2, null, { timeout: 5000 }).catch(() => {});
   const e = (await page.evaluate(() => window.__fake.exported ?? []))[1];

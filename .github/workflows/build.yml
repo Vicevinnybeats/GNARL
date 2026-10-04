@@ -156,6 +156,7 @@ jobs:
           npm run build
           node tests/web.test.mjs
           node tests/sync.test.mjs
+          npm test   # the bridge again, with the engine: RIDDIMIZE's USE MY SOUND
       #  DRUMS and RIDDIMIZE (docs/design/phase4-06-drums-riddimize.md): each
       #  drum row's hits on their steps, the drum instrument's accuracy on
       #  GNARL's own loops, RIDDIMIZE's rhythms measured.
