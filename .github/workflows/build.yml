@@ -109,9 +109,11 @@ jobs:
       #  did not change, so its output may not. Then the wobble and sub tests
       #  again, on the new build. The JUCE 8 plugin embeds the web panel
       #  (ui/), built with npm by CMake (docs/design/phase2-04-web-panel.md).
+      #  Node 22: tools/render_tools.mjs (DRUMS and RIDDIMIZE below) imports
+      #  the panel's TypeScript directly, which Node 20 cannot.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: JUCE 8 renderer matches JUCE 6
         run: |
           sudo apt-get install -y -qq ninja-build
