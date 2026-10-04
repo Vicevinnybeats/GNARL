@@ -75,6 +75,7 @@ class WebPanel : public Component, private Timer {
     // GNARL's exports folder, and that folder opened for the producer.
     void exportWav(const var& event);
     void revealExports();
+    void hostKey(const var& event);
     // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
     void loadWavetable(const var& event);
     String wavetableNames();

@@ -13,6 +13,7 @@ import workerSource from './match-worker.js?raw';
 import { TABLE_NAMES, tableJson } from '../wavetables';
 import { LEVEL_NOTES, LEVEL_SECONDS, levelVolume } from '../generate';
 import { searchRecipe } from './recipe-search';
+import { engineWasm } from '../data';
 
 type Features = Float64Array[];
 interface Scored {
@@ -25,8 +26,13 @@ interface Core {
   features(x: Float32Array, length: number): Features;
 }
 const core = new Function(`${matchCoreSource}; return createMatcherCore;`)()() as Core;
-const TABLES: Record<string, string> = Object.fromEntries(TABLE_NAMES.map((n) => [n, tableJson(n) ?? '']));
-core.setTables(TABLES);
+// The wavetables a candidate may use, as .vital JSON. Built on first use,
+// not at load: eighteen tables of sixteen keyframes is a second of work, and
+// the panel opening is no time to do it (the producer: "very slow to open").
+// Only the workers build patches from them; the page's own core only measures.
+let tableTexts: Record<string, string> | null = null;
+const TABLES = (): Record<string, string> =>
+  (tableTexts ??= Object.fromEntries(TABLE_NAMES.map((n) => [n, tableJson(n) ?? ''])));
 
 /**
  * The recipe every candidate is made in: Vinny Bass 2, as the AI's
@@ -238,13 +244,13 @@ export interface MatchJob {
 
 /** The four closest patches, distinct in table or filter, ready to load. */
 export async function matchSound(job: MatchJob): Promise<Matched[]> {
-  const wasm = window.__GNARL_WASM__;
+  const wasm = engineWasm();
   if (!wasm) throw new Error('this build carries no engine to match with');
   const length = Math.min(job.audio.length, Math.round(1.25 * core.SR));
   const target = core.features(job.audio, length);
   const count = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1));
   const pool = workerPool(count, {
-    type: 'init', wasm: base64Bytes(wasm), tables: TABLES, baseText: job.baseText, target, length, midi: job.midi,
+    type: 'init', wasm: base64Bytes(wasm), tables: TABLES(), baseText: job.baseText, target, length, midi: job.midi,
   });
   try {
     const ranked = await searchRecipe({
@@ -296,13 +302,13 @@ function enginePool(wasm: string): ReturnType<typeof workerPool> {
  * the page's engine (RIDDIMIZE's USE MY SOUND); null without an engine.
  */
 export async function renderPatch(patch: string, midi: number, seconds: number): Promise<Float32Array | null> {
-  const wasm = window.__GNARL_WASM__;
+  const wasm = engineWasm();
   if (!wasm || typeof Worker === 'undefined') return null;
   return enginePool(wasm).render(patch, midi, seconds);
 }
 
 export async function levelPatches(patches: string[]): Promise<string[]> {
-  const wasm = window.__GNARL_WASM__;
+  const wasm = engineWasm();
   if (!wasm || typeof Worker === 'undefined') return patches;
   try {
     enginePool(wasm);

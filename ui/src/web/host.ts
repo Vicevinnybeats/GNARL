@@ -6,18 +6,15 @@
  * window.__JUCE__ (bridge.ts). So this installs a window.__JUCE__ whose other
  * end is the worklet, speaking the same protocol as src/plugin/web_panel.cpp,
  * and the rest of the page cannot tell the difference. Only the web page
- * carries the engine: dist/gnarl-web.html defines window.__GNARL_WASM__,
- * the plugin's page does not.
+ * carries the engine as data (data.ts); in the plugin, where window.__JUCE__
+ * exists, it serves MATCH only.
  */
 
 import coreSource from './engine-core.js?raw';
+import { engineWasm, hasEngineData } from '../data';
 import workletSource from './worklet.js?raw';
 
 declare global {
-  interface Window {
-    /** The engine, base64 (scripts/inline.mjs, web build only). */
-    __GNARL_WASM__?: string;
-  }
   interface Navigator {
     /** Safari 17+: 'playback' plays through the ring/silent switch. */
     audioSession?: { type: string };
@@ -27,7 +24,7 @@ declare global {
 type Listener = (payload: unknown) => void;
 
 export function hasWebEngine(): boolean {
-  return typeof window.__GNARL_WASM__ === 'string' && window.__JUCE__ === undefined;
+  return hasEngineData() && window.__JUCE__ === undefined;
 }
 
 function decodeBase64(text: string): ArrayBuffer {
@@ -56,7 +53,7 @@ let context: AudioContext | null = null;
  * Resolves once window.__JUCE__ is in place for bridge.connect().
  */
 export async function startWebEngine(): Promise<void> {
-  const wasmText = window.__GNARL_WASM__;
+  const wasmText = engineWasm();
   if (!wasmText) throw new Error('no engine in this page');
   if (navigator.audioSession) navigator.audioSession.type = 'playback';
   context = new AudioContext({ latencyHint: 'interactive' });

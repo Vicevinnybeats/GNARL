@@ -46,6 +46,8 @@ class SynthEditor : public AudioProcessorEditor, public SynthGuiInterface {
   #endif
 
   private:
+    void setUpVitalEditor();
+
   #if GNARL_WEB_UI
     std::unique_ptr<WebPanel> web_panel_;
   #endif

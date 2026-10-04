@@ -65,7 +65,8 @@ const PHONE_URL = 'https://github.com/Vicevinnybeats/GNARL/releases/latest/downl
 try {
   const response = await fetch(PHONE_URL, { redirect: 'follow' });
   const page = response.ok ? await response.text() : '';
-  if (page.includes('__GNARL_WASM__') && page.length > 500_000) {
+  // The engine's block (ui/src/data.ts), or the global it was before 2026-10-04.
+  if ((page.includes('id="gnarl-wasm"') || page.includes('__GNARL_WASM__')) && page.length > 500_000) {
     //  What makes it an installable app (site/public/app: the manifest, the
     //  icons, the worker): linked here rather than in ui/, because the same
     //  page is also embedded in the plugin and published elsewhere, where

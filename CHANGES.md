@@ -642,3 +642,15 @@ the merge commit forward: `git log 7651809..`.
 - TIPS points at each control in turn (ring, arrow, a bubble with BACK /
   NEXT) instead of listing steps; it opens the phone tab or FX page a
   control is on. ui/src/tour.ts; the recipe list moved there from main.ts.
+
+## 2026-10-04 - Faster opening; FL Studio's keys
+
+- The plugin window no longer builds Vital's editor behind the panel; it is
+  built when ADVANCED is first pressed (synth_editor.cpp,
+  synth_gui_interface.cpp: createGui(), and a missing editor tolerated).
+- The panel builds MATCH's wavetables on first use, not at load, and carries
+  its patches and engine as inert data blocks (ui/src/data.ts), each
+  wavetable stored once.
+- F1-F12 and Space in the panel go to the host's window, as from Vital's
+  editor (src/plugin/host_keys.cpp, Windows), so FL Studio's F5/F6 work and
+  F5 no longer reloads the panel.

@@ -36,6 +36,7 @@ import type { Display } from './widgets';
 import { drumsSheet } from './drums/sheet';
 import { riddimizeSheet } from './riddimize/sheet';
 import { tour } from './tour';
+import { hasEngineData } from './data';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
 import { TABLE_NAMES, TABLES } from './wavetables';
 import { FX_PRESETS } from './fxpresets';
@@ -498,7 +499,7 @@ function evolveSheet(): { open(): void } {
   const cancel = chipButton('STOP');
   const progress = el('div', 'evolve__progress', status, bar, cancel);
   progress.hidden = true;
-  matchButton.hidden = typeof window.__GNARL_WASM__ !== 'string';
+  matchButton.hidden = !hasEngineData();
   const root = el('div', 'evolve', el('div', 'evolve__head', title, closeButton), hint,
     el('div', 'evolve__matchrow', mineButton, matchButton, file), progress, grid,
     el('div', 'evolve__actions', back, fresh, keep),
@@ -1851,6 +1852,13 @@ function clock(): number {
 // Computer keys for the desktop preview: A W S E D F T G Y H U J K = C2..C3.
 const COMPUTER_KEYS = 'awsedftgyhujk';
 
+/** F1-F12 and Space, outside a text field: keys the panel has no use for. */
+function isHostKey(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return false;
+  return (e.keyCode >= 112 && e.keyCode <= 123) || e.key === ' ';
+}
+
 function start(): void {
   stage = el('div', 'stage');
   desktopApp = desktop();
@@ -1881,6 +1889,20 @@ function start(): void {
     noteOff(36 + i, clock());
     for (const v of keyViews) v();
   });
+
+  // In the plugin, the host's window keys - FL Studio's F5 playlist, F6
+  // channel rack, F7 piano roll, F9 mixer, Space to play - go to the host,
+  // as they do from Vital's editor: the web view would keep them (and F5
+  // would reload the panel). web_panel.cpp posts them to the host's window.
+  if (isPlugin()) {
+    for (const type of ['keydown', 'keyup'] as const) {
+      window.addEventListener(type, (e) => {
+        if (!isHostKey(e)) return;
+        e.preventDefault();
+        window.__JUCE__?.backend.emitEvent('gnarlHostKey', { keyCode: e.keyCode, down: type === 'keydown', alt: e.altKey });
+      });
+    }
+  }
 
   const frame = (): void => {
     const t = clock();

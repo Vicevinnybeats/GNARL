@@ -7,6 +7,7 @@ import { exportWav, revealExports } from '../audio/export.ts';
 import { isPreviewing, playPreview, stopPreview } from '../audio/preview.ts';
 import { decodeAudio, renderPatch } from '../match/match.ts';
 import { engine } from '../engine.ts';
+import { hasEngineData } from '../data.ts';
 import { currentPatch } from '../web/presets.ts';
 import { chipButton, el } from '../widgets.ts';
 import { DEFAULTS, FILTERS, LENGTHS, randomSettings, RHYTHMS, riddimize } from './riddimize.ts';
@@ -33,7 +34,7 @@ export function riddimizeSheet(): { open(): void } {
   file.hidden = true;
   const choose = chipButton('CHOOSE SAMPLE', 'violet');
   const mine = chipButton('USE MY SOUND');
-  mine.hidden = typeof window.__GNARL_WASM__ !== 'string';
+  mine.hidden = !hasEngineData();
   const source = el('div', 'drums__from', 'No sound yet: choose a sample or drop one here.');
   const controls = el('div', 'riddim__controls');
   const status = el('div', 'evolve__status drums__status');

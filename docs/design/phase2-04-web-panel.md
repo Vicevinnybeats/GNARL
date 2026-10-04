@@ -139,6 +139,34 @@ it assumes the editor made the change. Switching to the editor now calls
 On Windows the panel needs the **WebView2 runtime**, which Windows 11 and
 updated Windows 10 include.
 
+## Opening fast, and the host's keys (2026-10-04)
+
+The producer: the plugin "takes some time to load... Serum or Vital open
+much faster", and "when I press F5 or F6 in FL Studio it doesn't open or
+close". Measured, three costs, each removed:
+
+| Cost | Where | Before | After |
+|---|---|---|---|
+| Vital's editor, built hidden behind the panel on every open | `SynthEditor` | 2.8 s (Linux, Xvfb, software GL) | built when ADVANCED is first pressed |
+| MATCH's eighteen wavetables, built at page load | `match.ts` | ~1.6 s of the page's 2.4 s | built on MATCH's first use |
+| 12 MB of patches and engine as JavaScript string literals | `inline.mjs` | parsed as code before the panel ran | inert `<script type="text/plain">` blocks, read on first use (`src/data.ts`); each wavetable stored once (45 patches, 230 distinct tables: 14.3 MB -> 7.6 MB) |
+
+The page (headless Chromium, desktop size, three loads each): visible after
+2.3-2.5 s before, 0.44-0.58 s after. The editor's construction to a made
+panel: 189 ms on Linux. WebView2's own start-up on Windows is not measured
+here. Pressing ADVANCED now builds Vital's editor (checked under Xvfb: it
+appears, and the G logo returns to the panel).
+
+**Keys.** A JUCE component that ignores a key posts it to the host's window
+(`forwardMessageToParent`), which is how FL Studio's F5/F6/F7/F9 and Space
+reach FL from Vital's editor. The web view keeps every key for itself - and
+F5 there means reload the page. The panel now takes F1-F12 and Space
+(outside text fields), stops the web view acting on them, and sends
+`gnarlHostKey`; `src/plugin/host_keys.cpp` posts the key to the editor
+window's parent exactly as JUCE does. Windows only for now: macOS and Linux
+hosts are untested with the panel. `bridge.test.mjs` checks the keys sent;
+that FL acts on them needs FL.
+
 ## Next
 
 1. The producer opens the `GNARL-windows-vst3-juce8` artifact in FL Studio

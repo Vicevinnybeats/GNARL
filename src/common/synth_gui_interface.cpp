@@ -12,6 +12,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by Gnarl Audio, 2026: createGui(), and a missing editor tolerated.
  */
 
 #include "synth_gui_interface.h"
@@ -33,6 +35,7 @@ SynthGuiData::SynthGuiData(SynthBase* synth_base) : synth(synth_base) {
 #if HEADLESS
 
 SynthGuiInterface::SynthGuiInterface(SynthBase* synth, bool use_gui) : synth_(synth) { }
+void SynthGuiInterface::createGui() { }
 SynthGuiInterface::~SynthGuiInterface() { }
 void SynthGuiInterface::updateFullGui() { }
 void SynthGuiInterface::updateGuiControl(const std::string& name, vital::mono_float value) { }
@@ -56,13 +59,16 @@ void SynthGuiInterface::setGuiSize(float scale) { }
 #include "full_interface.h"
 
 SynthGuiInterface::SynthGuiInterface(SynthBase* synth, bool use_gui) : synth_(synth) {
-  if (use_gui) {
-    LineGenerator* lfo_sources[vital::kNumLfos];
-    for (int i = 0; i < vital::kNumLfos; ++i)
-      lfo_sources[i] = synth->getLfoSource(i);
-    SynthGuiData synth_data(synth_);
-    gui_ = std::make_unique<FullInterface>(&synth_data);
-  }
+  if (use_gui)
+    createGui();
+}
+
+void SynthGuiInterface::createGui() {
+  if (gui_ != nullptr)
+    return;
+
+  SynthGuiData synth_data(synth_);
+  gui_ = std::make_unique<FullInterface>(&synth_data);
 }
 
 SynthGuiInterface::~SynthGuiInterface() { }
@@ -87,10 +93,16 @@ vital::mono_float SynthGuiInterface::getControlValue(const std::string& name) {
 }
 
 void SynthGuiInterface::notifyModulationsChanged() {
+  if (gui_ == nullptr)
+    return;
+
   gui_->modulationChanged();
 }
 
 void SynthGuiInterface::notifyModulationValueChanged(int index) {
+  if (gui_ == nullptr)
+    return;
+
   gui_->modulationValueChanged(index);
 }
 
@@ -117,7 +129,8 @@ void SynthGuiInterface::initModulationValues(const std::string& source, const st
 
   std::string power_name = "modulation_" + std::to_string(connection_index + 1) + "_power";
   synth_->valueChanged(power_name, 0.0f);
-  gui_->setValue(power_name, 0.0f, NotificationType::dontSendNotification);
+  if (gui_ != nullptr)
+    gui_->setValue(power_name, 0.0f, NotificationType::dontSendNotification);
 }
 
 void SynthGuiInterface::setModulationValues(const std::string& source, const std::string& destination,
@@ -140,6 +153,9 @@ void SynthGuiInterface::setModulationValues(const std::string& source, const std
   synth_->valueChanged(bipolar_name, bipolar_amount);
   synth_->valueChanged(stereo_name, stereo_amount);
   synth_->valueChanged(bypass_name, bypass_amount);
+  if (gui_ == nullptr)
+    return;
+
   gui_->setValue(amount_name, amount, NotificationType::dontSendNotification);
   gui_->setValue(bipolar_name, bipolar_amount, NotificationType::dontSendNotification);
   gui_->setValue(stereo_name, stereo_amount, NotificationType::dontSendNotification);

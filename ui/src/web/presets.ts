@@ -11,14 +11,10 @@
  */
 
 import factory from './factory.json';
+import { builtInPatches } from '../data';
 
-// Every built-in patch (presets/*.vital), bundled into the page, by name.
-// factory.json says which are starting sounds, and in what order.
-const PATCHES: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(
-    import.meta.glob<string>('../../../presets/*.vital', { query: '?raw', import: 'default', eager: true }),
-  ).map(([path, text]) => [path.replace(/^.*\//, '').replace(/\.vital$/, ''), text]),
-);
+// Every built-in patch (presets/*.vital) is in the page as data, by name
+// (data.ts). factory.json says which are starting sounds, and in what order.
 
 interface Stored {
   name: string;
@@ -174,11 +170,11 @@ export const FACTORY_SOUNDS = factory.sounds as unknown as readonly FactorySound
 
 /** A built-in patch's .vital text (presets/*.vital), by name. */
 export function builtInPatch(name: string): string | undefined {
-  return PATCHES[name];
+  return builtInPatches()[name];
 }
 
 export function loadFactory(sound: FactorySound): void {
-  const patch = sound.patch === undefined ? undefined : PATCHES[sound.patch];
+  const patch = sound.patch === undefined ? undefined : builtInPatches()[sound.patch];
   window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });
 }
 

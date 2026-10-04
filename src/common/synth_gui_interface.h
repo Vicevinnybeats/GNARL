@@ -13,7 +13,8 @@
  * You should have received a copy of the GNU General Public License
  * along with vital.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Modified by Gnarl Audio, 2026: showGnarlPanel() for the web panel.
+ * Modified by Gnarl Audio, 2026: showGnarlPanel() for the web panel;
+ * createGui() so the editor can be built when first shown.
  */
 
 #pragma once
@@ -73,6 +74,11 @@ class SynthGuiInterface {
     void externalPresetLoaded(File preset);
     void setGuiSize(float scale);
     FullInterface* getGui() { return gui_.get(); }
+
+    // GNARL: builds Vital's editor if it does not exist yet. The web panel's
+    // host builds it only when ADVANCED is pressed: hidden behind the panel
+    // it cost seconds every time the plugin window opened.
+    void createGui();
 
   protected:
     SynthBase* synth_;

@@ -9,6 +9,7 @@
 #include "web_panel.h"
 
 #include "GnarlUiData.h"
+#include "host_keys.h"
 #include "line_generator.h"
 #include "load_save.h"
 #include "synth_constants.h"
@@ -96,6 +97,7 @@ namespace {
   const Identifier kExportWav("gnarlExportWav");
   const Identifier kExported("gnarlExported");
   const Identifier kRevealExports("gnarlRevealExports");
+  const Identifier kHostKey("gnarlHostKey");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -155,6 +157,7 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kPresetRemove, [this](const var& event) { removePresetFile(event); })
       .withEventListener(kExportWav, [this](const var& event) { exportWav(event); })
       .withEventListener(kRevealExports, [this](const var&) { revealExports(); })
+      .withEventListener(kHostKey, [this](const var& event) { hostKey(event); })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -506,6 +509,13 @@ void WebPanel::exportWav(const var& event) {
       reply->setProperty("error", "Could not write " + file.getFullPathName());
   }
   browser_->emitEventIfBrowserIsVisible(kExported, var(reply.get()));
+}
+
+void WebPanel::hostKey(const var& event) {
+  // host_keys.cpp: FL Studio's window keys reach FL, as from Vital's editor.
+  if (auto* peer = getPeer())
+    forwardKeyToHost(peer->getNativeHandle(), static_cast<int>(event["keyCode"]),
+                     static_cast<bool>(event["down"]), static_cast<bool>(event["alt"]));
 }
 
 void WebPanel::revealExports() {

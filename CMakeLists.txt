@@ -315,6 +315,7 @@ juce_add_binary_data(gnarl_ui_data
 
 target_sources(gnarl_plugin PRIVATE
   src/plugin/web_panel.cpp
+  src/plugin/host_keys.cpp
   ${GNARL_LICENCE_SOURCES}
   src/unity_build/common.cpp
   src/unity_build/interface_editor_components.cpp

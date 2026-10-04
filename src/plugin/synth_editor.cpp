@@ -13,7 +13,8 @@
  * You should have received a copy of the GNU General Public License
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
  *
- * Modified by Gnarl Audio, 2026: hosts GNARL's web panel (JUCE 8 builds).
+ * Modified by Gnarl Audio, 2026: hosts GNARL's web panel (JUCE 8 builds), and
+ * builds Vital's editor only when it is first shown.
  */
 
 #include "synth_editor.h"
@@ -23,33 +24,39 @@
 #include "synth_plugin.h"
 #include "load_save.h"
 
+// GNARL: with the web panel, Vital's editor is not built until ADVANCED asks
+// for it. Hidden behind the panel it was built anyway, every time the window
+// opened - seconds of work before the panel could start (the producer: "very
+// slow to open, Serum or Vital open much faster").
+#if GNARL_WEB_UI
+  static constexpr bool kBuildVitalEditor = false;
+#else
+  static constexpr bool kBuildVitalEditor = true;
+#endif
+
 SynthEditor::SynthEditor(SynthPlugin& synth) :
-    AudioProcessorEditor(&synth), SynthGuiInterface(&synth), synth_(synth), was_animating_(true) {
+    AudioProcessorEditor(&synth), SynthGuiInterface(&synth, kBuildVitalEditor), synth_(synth),
+    was_animating_(true) {
   static constexpr int kHeightBuffer = 50;
   
   setLookAndFeel(DefaultLookAndFeel::instance());
 
   Authentication::create();
-  gui_->reset();
-  gui_->setOscilloscopeMemory(synth.getOscilloscopeMemory());
-  gui_->setAudioMemory(synth.getAudioMemory());
-  gui_->animate(LoadSave::shouldAnimateWidgets());
 
   constrainer_.setMinimumSize(vital::kMinWindowWidth, vital::kMinWindowHeight);
   double ratio = (1.0 * vital::kDefaultWindowWidth) / vital::kDefaultWindowHeight;
   constrainer_.setFixedAspectRatio(ratio);
-  constrainer_.setGui(gui_.get());
   setConstrainer(&constrainer_);
 
   Rectangle<int> total_bounds = Desktop::getInstance().getDisplays().getTotalBounds(true);
   total_bounds.removeFromBottom(kHeightBuffer);
 
-  addAndMakeVisible(gui_.get());
-
 #if GNARL_WEB_UI
   web_panel_ = std::make_unique<WebPanel>(synth, [this] { showClassicEditor(); });
   addAndMakeVisible(web_panel_.get());
-  gui_->setVisible(false);
+#else
+  setUpVitalEditor();
+  addAndMakeVisible(gui_.get());
 #endif
 
   float window_size = LoadSave::loadWindowSize();
@@ -61,9 +68,19 @@ SynthEditor::SynthEditor(SynthPlugin& synth) :
   setSize(width, height);
 }
 
+void SynthEditor::setUpVitalEditor() {
+  createGui();
+  gui_->reset();
+  gui_->setOscilloscopeMemory(synth_.getOscilloscopeMemory());
+  gui_->setAudioMemory(synth_.getAudioMemory());
+  gui_->animate(LoadSave::shouldAnimateWidgets());
+  constrainer_.setGui(gui_.get());
+}
+
 void SynthEditor::resized() {
   AudioProcessorEditor::resized();
-  gui_->setBounds(getLocalBounds());
+  if (gui_)
+    gui_->setBounds(getLocalBounds());
 #if GNARL_WEB_UI
   web_panel_->setBounds(getLocalBounds());
 #endif
@@ -71,12 +88,18 @@ void SynthEditor::resized() {
 
 #if GNARL_WEB_UI
 bool SynthEditor::showGnarlPanel() {
-  gui_->setVisible(false);
+  if (gui_)
+    gui_->setVisible(false);
   web_panel_->setVisible(true);
   return true;
 }
 
 void SynthEditor::showClassicEditor() {
+  if (gui_ == nullptr) {
+    setUpVitalEditor();
+    addChildComponent(gui_.get());
+    gui_->setBounds(getLocalBounds());
+  }
   web_panel_->setVisible(false);
   // The panel sets values the way Vital's own knobs do, which does not
   // redraw Vital's knobs: bring the hidden editor up to date first.
@@ -89,7 +112,8 @@ void SynthEditor::showClassicEditor() {
 
 void SynthEditor::setScaleFactor(float newScale) {
   AudioProcessorEditor::setScaleFactor(newScale);
-  gui_->redoBackground();
+  if (gui_)
+    gui_->redoBackground();
 }
 
 void SynthEditor::updateFullGui() {

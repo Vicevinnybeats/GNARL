@@ -521,6 +521,22 @@ check((await presetLog('gnarlPresetInit')).length === 1, 'INIT asks the plugin f
   await page.evaluate(() => document.querySelectorAll('.evolve').forEach((e) => (e.hidden = true)));
 }
 
+// FL Studio's window keys go to the host (web_panel.cpp posts them to FL's
+// window): F5, F6 and Space, down and up - and not a note key, nor typing.
+{
+  const hostKeys = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlHostKey').map(([, p]) => p));
+  const before = (await hostKeys()).length;
+  await page.locator('.app .brand__word').first().click({ force: true }).catch(() => {});
+  for (const key of ['F5', 'F6', ' ']) await page.keyboard.press(key);
+  await page.keyboard.press('a');
+  await page.waitForTimeout(100);
+  const sent = (await hostKeys()).slice(before);
+  check(sent.length === 6 && sent[0].keyCode === 116 && sent[0].down === true && sent[1].down === false &&
+    sent[2].keyCode === 117 && sent[4].keyCode === 32,
+    `F5, F6 and Space go to FL, down and up; a note key does not: ${JSON.stringify(sent.map((k) => [k.keyCode, k.down]))}`);
+  check(await page.locator('.app').isVisible(), 'F5 did not reload the panel');
+}
+
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
 const before = await sets();
