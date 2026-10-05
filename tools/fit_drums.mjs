@@ -209,7 +209,9 @@ if (process.argv[1]?.endsWith('fit_drums.mjs') && process.argv[2] === '--stamp')
   };
   const kits = [];
   for (const t of prints.tracks) {
-    const kit = { name: t.name, bpm: t.bpm };
+    // Numbered, not named: kits.json ships inside the plugin, and the
+    // producer asked that no track be named there. The log names them.
+    const kit = { name: `KIT ${String(kits.length + 1).padStart(2, '0')}`, bpm: t.bpm };
     for (const row of ['kick', 'snare']) {
       const target = t[row];
       if (!target) continue;

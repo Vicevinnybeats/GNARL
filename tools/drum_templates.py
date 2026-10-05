@@ -23,17 +23,11 @@ the page plays from (docs/design/phase4-06-drums-riddimize.md):
 
 import json
 import os
-import re
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 TICKS = 48
 SNARE_TICK = 24
 
-
-def short(name):
-    name = re.sub(r'\.(mp3|wav|flac)$', '', name, flags=re.I)
-    name = re.sub(r'_?(free|freebie|free_download|direct_download|free_dl)\b.*$', '', name, flags=re.I)
-    return re.sub(r'[_\s]+', ' ', name).strip()[:32]
 
 
 def to_grid(prob):
@@ -69,7 +63,10 @@ def main():
                 grid, steps = to_grid(p[k])
                 rows[k] = {'grid': grid, 'steps': steps}
             out.append({
-                'name': short(track['file']) + (f' {i + 1}' if len(track['drops']) > 1 else ''),
+                # Numbered, not named: the page ships inside the plugin, and the
+                # producer asked that no track be named there. references/
+                # drums.json, which is not shipped, keeps the names.
+                'name': f'{len(out) + 1:02d}',
                 'bpm': track['bpm'],
                 'rows': rows,
                 'sound': drop['sound'],

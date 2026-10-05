@@ -26,7 +26,7 @@ export function drumsSheet(): { open(): void } {
   closeButton.type = 'button';
   closeButton.setAttribute('aria-label', 'Close the drums');
   const hint = el('p', 'evolve__hint',
-    'Kick on 1, snare on 3, hats your way. GENERATE rolls every row; RND rolls one row, LOCK keeps it. ' +
+    'Kick on 1, snare on 3, hats your way. The kicks and snares are fitted to riddim tracks you sent. GENERATE rolls every row; RND rolls one row, LOCK keeps it. ' +
     '< > steps through a row\'s patterns. Tap a step to change it (tap a HAT step again for a roll: 2, then 3). ' +
     'PLAY, then EXPORT a 4-bar WAV for your playlist.');
   const status = el('div', 'evolve__status drums__status');
@@ -78,7 +78,7 @@ export function drumsSheet(): { open(): void } {
       return n;
     }));
     grid.replaceChildren(beats, ...ROWS.map((row) => drawRow(row)));
-    from.textContent = `kick from ${loop.sources.kick} / snare from ${loop.sources.snare}`;
+    from.textContent = `kick: ${loop.sources.kick} / snare: ${loop.sources.snare}`;
   };
 
   const drawRow = (row: Row): HTMLElement => {
@@ -103,7 +103,7 @@ export function drumsSheet(): { open(): void } {
     dice.addEventListener('click', () => {
       randomizeRow(loop, row);
       redraw();
-      say(`${ROW_NAMES[row]}: ${PATTERNS[row][loop.picks[row]]?.name ?? ''}, sound from ${loop.sources[row]}.`);
+      say(`${ROW_NAMES[row]}: ${PATTERNS[row][loop.picks[row]]?.name ?? ''}, sound ${loop.sources[row]}.`);
     });
     const lock = chipButton('LOCK');
     lock.classList.add('drums__lock');
@@ -153,7 +153,7 @@ export function drumsSheet(): { open(): void } {
       line.replaceWith(drawRow(row));
       // The row's old cells leave the playhead's list with it.
       for (const list of cellsByStep) for (let k = list.length - 1; k >= 0; k -= 1) if (!list[k]?.isConnected) list.splice(k, 1);
-      from.textContent = `kick from ${loop.sources.kick} / snare from ${loop.sources.snare}`;
+      from.textContent = `kick: ${loop.sources.kick} / snare: ${loop.sources.snare}`;
       drawKnobs();
       lastStep = -1;
       restart();

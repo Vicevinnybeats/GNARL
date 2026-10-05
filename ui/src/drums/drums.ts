@@ -199,7 +199,8 @@ function rowSound(row: Row, t: Template, r: () => number): Partial<DrumSound> {
  * Kicks and snares fitted to the producer's tracks (tools/drum_prints.py ->
  * tools/fit_drums.mjs -> kits.json): GNARL's synth settings whose
  * fingerprint is closest to each track's, and how close (dB). Used as they
- * are - the producer asked for them to sound the same as the tracks.
+ * are - the producer asked for them to sound the same as the tracks. Named
+ * KIT 01, KIT 02...: the producer asked that no track be named in the plugin.
  */
 export interface Kit {
   name: string;
@@ -210,12 +211,16 @@ export interface Kit {
 }
 export const KITS = (kitFile as unknown as { kits: Kit[] }).kits.filter((k) => k.kick && k.snare);
 
-/** One row's sound from template `t`, put in the loop: a kick or snare from its track's kit (or another's). */
-function setSound(loop: DrumLoop, row: Row, t: Template, r: () => number): void {
+/**
+ * One row's sound put in the loop: a kick or snare from kit `kit` (a random
+ * one if not given), as fitted; a hat from template `t`'s measured numbers.
+ */
+function setSound(loop: DrumLoop, row: Row, t: Template, r: () => number, kit?: number): void {
   if ((row === 'kick' || row === 'snare') && KITS.length) {
-    const kit = KITS.find((k) => t.name.startsWith(k.name)) ?? KITS[Math.floor(r() * KITS.length)]!;
-    Object.assign(loop.sound, { [row]: { ...kit[row] } });
-    loop.sources[row] = kit.name;
+    const k = kit ?? Math.floor(r() * KITS.length);
+    const chosen = KITS[k % KITS.length]!;
+    Object.assign(loop.sound, { [row]: { ...chosen[row] } });
+    loop.sources[row] = chosen.name;
     return;
   }
   Object.assign(loop.sound, rowSound(row, t, r));
@@ -225,12 +230,12 @@ function setSound(loop: DrumLoop, row: Row, t: Template, r: () => number): void 
 
 /**
  * Re-rolls one row, as DrumSmith's dice does: a pattern from the row's list
- * and a sound from one of the producer's tracks.
+ * and a sound (a kick or snare from a fitted kit, `kit` if given).
  */
-export function randomizeRow(loop: DrumLoop, row: Row, r: () => number = Math.random): void {
+export function randomizeRow(loop: DrumLoop, row: Row, r: () => number = Math.random, kit?: number): void {
   applyPattern(loop, row, Math.floor(r() * PATTERNS[row].length));
   const t = TEMPLATES[Math.floor(r() * TEMPLATES.length)] ?? TEMPLATES[0];
-  if (t) setSound(loop, row, t, r);
+  if (t) setSound(loop, row, t, r, kit);
 }
 
 /*
@@ -252,6 +257,9 @@ export function generateLoop(seed: number, templateIndex?: number,
     sound: {} as DrumSound,
   };
   const fixed = templateIndex === undefined ? undefined : TEMPLATES[templateIndex];
+  // The kick and snare of a new loop come from one kit: they were fitted
+  // together (the snare over its kit's kick, kickLayer).
+  const kit = Math.floor(r() * Math.max(1, KITS.length));
   for (const row of ROWS) {
     const from = options.from;
     if (from && options.keep?.includes(row)) {
@@ -265,9 +273,9 @@ export function generateLoop(seed: number, templateIndex?: number,
       Object.assign(loop.sound, { [row]: { ...from.sound[row] } });
     } else if (fixed) {
       applyPattern(loop, row, Math.floor(r() * PATTERNS[row].length));
-      setSound(loop, row, fixed, r);
+      setSound(loop, row, fixed, r, kit);
     } else {
-      randomizeRow(loop, row, r);
+      randomizeRow(loop, row, r, kit);
     }
   }
   return loop;

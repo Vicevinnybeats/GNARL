@@ -14,6 +14,7 @@
    fitted again.
 """
 
+import glob
 import json
 import os
 import subprocess
@@ -77,6 +78,62 @@ for kit in out['kits']:
         continue
     worst = max(db_apart(kit['kick'], stored['kick']), db_apart(kit['snare'], stored['snare']))
     check(worst < 0.01, f'{kit["name"]}: kick and snare sound as fitted (largest cell {worst:.3f} dB apart)')
+
+# 3. No track named in what ships (the producer: "don't show the tracks in the
+#    plugin"). The names are the reference files' words (references/
+#    drums.json, which does not ship); what is checked is every text a
+#    person can read - preset names and comments, the drum data, the panel's
+#    code - not wavetable data, whose random base64 spells words by chance.
+import re  # noqa: E402
+
+refs = json.load(open(os.path.join(ROOT, 'references', 'drums.json')))
+COMMON = {'free', 'freebie', 'download', 'direct', 'remix', 'clip', 'special', 'club', 'follower', 'mp3',
+          'the', 'city', 'dub', 'space', 'jogged', 'chaser', 'phones',
+          'meta'}  # 'meta' alone is HTML's tag; 'meta 800' is checked below
+words = set()
+for t in refs['tracks']:
+    for w in re.split(r'[^a-z0-9]+', t['file'].lower()):
+        if len(w) >= 4 and w not in COMMON and not w.isdigit():
+            words.add(w)
+for extra in ('6:25:300', '6_25_300', 'meta 800', 'meta_800'):
+    words.add(extra)
+
+
+def texts(value):
+    """Every string in a JSON value shorter than 400 characters (a name, a comment, a label)."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            yield k
+            yield from texts(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from texts(v)
+    elif isinstance(value, str) and len(value) < 400:
+        yield value
+
+
+def named(text):
+    low = text.lower()
+    return sorted(w for w in words if re.search(r'(?<![a-z0-9])' + re.escape(w) + r'(?![a-z0-9])', low))
+
+
+found = []
+shipped = sorted(glob.glob(os.path.join(ROOT, 'presets', '**', '*.vital'), recursive=True)) + \
+    [os.path.join(ROOT, 'ui', 'src', 'drums', f) for f in ('templates.json', 'kits.json')] + \
+    [os.path.join(ROOT, 'ui', 'src', 'web', 'factory.json')]
+for path in shipped:
+    for text in texts(json.load(open(path))):
+        hit = named(text)
+        if hit:
+            found.append(f'{os.path.relpath(path, ROOT)}: {hit} in "{text[:60]}"')
+page = os.path.join(ROOT, 'ui', 'dist', 'gnarl-ui.html')
+if os.path.exists(page):
+    html = open(page).read()
+    # The page's code and words, without its inert data blocks (checked above as files).
+    code = re.sub(r'<script type="text/plain"[^>]*>.*?</script>', '', html, flags=re.S)
+    for hit in named(code):
+        found.append(f'ui/dist/gnarl-ui.html: {hit}')
+check(len(words) > 20 and not found, f'no reference track named in what ships ({len(words)} names checked)' + (f': {found[:6]}' if found else ''))
 
 print(f'\n{len(failures)} failure(s)')
 sys.exit(len(failures))

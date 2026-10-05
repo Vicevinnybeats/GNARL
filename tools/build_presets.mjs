@@ -94,11 +94,11 @@ export const PRESETS = [
   // closer on both measures than any earlier preset. Loudest of D1, F1,
   // D#2 and F2 at -3 dBFS.
   ...[
-    ['Sig Wob 1', 4706, 'Matched to the signature wob of 6:25:300: the Metal table, bend warp, dirty filter, one wob.'],
-    ['Sig Wob 2', 5747, 'Matched to the signature wob of cemeteryf0g: the Pulse table, bend warp, one wob.'],
-    ['Sig Wob 3', 5673, 'Matched to the signature wob of drac07: the Pulse table through the formant filter, one wob.'],
-    ['Sig Wob 4', 5822, 'Matched to the signature wob of lily: a saw, formant warp, analog filter, one wob at 1/8T.'],
-    ['Sig Wob 5', 5702, 'Matched to the signature wob of meta 800: a saw, sync warp, dirty filter, one wob at 1/8T.'],
+    ['Sig Wob 1', 4706, 'Matched to the signature wob of a reference track: the Metal table, bend warp, dirty filter, one wob.'],
+    ['Sig Wob 2', 5747, 'Matched to the signature wob of a reference track: the Pulse table, bend warp, one wob.'],
+    ['Sig Wob 3', 5673, 'Matched to the signature wob of a reference track: the Pulse table through the formant filter, one wob.'],
+    ['Sig Wob 4', 5822, 'Matched to the signature wob of a reference track: a saw, formant warp, analog filter, one wob at 1/8T.'],
+    ['Sig Wob 5', 5702, 'Matched to the signature wob of a reference track: a saw, sync warp, dirty filter, one wob at 1/8T.'],
   ].map(([name, volume, about]) => ({ name, about, comment: about, source: `presets/source/matched/${name}.vital`, settings: { volume } })),
 
   // ----- Matched (docs/design/phase4-02-matcher.md): tools/match.py's best
@@ -106,12 +106,12 @@ export const PRESETS = [
   // measure than any sound GNARL had (3.1-4.1 dB against 4.2-7.1). Volumes
   // put the loudest of D1, F1, D#2 and F2 at -3 dBFS.
   ...[
-    ['Ref Wob 1', 5929, 'Matched to a two-beat wob (6:25:300): the Screech table with a sync warp, once over a bar.'],
-    ['Ref Wob 2', 5928, 'Matched to a two-beat wob (cemeteryf0g): the Croak table through the comb filter, looping at 1/2.'],
-    ['Ref Wob 3', 5616, 'Matched to a two-beat wob (drac07): the Croak table through the formant filter, looping at 1/2.'],
-    ['Ref Wob 4', 5743, 'Matched to a one-beat wob (lily): the Pulse table through the formant filter, looping at 1/8T.'],
-    ['Ref Wob 5', 4143, 'Matched to a one-beat wob (meta 800): a saw through the formant filter, looping at 1/2.'],
-    ['Ref Wob 6', 4664, 'Matched to a two-beat wob (meta 800): the Comb table, once at 1/8T.'],
+    ['Ref Wob 1', 5929, 'Matched to a two-beat wob from a reference track: the Screech table with a sync warp, once over a bar.'],
+    ['Ref Wob 2', 5928, 'Matched to a two-beat wob from a reference track: the Croak table through the comb filter, looping at 1/2.'],
+    ['Ref Wob 3', 5616, 'Matched to a two-beat wob from a reference track: the Croak table through the formant filter, looping at 1/2.'],
+    ['Ref Wob 4', 5743, 'Matched to a one-beat wob from a reference track: the Pulse table through the formant filter, looping at 1/8T.'],
+    ['Ref Wob 5', 4143, 'Matched to a one-beat wob from a reference track: a saw through the formant filter, looping at 1/2.'],
+    ['Ref Wob 6', 4664, 'Matched to a two-beat wob from a reference track: the Comb table, once at 1/8T.'],
   ].map(([name, volume, about]) => ({ name, about, comment: about, source: `presets/source/matched/${name}.vital`, settings: { volume } })),
 
   // ----- Styles (docs/design/phase2-12-presets.md): the references' wob -
