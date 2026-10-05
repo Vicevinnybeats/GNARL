@@ -78,7 +78,7 @@ export function drumsSheet(): { open(): void } {
       return n;
     }));
     grid.replaceChildren(beats, ...ROWS.map((row) => drawRow(row)));
-    from.textContent = `sounds from ${loop.name}`;
+    from.textContent = `kick from ${loop.sources.kick} / snare from ${loop.sources.snare}`;
   };
 
   const drawRow = (row: Row): HTMLElement => {
@@ -153,7 +153,7 @@ export function drumsSheet(): { open(): void } {
       line.replaceWith(drawRow(row));
       // The row's old cells leave the playhead's list with it.
       for (const list of cellsByStep) for (let k = list.length - 1; k >= 0; k -= 1) if (!list[k]?.isConnected) list.splice(k, 1);
-      from.textContent = `sounds from ${loop.name}`;
+      from.textContent = `kick from ${loop.sources.kick} / snare from ${loop.sources.snare}`;
       drawKnobs();
       lastStep = -1;
       restart();
@@ -184,9 +184,9 @@ export function drumsSheet(): { open(): void } {
 
   // Four sliders over the sound: each scales what GENERATE or RND chose.
   const sliders: { label: string; get(): number; set(v: number): void; min: number; max: number }[] = [
-    { label: 'KICK TUNE', min: 70, max: 240, get: () => loop.sound.kick.pitchStart, set: (v) => (loop.sound.kick.pitchStart = v) },
-    { label: 'KICK LENGTH', min: 80, max: 400, get: () => loop.sound.kick.decayMs, set: (v) => (loop.sound.kick.decayMs = v) },
-    { label: 'SNARE LENGTH', min: 60, max: 300, get: () => loop.sound.snare.decayMs, set: (v) => (loop.sound.snare.decayMs = v) },
+    { label: 'KICK TUNE', min: 60, max: 400, get: () => loop.sound.kick.pitchStart, set: (v) => (loop.sound.kick.pitchStart = v) },
+    { label: 'KICK LENGTH', min: 60, max: 600, get: () => loop.sound.kick.decayMs, set: (v) => (loop.sound.kick.decayMs = v) },
+    { label: 'SNARE LENGTH', min: 40, max: 400, get: () => loop.sound.snare.decayMs, set: (v) => (loop.sound.snare.decayMs = v) },
     { label: 'HAT LENGTH', min: 20, max: 160, get: () => loop.sound.hat.decayMs, set: (v) => (loop.sound.hat.decayMs = v) },
   ];
   const drawKnobs = (): void => {

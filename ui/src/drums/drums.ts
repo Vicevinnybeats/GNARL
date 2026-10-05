@@ -12,6 +12,7 @@
  */
 
 import templateFile from './templates.json' with { type: 'json' };
+import kitFile from './kits.json' with { type: 'json' };
 
 export type Row = 'kick' | 'snare' | 'hat' | 'open';
 export const ROWS: readonly Row[] = ['kick', 'snare', 'hat', 'open'];
@@ -31,8 +32,22 @@ interface Template {
 export const TEMPLATES = (templateFile as unknown as { templates: Template[] }).templates;
 
 export interface DrumSound {
-  kick: { pitchStart: number; pitchEnd: number; sweepMs: number; decayMs: number; click: number; drive: number };
-  snare: { tone: number; noiseHz: number; decayMs: number; body: number; drive: number };
+  /**
+   * The kick: a sine falling from pitchStart to pitchEnd (sweepMs a time
+   * constant), held for holdMs then falling 20 dB in decayMs; a noise click
+   * of clickMs; tanh drive.
+   */
+  kick: { pitchStart: number; pitchEnd: number; sweepMs: number; decayMs: number; click: number; drive: number;
+    holdMs?: number; clickMs?: number };
+  /**
+   * The snare: a tone (body, falling 20 dB in bodyMs) under band-passed
+   * noise (noiseHz, noiseQ, falling in decayMs), a short bright crack, tanh
+   * drive, high-passed at hpHz.
+   */
+  snare: { tone: number; noiseHz: number; decayMs: number; body: number; drive: number;
+    noiseQ?: number; bodyMs?: number; crack?: number; hpHz?: number;
+    /** How much of the kick plays under the snare: in several of the producer's tracks the beat-3 hit is both. */
+    kickLayer?: number };
   hat: { hz: number; decayMs: number };
   open: { hz: number; decayMs: number };
 }
@@ -180,8 +195,29 @@ function rowSound(row: Row, t: Template, r: () => number): Partial<DrumSound> {
   }
 }
 
-/** One row's sound from template `t`, put in the loop. */
+/**
+ * Kicks and snares fitted to the producer's tracks (tools/drum_prints.py ->
+ * tools/fit_drums.mjs -> kits.json): GNARL's synth settings whose
+ * fingerprint is closest to each track's, and how close (dB). Used as they
+ * are - the producer asked for them to sound the same as the tracks.
+ */
+export interface Kit {
+  name: string;
+  kick: DrumSound['kick'];
+  snare: DrumSound['snare'];
+  kick_db: number;
+  snare_db: number;
+}
+export const KITS = (kitFile as unknown as { kits: Kit[] }).kits.filter((k) => k.kick && k.snare);
+
+/** One row's sound from template `t`, put in the loop: a kick or snare from its track's kit (or another's). */
 function setSound(loop: DrumLoop, row: Row, t: Template, r: () => number): void {
+  if ((row === 'kick' || row === 'snare') && KITS.length) {
+    const kit = KITS.find((k) => t.name.startsWith(k.name)) ?? KITS[Math.floor(r() * KITS.length)]!;
+    Object.assign(loop.sound, { [row]: { ...kit[row] } });
+    loop.sources[row] = kit.name;
+    return;
+  }
   Object.assign(loop.sound, rowSound(row, t, r));
   loop.sources[row] = t.name;
   if (row === 'hat') loop.name = t.name;
@@ -276,8 +312,10 @@ const drive = (v: number, amount: number): number => {
   return Math.tanh(k * v) / Math.tanh(k);
 };
 
-function kickVoice(s: DrumSound['kick'], sr: number, r: () => number): Float32Array {
-  const n = Math.round(sr * (s.decayMs / 1000) * 3);
+export function kickVoice(s: DrumSound['kick'], sr: number, r: () => number): Float32Array {
+  const hold = (s.holdMs ?? 0) / 1000;
+  const clickS = (s.clickMs ?? 4) / 1000;
+  const n = Math.round(sr * (hold + (s.decayMs / 1000) * 3));
   const out = new Float32Array(n);
   const tauA = fall(s.decayMs);
   const tauP = s.sweepMs / 1000;
@@ -286,31 +324,51 @@ function kickVoice(s: DrumSound['kick'], sr: number, r: () => number): Float32Ar
     const t = i / sr;
     const f = s.pitchEnd + (s.pitchStart - s.pitchEnd) * Math.exp(-t / tauP);
     phase += (2 * Math.PI * f) / sr;
-    const click = t < 0.004 ? s.click * (r() * 2 - 1) * (1 - t / 0.004) : 0;
-    out[i] = drive(Math.sin(phase) * Math.exp(-t / tauA) + click, s.drive);
+    const click = t < clickS ? s.click * (r() * 2 - 1) * (1 - t / clickS) : 0;
+    const amp = t < hold ? 1 : Math.exp(-(t - hold) / tauA);
+    out[i] = drive(Math.sin(phase) * amp + click, s.drive);
   }
   return out;
 }
 
-function snareVoice(s: DrumSound['snare'], sr: number, r: () => number): Float32Array {
-  const n = Math.round(sr * (s.decayMs / 1000) * 3);
+export function snareVoice(s: DrumSound['snare'], sr: number, r: () => number): Float32Array {
+  const bodyMs = s.bodyMs ?? s.decayMs * 0.6;
+  const n = Math.round(sr * (Math.max(s.decayMs, bodyMs) / 1000) * 3);
   const noise = new Float32Array(n);
   for (let i = 0; i < n; i += 1) noise[i] = r() * 2 - 1;
-  biquad(noise, 'bandpass', s.noiseHz, 0.7, sr);
+  biquad(noise, 'bandpass', s.noiseHz, s.noiseQ ?? 0.7, sr);
   biquad(noise, 'highpass', 400, 0.7, sr);
+  // The crack: a few milliseconds of bright noise, the stick's attack.
+  const crackN = Math.round(0.012 * sr);
+  const crack = new Float32Array(crackN);
+  for (let i = 0; i < crackN; i += 1) crack[i] = r() * 2 - 1;
+  biquad(crack, 'highpass', 3000, 0.7, sr);
   const out = new Float32Array(n);
   const tau = fall(s.decayMs);
-  const tauBody = fall(s.decayMs * 0.6);
+  const tauBody = fall(bodyMs);
+  const tauCrack = fall(8);
   let phase = 0;
   for (let i = 0; i < n; i += 1) {
     const t = i / sr;
     phase += (2 * Math.PI * s.tone * (1 + 0.15 * Math.exp(-t / 0.01))) / sr;
     const body = s.body * Math.sin(phase) * Math.exp(-t / tauBody);
-    out[i] = drive(body + 2.2 * (noise[i] ?? 0) * Math.exp(-t / tau), s.drive);
+    const c = i < crackN ? (s.crack ?? 0) * (crack[i] ?? 0) * Math.exp(-t / tauCrack) : 0;
+    out[i] = drive(body + 2.2 * (noise[i] ?? 0) * Math.exp(-t / tau) + c, s.drive);
   }
   // Driving noise makes rumble a snare does not have: under a bare loop it
   // raised the sub by 18 dB and read as a kick (tools/measure_drums.py).
-  biquad(out, 'highpass', 120, 0.7, sr);
+  biquad(out, 'highpass', s.hpHz ?? 120, 0.7, sr);
+  return out;
+}
+
+/** The snare with `kickLayer` of the kick under it (no kick, or 0: the snare alone). */
+export function layeredSnare(s: DrumSound['snare'], kick: DrumSound['kick'] | null, sr: number, r: () => number): Float32Array {
+  const snare = snareVoice(s, sr, r);
+  const layer = s.kickLayer ?? 0;
+  if (!kick || layer <= 0) return snare;
+  const k = kickVoice(kick, sr, r);
+  const out = new Float32Array(Math.max(snare.length, k.length));
+  for (let i = 0; i < out.length; i += 1) out[i] = (snare[i] ?? 0) + layer * (k[i] ?? 0);
   return out;
 }
 
@@ -362,7 +420,7 @@ export function renderLoop(loop: DrumLoop, bpm: number, sr = 44100, seed = 1, on
   const right = new Float32Array(length);
   const voices: Record<Row, Float32Array> = {
     kick: kickVoice(loop.sound.kick, sr, r),
-    snare: snareVoice(loop.sound.snare, sr, r),
+    snare: layeredSnare(loop.sound.snare, loop.sound.kick, sr, r),
     hat: hatVoice(loop.sound.hat, sr, r),
     open: hatVoice(loop.sound.open, sr, r),
   };
