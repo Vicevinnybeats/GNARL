@@ -1,13 +1,13 @@
 // Render the DRUMS and RIDDIMIZE tabs' sounds from the command line, exactly
 // as the page does (ui/src/drums, ui/src/riddimize), for tests and listening.
 //
-//   node tools/render_tools.mjs drums SEED BPM out.wav [hits.json] [nofill] [ROW]   (ROW: one row alone)
+//   node tools/render_tools.mjs drums SEED BPM out.wav [hits.json] [PATTERNS] [ROW]   (PATTERNS: JSON row -> pattern index, or 'fill'; ROW: one row alone)
 //   node tools/render_tools.mjs riddimize in.wav out.wav [settings JSON]
 //
 // drums writes the loop and, if asked, its hits (bars x steps per row) as
 // JSON; riddimize reads a 16/24-bit or float WAV, mono or stereo.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { generateLoop, renderLoop } from '../ui/src/drums/drums.ts';
+import { applyPattern, generateLoop, hitTimes, renderLoop, ROWS } from '../ui/src/drums/drums.ts';
 import { DEFAULTS, riddimize } from '../ui/src/riddimize/riddimize.ts';
 import { encodeWav } from '../ui/src/audio/wav.ts';
 
@@ -40,9 +40,14 @@ function readWav(path) {
 const [mode, ...args] = process.argv.slice(2);
 if (mode === 'drums') {
   const [seed, bpm, out, hitsPath, fill, only] = args;
-  const loop = generateLoop(Number(seed), undefined, { fill: fill !== 'nofill' });
+  // `fill` may name patterns instead: {"hat": 0, ...} (indexes into PATTERNS).
+  const loop = generateLoop(Number(seed));
+  if (fill?.startsWith('{')) for (const [row, k] of Object.entries(JSON.parse(fill))) applyPattern(loop, row, k);
   writeFileSync(out, encodeWav(renderLoop(loop, Number(bpm), 44100, Number(seed), only || undefined), 44100));
-  if (hitsPath) writeFileSync(hitsPath, JSON.stringify({ name: loop.name, hits: loop.hits }));
+  // hits: bars x steps per row; times: every hit's onset in seconds, a hat
+  // roll's 2 or 3 included (drums.ts hitTimes).
+  const times = Object.fromEntries(ROWS.map((row) => [row, hitTimes(loop, Number(bpm), row)]));
+  if (hitsPath) writeFileSync(hitsPath, JSON.stringify({ name: loop.name, hits: loop.hits, times }));
 } else if (mode === 'riddimize') {
   const [input, out, settings] = args;
   const { audio, rate } = readWav(input);

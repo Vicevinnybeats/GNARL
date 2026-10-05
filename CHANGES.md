@@ -654,3 +654,11 @@ the merge commit forward: `git log 7651809..`.
 - F1-F12 and Space in the panel go to the host's window, as from Vital's
   editor (src/plugin/host_keys.cpp, Windows), so FL Studio's F5/F6 work and
   F5 no longer reloads the panel.
+
+## 2026-10-05 - DRUMS rebuilt
+
+- One-bar patterns repeated four times; an edit is in every bar, and plays
+  on without restarting. Per row: a pattern library (< >), RND, LOCK; hats in
+  4 STEP, OFFBEAT, 1/8, 1/16, SPARSE and TRAP patterns with rolls; EXPORT
+  STEMS. FL Studio-style beat colours, beat numbers, a playhead and the
+  playing bar lit. ui/src/drums/, ui/src/audio/preview.ts.

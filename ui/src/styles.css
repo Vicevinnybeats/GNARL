@@ -1643,17 +1643,39 @@ body[data-mode='phone'] .toast {
 .drums__top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .drums__generate { padding: 0 18px; }
 .drums__from { font: 500 11px var(--mono); color: var(--text-dim); }
-.drums__bars { gap: 6px; }
-.drums__grid { display: flex; flex-direction: column; gap: 6px; }
-.drums__row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 8px; }
+/* The four bars the one-bar pattern plays; the sounding bar is lit. */
+.drums__bars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.drums__bar {
+  text-align: center; font: 600 9.5px var(--mono); letter-spacing: 0.08em; color: var(--chip-text);
+  padding: 4px 0; border-radius: 3px; border: 1px solid var(--chip-border); background: rgba(255, 255, 255, 0.03);
+}
+.drums__bar[data-on='true'] { color: #fff; background: #c2413a; border-color: #e0574f; }
+.drums__grid { display: flex; flex-direction: column; gap: 8px; }
+.drums__row { display: flex; flex-direction: column; gap: 4px; }
+.drums__rowhead { display: flex; align-items: center; gap: 5px; }
+.drums__rowhead .drums__label { width: 66px; flex: none; }
+.drums__rowhead .chip { width: auto; height: 24px; padding: 0 8px; font-size: 9px; }
+.drums__rowhead .drums__arrow { padding: 0 7px; }
+.drums__pattern { flex: 1; min-width: 0; text-align: center; font: 600 10px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drums__lock[data-on='true'] { background: #c2413a; border-color: #e0574f; color: #fff; }
 .drums__label { font: 600 9.5px var(--mono); letter-spacing: 0.08em; color: var(--chip-text); }
 .drums__cells { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+/* A gap after every beat, so a beat is four steps you can count. */
+.drums__cells > :nth-child(4n):not(:last-child) { margin-right: 5px; }
+.drums__beats { margin-bottom: -2px; }
+.drums__beatnum { font: 700 10px var(--mono); color: var(--text); padding-left: 3px; }
+.drums__beatnum[data-group='1'] { color: #f08a84; }
+/* FL Studio's step sequencer: beats 1 and 3 one colour, 2 and 4 another. */
 .drums__cell {
-  height: 26px; min-width: 0; padding: 0; border: 1px solid var(--chip-border); border-radius: 3px;
-  background: rgba(255, 255, 255, 0.04); cursor: pointer;
+  height: 28px; min-width: 0; padding: 0; border-radius: 3px; cursor: pointer;
+  font: 700 10px var(--mono); color: #1a0f2e;
+  border: 1px solid #3a4466; background: #222a44;
 }
-.drums__cell[data-beat='true'] { background: rgba(255, 255, 255, 0.09); }
-.drums__cell[data-on='true'] { background: var(--violet-soft); border-color: var(--violet-soft); box-shadow: 0 0 8px rgba(176, 107, 255, 0.5); }
+.drums__cell[data-group='1'] { border-color: #6a3340; background: #3d2030; }
+.drums__cell[data-on='true'] { background: var(--violet-soft); border-color: #fff; box-shadow: 0 0 8px rgba(176, 107, 255, 0.55); }
+.drums__cell[data-group='1'][data-on='true'] { background: #ff8f86; box-shadow: 0 0 8px rgba(255, 120, 110, 0.55); }
+/* The step sounding now. */
+.drums__cell[data-now='true'] { outline: 2px solid #fff; outline-offset: -1px; }
 .drums__knobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px 14px; }
 .drums__knob { display: flex; flex-direction: column; gap: 4px; }
 .drums__slider { width: 100%; accent-color: var(--violet-soft); }
@@ -1665,7 +1687,8 @@ body[data-mode='phone'] .toast {
 .riddim__chips .chip { width: auto; padding: 0 10px; }
 .m .drums__cell, .drums__cell { touch-action: manipulation; }
 @media (max-width: 520px) {
-  .drums__row { grid-template-columns: 52px 1fr; }
   .drums__cells { gap: 2px; }
-  .drums__cell { height: 30px; }
+  .drums__cells > :nth-child(4n):not(:last-child) { margin-right: 3px; }
+  .drums__cell { height: 32px; }
+  .drums__rowhead .drums__label { width: 54px; }
 }

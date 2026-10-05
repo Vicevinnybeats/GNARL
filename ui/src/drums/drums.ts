@@ -2,12 +2,13 @@
  * DRUMS: riddim drum loops built from the producer's reference tracks
  * (docs/design/phase4-06-drums-riddimize.md).
  *
- * Every sound is synthesized here - no sample from anyone - and every
- * pattern starts from a template measured off the tracks the producer
- * uploaded (tools/measure_drums.py -> references/drums.json ->
- * tools/drum_templates.py -> templates.json): where kick, snare and hats land
- * in a bar, and how long and how bright each one is. Pure, no DOM, so Node
- * tests run it (ui/tests/drums.test.mjs).
+ * Every sound is synthesized here - no sample from anyone - from numbers
+ * measured off the tracks the producer uploaded (tools/measure_drums.py ->
+ * references/drums.json -> tools/drum_templates.py -> templates.json): how
+ * long and how bright each drum is. The patterns are a library per row
+ * (PATTERNS), riddim's kick-on-1, snare-on-3 in every one, worked like
+ * DrumSmith's: a pattern and a sound per row, each re-rolled or locked on
+ * its own. Pure, no DOM, so Node runs it (tools/render_tools.mjs).
  */
 
 import templateFile from './templates.json' with { type: 'json' };
@@ -18,14 +19,9 @@ export const ROW_NAMES: Record<Row, string> = { kick: 'KICK', snare: 'SNARE', ha
 export const STEPS = 16; // per bar, straight 16ths
 export const BARS = 4;
 
-interface MeasuredRow {
-  grid: string;
-  steps: number[];
-}
 interface Template {
   name: string;
   bpm: number;
-  rows: Record<'kick' | 'snare' | 'hat', MeasuredRow>;
   sound: {
     kick: { decay_ms: number | null; pitch_start_hz?: number | null };
     snare: { decay_ms: number | null; centroid_hz?: number | null };
@@ -41,10 +37,80 @@ export interface DrumSound {
   open: { hz: number; decayMs: number };
 }
 
-export interface DrumLoop {
+/**
+ * A row's pattern: the steps of one bar (0-15) it hits, and for the hat, a
+ * roll on a step (2 = two 32nds, 3 = a triplet in that 16th).
+ */
+export interface RowPattern {
   name: string;
-  /** BARS bars of STEPS steps per row. */
+  steps: number[];
+  rolls?: Record<number, number>;
+}
+
+/*
+ * Each row's patterns, as DrumSmith keeps a library of flows per row and
+ * picks one per row (the producer asked for DRUMS to work like it). Riddim's
+ * skeleton is in every one: the kick on beat 1, the snare on beat 3 (half
+ * time at 140) - all fifteen of the producer's tracks have both
+ * (references/drums.json); the extra kicks sit where those tracks put theirs
+ * (beat 2, the 16th after beat 3, beat 4). The hats run every 4th step or
+ * trap-style most often ("hats are like 4 step or like hip hop trap").
+ */
+export const PATTERNS: Record<Row, readonly RowPattern[]> = {
+  kick: [
+    { name: 'ONE', steps: [0] },
+    { name: 'ONE + 3E', steps: [0, 10] },
+    { name: 'ONE + TWO', steps: [0, 4] },
+    { name: 'ONE + FOUR', steps: [0, 12] },
+    { name: 'ONE + 1A', steps: [0, 3] },
+    { name: 'ONE + 4AND', steps: [0, 14] },
+    { name: 'BOUNCE', steps: [0, 6, 10] },
+    { name: 'PUSH', steps: [0, 11] },
+    { name: 'DOUBLE', steps: [0, 2] },
+  ],
+  snare: [
+    { name: 'THREE', steps: [8] },
+    { name: 'THREE + GHOST', steps: [8, 15] },
+    { name: 'THREE + DRAG', steps: [8, 14] },
+    { name: 'THREE + PICKUP', steps: [8, 13, 15] },
+  ],
+  hat: [
+    { name: '4 STEP', steps: [0, 4, 8, 12] },
+    { name: 'OFFBEAT', steps: [2, 6, 10, 14] },
+    { name: '1/8', steps: [0, 2, 4, 6, 8, 10, 12, 14] },
+    { name: 'TRAP 1', steps: [0, 2, 4, 6, 7, 8, 10, 12, 14], rolls: { 14: 3 } },
+    { name: 'TRAP 2', steps: [0, 2, 4, 6, 8, 10, 11, 12, 14, 15], rolls: { 12: 2, 15: 3 } },
+    { name: 'TRAP 3', steps: [0, 2, 3, 4, 6, 8, 10, 12, 13, 14], rolls: { 6: 2, 14: 3 } },
+    { name: 'TRAP 4', steps: [0, 2, 4, 6, 8, 10, 12, 14, 15], rolls: { 4: 3, 12: 2, 15: 2 } },
+    { name: '1/16', steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+    { name: 'SPARSE', steps: [4, 12] },
+  ],
+  open: [
+    { name: 'NONE', steps: [] },
+    { name: 'FOUR AND', steps: [14] },
+    { name: 'TWO AND', steps: [6] },
+    { name: 'BOTH ANDS', steps: [6, 14] },
+    { name: 'ONE AND', steps: [2] },
+  ],
+};
+
+export interface DrumLoop {
+  /** The track the hat's sound was measured from, naming the loop. */
+  name: string;
+  /**
+   * BARS bars of STEPS steps per row. The pattern is ONE bar, repeated as a
+   * DAW's step sequencer repeats it: every bar holds the same steps, and an
+   * edit is made to all of them (setStep). The producer: "the pattern is
+   * always repeating even when I move a block" - when each bar was its own,
+   * an edit changed one bar in four.
+   */
   hits: Record<Row, boolean[][]>;
+  /** Per step, how many hats the closed hat plays in it: 1, or a roll of 2 (32nds) or 3 (a triplet). */
+  rolls: number[];
+  /** Each row's pattern, an index into PATTERNS[row]. */
+  picks: Record<Row, number>;
+  /** Each row's sound: the track it was measured from. */
+  sources: Record<Row, string>;
   sound: DrumSound;
 }
 
@@ -63,79 +129,112 @@ export function random(seed: number): () => number {
 const clamp = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 const empty = (): boolean[][] => Array.from({ length: BARS }, () => new Array<boolean>(STEPS).fill(false));
 
-/** A measured row on the 16-step grid (templates are straight 16ths). */
-function row16(row: MeasuredRow): number[] {
-  if (row.grid === 'straight' && row.steps.length === STEPS) return row.steps;
-  // A triplet row (12 per bar) placed on the nearest 16th.
-  const out = new Array<number>(STEPS).fill(0);
-  row.steps.forEach((p, i) => {
-    const s = Math.round((i * STEPS) / row.steps.length) % STEPS;
-    out[s] = Math.max(out[s] ?? 0, p);
-  });
-  return out;
+/** Sets one step of the pattern in every bar. */
+export function setStep(loop: DrumLoop, row: Row, step: number, on: boolean): void {
+  for (const bar of loop.hits[row]) bar[step] = on;
+}
+
+/** Puts a row's pattern number `index` (wrapping) in every bar. */
+export function applyPattern(loop: DrumLoop, row: Row, index: number): void {
+  const list = PATTERNS[row];
+  const k = ((index % list.length) + list.length) % list.length;
+  const p = list[k];
+  if (!p) return;
+  for (let s = 0; s < STEPS; s += 1) setStep(loop, row, s, p.steps.includes(s));
+  if (row === 'hat') for (let s = 0; s < STEPS; s += 1) loop.rolls[s] = p.rolls?.[s] ?? 1;
+  loop.picks[row] = k;
+}
+
+/** One row's sound, from a measured template, each number moved up to 12%. */
+function rowSound(row: Row, t: Template, r: () => number): Partial<DrumSound> {
+  const vary = (v: number): number => v * (0.88 + 0.24 * r());
+  // The measured hat centroid (3-8 kHz) is the whole mix's at the hat's
+  // moment, kick and bass included, so it reads low; a riddim hat is
+  // bright. Mapped 3-8 kHz -> 7-11 kHz, keeping the tracks' order.
+  const hatHz = 7000 + 4000 * clamp(((t.sound.hat.centroid_hz ?? 5500) - 3000) / 5000, 0, 1);
+  const hatDecay = clamp(t.sound.hat.decay_ms ?? 60, 30, 160);
+  switch (row) {
+    case 'kick':
+      return { kick: {
+        pitchStart: vary(clamp(t.sound.kick.pitch_start_hz ?? 160, 90, 220)),
+        pitchEnd: vary(48),
+        sweepMs: vary(35),
+        // The measured fall (on the percussive part, HPSS) is the punch's; a
+        // kick's tail is tonal and HPSS strips it, so the body is set here.
+        decayMs: vary(clamp((t.sound.kick.decay_ms ?? 60) * 4, 140, 320)),
+        click: vary(0.35),
+        drive: vary(0.5),
+      } };
+    case 'snare':
+      return { snare: {
+        tone: vary(200),
+        noiseHz: vary(clamp(t.sound.snare.centroid_hz ?? 3000, 1500, 5000)),
+        decayMs: vary(clamp(t.sound.snare.decay_ms ?? 140, 90, 220)),
+        body: vary(0.45),
+        drive: vary(0.4),
+      } };
+    case 'hat':
+      return { hat: { hz: vary(hatHz), decayMs: vary(Math.min(hatDecay, 70)) } };
+    case 'open':
+      return { open: { hz: vary(hatHz * 0.9), decayMs: vary(clamp(hatDecay * 2.2, 160, 320)) } };
+  }
+}
+
+/** One row's sound from template `t`, put in the loop. */
+function setSound(loop: DrumLoop, row: Row, t: Template, r: () => number): void {
+  Object.assign(loop.sound, rowSound(row, t, r));
+  loop.sources[row] = t.name;
+  if (row === 'hat') loop.name = t.name;
+}
+
+/**
+ * Re-rolls one row, as DrumSmith's dice does: a pattern from the row's list
+ * and a sound from one of the producer's tracks.
+ */
+export function randomizeRow(loop: DrumLoop, row: Row, r: () => number = Math.random): void {
+  applyPattern(loop, row, Math.floor(r() * PATTERNS[row].length));
+  const t = TEMPLATES[Math.floor(r() * TEMPLATES.length)] ?? TEMPLATES[0];
+  if (t) setSound(loop, row, t, r);
 }
 
 /*
- * A loop from a template. A step the template hits in 60% of its bars or
- * more is in every bar; 30-60% steps come and go with their probability; the
- * fourth bar may roll the snare or the hats into the next loop. Beat 1's kick
- * and beat 3's snare are always there (every template has them). The open
- * hat takes an offbeat 8th the closed hat leaves free, in the bars it is
- * drawn for. The sound is the template's measured numbers, each moved up to
- * 12% either way.
+ * A loop: every row re-rolled, except those in `keep` (DrumSmith's locks),
+ * which come from `from`. With `templateIndex`, every sound is that
+ * template's. The same bar plays four times, with no fills: until 2026-10-05
+ * each bar drew its own steps from the templates' odds, and the producer
+ * heard the pattern as "totally wrong".
  */
-export function generateLoop(seed: number, templateIndex?: number, options: { fill?: boolean } = {}): DrumLoop {
+export function generateLoop(seed: number, templateIndex?: number,
+  options: { fill?: boolean; keep?: readonly Row[]; from?: DrumLoop } = {}): DrumLoop {
   const r = random(seed);
-  const t = TEMPLATES[templateIndex ?? Math.floor(r() * TEMPLATES.length)] ?? TEMPLATES[0];
-  if (!t) throw new Error('no drum templates');
-  const hits: Record<Row, boolean[][]> = { kick: empty(), snare: empty(), hat: empty(), open: empty() };
-  const kick = row16(t.rows.kick);
-  const snare = row16(t.rows.snare);
-  const hat = row16(t.rows.hat);
-  const pick = (p: number): boolean => p >= 0.6 || (p >= 0.3 && r() < p);
-  for (let b = 0; b < BARS; b += 1) {
-    for (let s = 0; s < STEPS; s += 1) {
-      hits.kick[b]![s] = pick(kick[s] ?? 0);
-      hits.snare[b]![s] = pick(snare[s] ?? 0);
-      hits.hat[b]![s] = pick(hat[s] ?? 0);
-    }
-    hits.kick[b]![0] = true;
-    hits.snare[b]![8] = true;
-    // The open hat: an offbeat 8th (steps 2, 6, 10, 14) the closed hat leaves.
-    const free = [2, 6, 10, 14].filter((s) => !hits.hat[b]![s] && !hits.snare[b]![s]);
-    if (free.length && r() < 0.6) hits.open[b]![free[Math.floor(r() * free.length)] ?? 2] = true;
-  }
-  // The fourth bar's last beat: a snare or hat roll, half the time.
-  const last = hits.snare[BARS - 1]!;
-  const roll = options.fill === false ? 1 : r();
-  if (roll < 0.25) for (const s of [12, 13, 14, 15]) last[s] = true;
-  else if (roll < 0.5) for (const s of [12, 13, 14, 15]) hits.hat[BARS - 1]![s] = true;
-
-  const vary = (v: number): number => v * (0.88 + 0.24 * r());
-  const kickPitch = clamp(t.sound.kick.pitch_start_hz ?? 160, 90, 220);
-  const snareDecay = clamp(t.sound.snare.decay_ms ?? 140, 90, 220);
-  const snareHz = clamp(t.sound.snare.centroid_hz ?? 3000, 1500, 5000);
-  // The measured centroid (3-8 kHz) is the whole mix's at the hat's moment,
-  // kick and bass included, so it reads low; a riddim hat is bright. Mapped
-  // 3-8 kHz -> 7-11 kHz, keeping the tracks' order of brightness.
-  const hatHz = 7000 + 4000 * clamp(((t.sound.hat.centroid_hz ?? 5500) - 3000) / 5000, 0, 1);
-  const hatDecay = clamp(t.sound.hat.decay_ms ?? 60, 30, 160);
-  const sound: DrumSound = {
-    kick: {
-      pitchStart: vary(kickPitch),
-      pitchEnd: vary(48),
-      sweepMs: vary(35),
-      // The measured fall (on the percussive part, HPSS) is the punch's; a
-      // kick's tail is tonal and HPSS strips it, so the body is set here.
-      decayMs: vary(clamp((t.sound.kick.decay_ms ?? 60) * 4, 140, 320)),
-      click: vary(0.35),
-      drive: vary(0.5),
-    },
-    snare: { tone: vary(200), noiseHz: vary(snareHz), decayMs: vary(snareDecay), body: vary(0.45), drive: vary(0.4) },
-    hat: { hz: vary(hatHz), decayMs: vary(Math.min(hatDecay, 70)) },
-    open: { hz: vary(hatHz * 0.9), decayMs: vary(clamp(hatDecay * 2.2, 160, 320)) },
+  const loop: DrumLoop = {
+    name: '',
+    hits: { kick: empty(), snare: empty(), hat: empty(), open: empty() },
+    rolls: new Array<number>(STEPS).fill(1),
+    picks: { kick: 0, snare: 0, hat: 0, open: 0 },
+    sources: { kick: '', snare: '', hat: '', open: '' },
+    sound: {} as DrumSound,
   };
-  return { name: t.name, hits, sound };
+  const fixed = templateIndex === undefined ? undefined : TEMPLATES[templateIndex];
+  for (const row of ROWS) {
+    const from = options.from;
+    if (from && options.keep?.includes(row)) {
+      loop.hits[row] = from.hits[row].map((bar) => [...bar]);
+      if (row === 'hat') {
+        loop.rolls = [...from.rolls];
+        loop.name = from.name;
+      }
+      loop.picks[row] = from.picks[row];
+      loop.sources[row] = from.sources[row];
+      Object.assign(loop.sound, { [row]: { ...from.sound[row] } });
+    } else if (fixed) {
+      applyPattern(loop, row, Math.floor(r() * PATTERNS[row].length));
+      setSound(loop, row, fixed, r);
+    } else {
+      randomizeRow(loop, row, r);
+    }
+  }
+  return loop;
 }
 
 /* ------------------------------------------------------------------ synthesis */
@@ -238,6 +337,22 @@ const LEVEL: Record<Row, number> = { kick: 1.0, snare: 0.75, hat: 0.22, open: 0.
 // Hats a little apart, kick and snare in the middle.
 const PAN: Record<Row, number> = { kick: 0, snare: 0, hat: -0.25, open: 0.25 };
 
+/** A row's hits as (bar, place in the bar 0-1): each step, and a hat roll's 2 or 3 spread over its 16th. */
+function hitPlaces(loop: DrumLoop, row: Row): [number, number][] {
+  const out: [number, number][] = [];
+  loop.hits[row].forEach((steps, b) => steps.forEach((on, s) => {
+    if (!on) return;
+    const n = row === 'hat' ? Math.max(1, loop.rolls[s] ?? 1) : 1;
+    for (let k = 0; k < n; k += 1) out.push([b, (s + k / n) / STEPS]);
+  }));
+  return out;
+}
+
+/** Where a row's hits fall, in seconds from the loop's start. */
+export function hitTimes(loop: DrumLoop, bpm: number, row: Row): number[] {
+  return hitPlaces(loop, row).map(([b, place]) => (b + place) * ((4 * 60) / bpm));
+}
+
 /** The loop as two channels, exactly BARS bars long at `bpm`, peaking at -1 dBFS (or one row of it). */
 export function renderLoop(loop: DrumLoop, bpm: number, sr = 44100, seed = 1, only?: Row): [Float32Array, Float32Array] {
   const r = random(seed);
@@ -251,11 +366,11 @@ export function renderLoop(loop: DrumLoop, bpm: number, sr = 44100, seed = 1, on
     hat: hatVoice(loop.sound.hat, sr, r),
     open: hatVoice(loop.sound.open, sr, r),
   };
-  const starts = (row: Row): number[] => {
-    const out: number[] = [];
-    loop.hits[row].forEach((bar, b) => bar.forEach((on, s) => on && out.push(Math.round((b + s / STEPS) * barSamples))));
-    return out;
-  };
+  // In samples: each bar's start plus the hit's place in its bar, rounded
+  // apart, so every bar is the same bar (a 32nd roll falls half a sample off
+  // the grid; rounded as one time it moved a sample from bar to bar).
+  const starts = (row: Row): number[] =>
+    hitPlaces(loop, row).map(([b, place]) => Math.round(b * barSamples) + Math.round(place * barSamples));
   const closed = starts('hat');
   const kicks = starts('kick');
   // `only`: one row alone, a stem (the tests check each hit's time on it).

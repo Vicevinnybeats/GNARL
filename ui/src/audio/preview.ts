@@ -17,7 +17,16 @@ export function stopPreview(): void {
   playing = null;
 }
 
-export function playPreview(channels: readonly Float32Array[], sampleRate: number, loop = false, onEnd?: () => void): void {
+let startedAt = 0;
+let duration = 0;
+
+/**
+ * Plays a rendered sound, stopping the last. `keepPlace`: a loop being
+ * edited carries on from where it was rather than starting again - the
+ * producer heard every DRUMS edit restart the loop.
+ */
+export function playPreview(channels: readonly Float32Array[], sampleRate: number, loop = false, onEnd?: () => void, keepPlace = false): void {
+  const at = keepPlace ? previewPosition() : 0;
   stopPreview();
   context ??= new AudioContext();
   void context.resume();
@@ -33,8 +42,18 @@ export function playPreview(channels: readonly Float32Array[], sampleRate: numbe
     if (playing === source) playing = null;
     onEnd?.();
   };
-  source.start();
+  duration = length / sampleRate;
+  const offset = at !== null && at < duration ? at : 0;
+  source.start(0, offset);
+  startedAt = context.currentTime - offset;
   playing = source;
+}
+
+/** Seconds into the playing sound (looped sounds wrap), or null when none plays. */
+export function previewPosition(): number | null {
+  if (!playing || !context || duration <= 0) return null;
+  const t = context.currentTime - startedAt;
+  return playing.loop ? t % duration : Math.min(t, duration);
 }
 
 export function isPreviewing(): boolean {

@@ -105,6 +105,48 @@ within 3 ms of its step and no other (with every hit 5 ms late, all five
 seeds fail); a loop is exactly four bars (302,400 samples at 140) at -1.00
 dBFS; the instrument's 90.8% above.
 
+### Rebuilt like DrumSmith (2026-10-05)
+
+The producer, on the first version: "the pattern is always repeating even
+when I move a block, and the patterns are totally wrong - riddim is made
+with a kick, a snare, and hats like 4 step or hip hop trap", "make colours
+where you can see where the bar ends, like FL Studio", and "randomly
+generated, like RiddimSmith". Three faults, each measured or seen:
+
+- **An edit changed one bar in four.** Each bar was its own row of steps;
+  the grid showed one (BAR 1-4) and a tap changed only it. Now the pattern
+  is ONE bar, repeated, as a step sequencer's is (`setStep` writes every
+  bar). `bridge.test.mjs` decodes the exported WAV and checks its four bars
+  are the same sample for sample (0 of 8 million steps apart; with the old
+  one-bar edit put back, 9,004,139).
+- **Every edit restarted the loop** from its first beat; now the new sound
+  takes over where the old one was playing (`playPreview(..., keepPlace)`).
+- **The patterns.** Each bar drew its own steps from the templates' odds:
+  kicks, snares and hats wandered from bar to bar. Now each row has a library
+  of patterns (`PATTERNS`), riddim's skeleton in every one - kick on 1, snare
+  on 3; extra kicks where the producer's tracks put theirs; hats 4 STEP,
+  OFFBEAT, 1/8, 1/16, SPARSE and four TRAP patterns with 32nd and triplet
+  rolls (a HAT step tapped again becomes a roll of 2, then 3).
+
+Worked like Avant's DrumSmith (a library per row, a sound and a pattern per
+row, re-rolled or locked on its own, stems out): each row shows its pattern
+(`< 03 BOUNCE >`), RND re-rolls that row's pattern and sound (from one of
+the fifteen tracks' measured numbers), LOCK keeps it through GENERATE, and
+EXPORT STEMS writes each row as its own WAV. The grid is coloured as FL's
+step sequencer: beats 1 and 3 blue, 2 and 4 red, a gap between beats, the
+beat numbers above; while it plays, the sounding step is outlined and the
+sounding bar (BAR 1-4) lit.
+
+A 32nd roll falls half a sample off the grid; rounded as one time, it moved
+a sample from bar to bar, which the four-bars test caught. Each hit is now
+its bar's start plus its place in the bar, rounded apart (`hitPlaces`).
+
+The measuring tool (`measure_drums.py`) no longer shapes the patterns, only
+the sounds. On loops like the producer's tracks (snare on 3, hats 4 STEP,
+OFFBEAT, 1/8 or SPARSE) it calls 444 of 488 steps right (91.0%, the test's
+gate); on the whole library 402 of 468 (85.9%, printed): after a double kick
+it can line the bar up one beat early.
+
 ## RIDDIMIZE (`riddimize.ts`)
 
 A sound in - a file (any the browser decodes, dropped or chosen) or **USE MY

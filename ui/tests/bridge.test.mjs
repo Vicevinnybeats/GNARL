@@ -96,7 +96,15 @@ function fakeJuce(init) {
             emitToPage('gnarlLicence', { status: 'licensed', message: '', saving: true, hasKey: true });
           } else if (id === 'gnarlExportWav') {
             // As web_panel.cpp: the WAV written to the exports folder.
-            window.__fake.exported = (window.__fake.exported ?? []).concat([{ name: payload.name, bytes: atob(payload.data).length, head: atob(payload.data).slice(0, 4) + atob(payload.data).slice(8, 12) }]);
+            const raw = atob(payload.data);
+            // The largest difference between bar 1 and bars 2-4 (24-bit
+            // stereo, in steps): 0 when every bar is the same.
+            const frames = (raw.length - 44) / 6;
+            const quarter = Math.floor(frames / 4);
+            const at = (f, c) => { const p = 44 + (f * 2 + c) * 3; const v = raw.charCodeAt(p) | (raw.charCodeAt(p + 1) << 8) | (raw.charCodeAt(p + 2) << 16); return v & 0x800000 ? v - 0x1000000 : v; };
+            let barDiff = 0;
+            for (let k = 1; k < 4; k += 1) for (let f = 0; f < quarter; f += 7) barDiff = Math.max(barDiff, Math.abs(at(f, 0) - at(f + k * quarter, 0)));
+            window.__fake.exported = (window.__fake.exported ?? []).concat([{ name: payload.name, bytes: raw.length, head: raw.slice(0, 4) + raw.slice(8, 12), barDiff }]);
             emitToPage('gnarlExported', { path: `/home/x/GNARL/Exports/${payload.name}` });
           } else if (id === 'gnarlPresetSave') {
             // The current patch, as the plugin answers (RIDDIMIZE's USE MY SOUND).
@@ -550,21 +558,58 @@ check(after === before, `idle for 0.5 s, the page sent ${after - before} values 
   await page.locator('.app .tool__open', { hasText: 'DRUMS' }).click();
   const sheet = page.locator('.drums:not(.riddim):not([hidden])');
   check((await sheet.locator('.drums__cell').count()) === 64, `DRUMS opens a grid of 4 rows x 16 steps: ${await sheet.locator('.drums__cell').count()}`);
-  const cell = sheet.locator('.drums__cell').nth(2 * 16 + 3);
+  // The kick row's step 4 (rows: kick, snare, hat, open).
+  const cell = sheet.locator('.drums__cell').nth(3);
   const was = await cell.getAttribute('data-on');
   await cell.click();
   check((await cell.getAttribute('data-on')) !== was, 'a tap on a step toggles it');
+  check(/EDITED/.test(await sheet.locator('.drums__pattern').first().textContent() ?? ''), 'and the row reads EDITED');
   await sheet.locator('.chip', { hasText: 'EXPORT WAV' }).click();
   await page.waitForFunction(() => /Saved/.test(document.querySelector('.drums:not(.riddim) .drums__status')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
   const exported = await page.evaluate(() => window.__fake.exported ?? []);
   const frames = Math.round((4 * 60 / 140) * 44100 * 4);
   check(exported.length === 1 && exported[0].head === 'RIFFWAVE' && /\.wav$/.test(exported[0].name) && exported[0].bytes === 44 + frames * 2 * 3,
     `EXPORT hands the plugin a 4-bar 24-bit stereo WAV: ${JSON.stringify(exported)} (${44 + frames * 6} bytes expected)`);
+  // The producer: an edit changed one bar in four. The edit above must be in
+  // every bar: the four bars of the WAV are the same, sample for sample.
+  // (Up to 2 steps of 8 million: float rounding where tails overlap, -138 dB;
+  // a bar without the edit differs by thousands.)
+  check(exported[0]?.barDiff <= 2, `the edit is in all four bars: bars 2-4 differ from bar 1 by ${exported[0]?.barDiff} (24-bit steps)`);
   check(/Saved .* in \/home\/x\/GNARL\/Exports/.test(await sheet.locator('.drums__status').textContent() ?? ''),
     `and says where it went: ${await sheet.locator('.drums__status').textContent()}`);
   await sheet.locator('.chip', { hasText: 'OPEN FOLDER' }).click();
   await settle();
   check((await page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlRevealExports').length)) === 1, 'OPEN FOLDER asks the plugin to show the folder');
+  // DrumSmith's way: < > steps a row's patterns, LOCK keeps a row through
+  // GENERATE, RND rolls one row; EXPORT STEMS writes each row alone.
+  const kickName = () => sheet.locator('.drums__pattern').first().textContent();
+  const kickRow = () => sheet.locator('.drums__row').first().locator('.drums__cell').evaluateAll((cs) => cs.map((c) => c.dataset.on).join(''));
+  await sheet.locator('.drums__row').first().locator('.drums__arrow').last().click();
+  check(/^0\d [A-Z]/.test(await kickName() ?? ''), `> picks a kick pattern from the list: ${await kickName()}`);
+  await sheet.locator('.drums__row').first().locator('.drums__lock').click();
+  const lockedKick = [await kickName(), await kickRow()];
+  const hats = new Set();
+  for (let k = 0; k < 6; k += 1) {
+    await sheet.locator('.chip', { hasText: 'GENERATE' }).click();
+    hats.add(await sheet.locator('.drums__pattern').nth(2).textContent());
+  }
+  check((await kickName()) === lockedKick[0] && (await kickRow()) === lockedKick[1] && hats.size > 1,
+    `a LOCKed kick survives six GENERATEs (${lockedKick[0]}) while the hats change (${[...hats].join(', ')})`);
+  check((await sheet.locator('.drums__row').first().locator('.drums__cell').first().getAttribute('data-on')) === 'true' &&
+    (await sheet.locator('.drums__row').nth(1).locator('.drums__cell').nth(8).getAttribute('data-on')) === 'true',
+    'every loop has the kick on 1 and the snare on 3');
+  const before = (await page.evaluate(() => window.__fake.exported ?? [])).length;
+  await sheet.locator('.chip', { hasText: 'EXPORT STEMS' }).click();
+  await page.waitForFunction((n) => (window.__fake.exported ?? []).length >= n + 3, before, { timeout: 8000 }).catch(() => {});
+  const stems = (await page.evaluate(() => window.__fake.exported ?? [])).slice(before);
+  check(stems.length >= 3 && stems.every((e) => e.head === 'RIFFWAVE') && stems.some((e) => /KICK/.test(e.name)) && stems.some((e) => /SNARE/.test(e.name)),
+    `EXPORT STEMS writes each row alone: ${stems.map((e) => e.name).join(', ')}`);
+  // While it plays, a step lights up as it sounds.
+  await sheet.locator('.chip', { hasText: 'PLAY' }).click();
+  await page.waitForFunction(() => document.querySelector('.drums .drums__cell[data-now="true"]') !== null, null, { timeout: 4000 }).catch(() => {});
+  check(await page.evaluate(() => document.querySelector('.drums .drums__cell[data-now="true"]') !== null &&
+    document.querySelector('.drums .drums__bar[data-on="true"]') !== null), 'playing, the sounding step and bar are lit');
+  await sheet.locator('.chip', { hasText: 'STOP' }).click();
   await sheet.locator('.evolve__close').click();
 }
 
@@ -594,8 +639,8 @@ check(after === before, `idle for 0.5 s, the page sent ${after - before} values 
   const said = await sheet.locator('.drums__status').textContent();
   check(/Ready/.test(said ?? ''), `${withEngine ? 'USE MY SOUND renders the loaded patch' : 'a chosen file is the sound'}: ${said} / ${await sheet.locator('.drums__from').textContent()}`);
   await sheet.locator('.chip', { hasText: 'EXPORT WAV' }).click();
-  await page.waitForFunction(() => (window.__fake.exported ?? []).length === 2, null, { timeout: 5000 }).catch(() => {});
-  const e = (await page.evaluate(() => window.__fake.exported ?? []))[1];
+  await page.waitForFunction(() => /riddim/.test((window.__fake.exported ?? []).at(-1)?.name ?? ''), null, { timeout: 5000 }).catch(() => {});
+  const e = (await page.evaluate(() => window.__fake.exported ?? [])).at(-1);
   const frames = Math.round((4 * 60 / 140) * 44100);
   check(e?.head === 'RIFFWAVE' && /riddim/.test(e.name) && e.bytes === 44 + frames * 2 * 3,
     `RIDDIMIZE exports a one-bar WAV: ${JSON.stringify(e)}`);
