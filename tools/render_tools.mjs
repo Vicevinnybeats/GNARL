@@ -47,7 +47,8 @@ if (mode === 'drums') {
   // hits: bars x steps per row; times: every hit's onset in seconds, a hat
   // roll's 2 or 3 included (drums.ts hitTimes).
   const times = Object.fromEntries(ROWS.map((row) => [row, hitTimes(loop, Number(bpm), row)]));
-  if (hitsPath) writeFileSync(hitsPath, JSON.stringify({ name: loop.name, hits: loop.hits, times }));
+  // layer: how much kick plays under each snare (drums.ts kickLayer).
+  if (hitsPath) writeFileSync(hitsPath, JSON.stringify({ name: loop.name, hits: loop.hits, times, layer: loop.sound.snare.kickLayer ?? 0 }));
 } else if (mode === 'riddimize') {
   const [input, out, settings] = args;
   const { audio, rate } = readWav(input);

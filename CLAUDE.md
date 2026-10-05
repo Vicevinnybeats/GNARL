@@ -95,6 +95,9 @@ python3 tools/measure_drums.py t1.mp3 t2.mp3 --json references/drums.json   # dr
 python3 tools/drum_templates.py       # references/drums.json -> ui/src/drums/templates.json (DRUMS)
 python3 tests/test_drums_riddimize.py # DRUMS hits on their steps, the drum instrument's accuracy, RIDDIMIZE's rhythms
 node tools/render_tools.mjs drums SEED BPM out.wav    # a DRUMS loop; riddimize in.wav out.wav for RIDDIMIZE
+python3 tools/drum_prints.py t1.mp3 ... --json /tmp/prints.json   # kick/snare fingerprints of tracks (NOT committed)
+node tools/fit_drums.mjs /tmp/prints.json ui/src/drums/kits.json  # GNARL kits fitted to them (KIT 01.., never a track name)
+python3 tests/test_drum_prints.py     # the kits as fitted; no reference track named in anything that ships
 python3 tools/match.py target.wav --midi 29 --tables DIR --out p.vital   # the sound matcher (phase4-02)
 node tools/match_web.mjs target.wav --midi 39 --out p.vital   # the same matcher as the app's MATCH, inside the riddim recipe (phase4-04)
 GNARL_PROBE_STATE=presets/x.vital /tmp/probe GNARL.so --render out.f32   # a patch loaded as a DAW restores one

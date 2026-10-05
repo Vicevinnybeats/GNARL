@@ -120,7 +120,14 @@ def instrument(seeds, picks):
         node('drums', seed, bpm, wav, hits_path, json.dumps(picks(seed)) if picks else 'fill')
         x, sr = sf.read(wav)
         bar = 4 * 60 / bpm * sr
-        gen = json.load(open(hits_path))['hits']
+        info = json.load(open(hits_path))
+        gen = info['hits']
+        # A fitted kit's snare has a kick under it (kickLayer, as the
+        # producer's tracks have): where it does, a kick sounds at every
+        # snare - the answer key says so, and the snare there is then "a
+        # snare on a kick", not judged (below).
+        if info.get('layer', 0) >= 0.25:
+            gen['kick'] = [[k or s for k, s in zip(kb, sb)] for kb, sb in zip(gen['kick'], gen['snare'])]
         # The loop three times after four quiet bars, so the tool finds a drop.
         track = np.concatenate([np.zeros((int(4 * bar), 2)), np.tile(x, (3, 1))])
         path = os.path.join(tmp, f't{seed}.wav')

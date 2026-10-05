@@ -166,6 +166,7 @@ jobs:
         run: |
           python3 -m pip install --quiet --user --break-system-packages librosa soundfile
           python3 tests/test_drums_riddimize.py
+          python3 tests/test_drum_prints.py   # the kits as fitted; no track named in what ships
       - uses: actions/upload-artifact@v4
         with:
           name: GNARL-mobile-web

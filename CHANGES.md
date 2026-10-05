@@ -662,3 +662,12 @@ the merge commit forward: `git log 7651809..`.
   4 STEP, OFFBEAT, 1/8, 1/16, SPARSE and TRAP patterns with rolls; EXPORT
   STEMS. FL Studio-style beat colours, beat numbers, a playhead and the
   playing bar lit. ui/src/drums/, ui/src/audio/preview.ts.
+
+## 2026-10-05 - Fitted drum kits; no track named in the plugin
+
+- DRUMS' kick and snare fitted to measurements of the producer's tracks
+  (tools/drum_prints.py, tools/fit_drums.mjs, ui/src/drums/kits.json: KIT
+  01-12). The synth gained a kick hold and click length, and a snare noise
+  width, crack, body length, high-pass and layered kick.
+- The matched presets' comments and source names no longer name tracks; the
+  drum data is numbered; tests/test_drum_prints.py checks what ships.

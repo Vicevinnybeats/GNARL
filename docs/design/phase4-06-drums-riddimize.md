@@ -147,6 +147,60 @@ OFFBEAT, 1/8 or SPARSE) it calls 444 of 488 steps right (91.0%, the test's
 gate); on the whole library 402 of 468 (85.9%, printed): after a double kick
 it can line the bar up one beat early.
 
+### Sounding like the tracks: fitted kits (2026-10-05)
+
+The producer: "make the kicks and snares like the tracks I sent - it should
+sound the same", and then "don't show the tracks in the plugin". No audio
+of theirs is used or kept; GNARL's own synth is fitted to measurements.
+
+- **Measured** (`tools/drum_prints.py`): each track's kick (beat 1) and
+  snare (beat 3), as power in 20 log bands (30 Hz-16 kHz) over 8 frames
+  (0-360 ms), averaged over every hit of its drops, the 40 ms before each
+  hit taken off band by band (the bass already sounding). The bar is lined
+  up by `measure_drums.py`; 12 of the 15 tracks gave one (WOOCKEZ, WHAMMY,
+  ZYKO X NADII did not). The fingerprints are measurements of the tracks
+  and are not committed.
+- **The synth widened**: the kick gained a hold and a click length; the
+  snare a noise width, a crack, its own body length, a high-pass, and a kick
+  layered under it (`kickLayer`) - in phompy's tracks the beat-3 hit's
+  fingerprint is almost the kick's: a kick and a snare together.
+- **Fitted** (`tools/fit_drums.mjs`): 400 random settings and a (1+1)
+  evolution strategy, three times, per track; the snare over that track's
+  fitted kick. The distance: each fingerprint as a share of its total, in
+  dB, floored 30 dB under its top cell (the take-off leaves noise there),
+  the mean absolute difference, with the bands under 105 Hz after 120 ms
+  counted a third (the bass restarts with the kick, and the take-off cannot
+  remove what starts with it). `fit_drums.mjs` and `drum_prints.py` compute
+  the same fingerprint of the same sound (to 3e-12 dB, tested).
+- **Kits** (`ui/src/drums/kits.json`): KIT 01-12, numbered, not named. A
+  new loop's kick and snare come from one kit; RND on a row picks another.
+
+| | before (old synth) | fitted | closest to its own track, of 12 | track to track |
+|---|---|---|---|---|
+| snare | 5.62-10.04 dB | 1.95-4.97 dB | 10 kits | 1.49 / 5.54 / 9.08 dB (min / median / max) |
+| kick | 3.13-9.15 dB | 2.09-7.95 dB | 2 kits | 1.36 / 6.35 / 9.93 dB |
+
+So the snares are each their own track's: closer to it than typical tracks
+are to each other, and ten of twelve closest to their own. The kicks are
+not yet: nearer than before, but most are nearer another track than their
+own - the fingerprint of a kick under a riddim bass is part bass. Nobody
+here has heard them; the producer decides.
+
+`tests/test_drum_prints.py` holds the kits to how they were fitted (a synth
+change that moves one fails; `fit_drums.mjs --stamp` after a deliberate
+one) and checks that no reference track is named in anything that ships -
+preset names and comments, the drum data, the panel's code - with the
+reference files' words; a name planted in a preset comment fails it. The
+eleven matched presets had named their tracks in comments and their
+sources' preset names; they now say "a reference track".
+
+Every fitted snare layers some kick (kickLayer 0.29-1.4), and
+`measure_drums.py` reads a layered snare as a kick, as it read the tracks.
+Its test's answer key now has a kick at each such snare (so the snare there
+is "a snare on a kick", unjudged, as before): on loops like the tracks it
+calls 435 of 483 steps right (90.1%, just over the 90% gate), on the whole
+library 384 of 447 (85.9%).
+
 ## RIDDIMIZE (`riddimize.ts`)
 
 A sound in - a file (any the browser decodes, dropped or chosen) or **USE MY
