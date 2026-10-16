@@ -484,10 +484,9 @@ Phase 2 candidates, with what already exists in upstream:
 
 Deployed by Vercel from `site/` (`vercel.json` → `tools/assemble_deploy.mjs`).
 `/app` is the phone version, fetched from the latest release (a tombstone
-page only when no release carries it). Playing it is at the END of the page
-(the producer: GNARL will be sold, so the hero sells): **PLAY IN THE
-BROWSER** in the download section opens `/app` in a frame on a desktop and
-follows the link on a phone (`site/src/play.ts`). The cards' motion follows
+page only when no release carries it). The site links to it NOWHERE: the
+producer will sell GNARL, so there is no play button - the SOUNDS clips are
+the showcase. The cards' motion follows
 the scroll position, not a timer (`site/src/motion.ts`), and plays back on
 the way up. `#stage` and `#rain` are `100lvh` and skip same-size resizes: a
 phone's address bar used to resize the 3D canvas on every slide, which

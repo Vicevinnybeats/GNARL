@@ -25,7 +25,7 @@
     <meta property="og:title" content="GNARL — Wavetable Synthesizer for Riddim" />
     <meta
       property="og:description"
-      content="A wavetable synthesizer built for riddim. Triplet wobs on one knob, a vowel filter, a clean sub, 45 built-in patches - and you can play it in the browser."
+      content="A wavetable synthesizer built for riddim. Triplet wobs on one knob, a vowel filter, a clean sub, and 45 built-in patches."
     />
     <meta property="og:url" content="https://gnarl.vercel.app/" />
     <meta property="og:image" content="https://gnarl.vercel.app/og.png" />
@@ -41,7 +41,7 @@
     <meta name="twitter:title" content="GNARL — Wavetable Synthesizer for Riddim" />
     <meta
       name="twitter:description"
-      content="Triplet wobs, vowel growls and a clean sub, locked to your DAW. 45 built-in patches. VST3, AU and standalone, and in the browser."
+      content="Triplet wobs, vowel growls and a clean sub, locked to your DAW. 45 built-in patches. VST3, AU and standalone."
     />
     <meta name="twitter:image" content="https://gnarl.vercel.app/og.png" />
 
@@ -218,8 +218,7 @@
           <h2 class="heading" data-decode>TAKE IT.</h2>
           <p class="body" data-decode data-decode-delay="160">
             Windows and macOS. VST3 everywhere, AU on macOS, and a standalone
-            that needs no DAW at all. On a phone, the whole engine runs in the
-            browser.
+            that needs no DAW at all.
           </p>
           <!--  DIRECT FILE LINKS. "releases/latest/download/<name>" always
                 serves the newest release's file of that name, so these
@@ -230,23 +229,11 @@
           <div class="row">
             <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-Windows.zip" rel="noreferrer">WINDOWS</a>
             <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-macOS.zip" rel="noreferrer">MACOS</a>
-            <!--  The phone version, on this same origin at /app.
-                  TWO LABELS, ONE LINK, CHOSEN BY CSS: on a phone this is the
-                  instrument itself; on a desktop "download on phone" would
-                  be a lie about the machine they are on. A media query
-                  rather than JavaScript, so the first paint is right.  -->
-            <a class="button button--ghost" href="/app/" data-play>
-              <span class="only-touch">PLAY ON PHONE</span>
-              <span class="only-pointer">PLAY IN THE BROWSER</span>
-            </a>
           </div>
 
           <p class="note" data-decode data-decode-delay="240">
             PUBLIC BETA &mdash; FREE WHILE IT IS IN BETA. NOT CODE-SIGNED YET:
             THE README IN EACH ZIP SAYS HOW TO OPEN IT.<br />
-            <span class="only-touch">ON A PHONE: TAP TO PLAY, THEN ADD IT TO YOUR
-            HOME SCREEN. SAVE PATCHES THERE AND OPEN THEM IN THE PLUGIN.</span> <span class="only-pointer">THE BROWSER VERSION RUNS THE SAME ENGINE AS
-            THE PLUGIN, ON PHONE AND DESKTOP.</span><br />
             FREE SOFTWARE, GPLV3 &mdash;
             <a href="https://github.com/Vicevinnybeats/GNARL" rel="noreferrer">SOURCE CODE</a>.
           </p>
@@ -287,10 +274,7 @@
               <p>
                 Oversampling is the dial that matters: the voices run at 1&times;,
                 2&times;, 4&times; or 8&times;, and 2&times; is the default. Unison is
-                the other: seven voices per oscillator cost seven times one. Even
-                the phone version, in a browser, plays a heavy patch &mdash; two
-                unison oscillators and every effect &mdash; about four times
-                faster than real time on one server core.
+                the other: seven voices per oscillator cost seven times one.
               </p>
             </details>
           </div>

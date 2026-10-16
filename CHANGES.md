@@ -698,3 +698,6 @@ the merge commit forward: `git log 7651809..`.
   slides (100lvh, same-size resizes skipped), which rebuilt the render
   targets mid-scroll and made the object grow on the way back up; the pixel
   ratio starts at 1.25 instead of 1.6.
+- No play button on the site, and no mention of playing in the browser
+  (site/src/play.ts removed): GNARL is to be sold, and the SOUNDS clips are
+  the showcase.

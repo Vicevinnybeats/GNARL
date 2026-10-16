@@ -13,7 +13,6 @@ import type { Journey } from './journey';
 import { wireDeparture } from './departure';
 import { createLoader } from './loader';
 import { mountMotion, updateMotion } from './motion';
-import { mountPlay } from './play';
 import { mountSounds } from './sounds';
 
 import './styles.css';
@@ -22,7 +21,6 @@ gsap.registerPlugin(ScrollTrigger);
 
 mountChrome();
 trackSections();
-mountPlay();
 /*  The sound list arrives after a fetch and makes section 02 taller, which
     moves where every later section centres: measured again once it is in,
     or the journey's end point (journeyEnd, below) is a section early. */

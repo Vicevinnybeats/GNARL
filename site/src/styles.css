@@ -465,47 +465,6 @@ main { position: relative; z-index: 2; }
 }
 .sound:not([data-playing='true']) .sound__bar i { opacity: 0.45; }
 
-/* ---- PLAY (play.ts): the real GNARL in a frame over the page. ----------- */
-.play {
-  width: min(1440px, 96vw);
-  height: min(860px, 92vh);
-  max-width: none;
-  max-height: none;
-  padding: 0;
-  border: 1px solid var(--line-hot);
-  background: var(--bg-deep);
-  color: var(--text);
-  box-shadow: 0 0 80px -20px var(--accent);
-  display: none;
-  flex-direction: column;
-}
-.play[open] { display: flex; }
-.play::backdrop { background: rgba(3, 2, 10, 0.78); backdrop-filter: blur(6px); }
-.play__bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 10px 8px 16px;
-  border-bottom: 1px solid var(--line);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-}
-.play__title { flex: 1; color: var(--text-dim); }
-.play__full { color: var(--accent); text-decoration: none; }
-.play__full:hover { text-decoration: underline; }
-.play__close {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-}
-.play__close:hover { border-color: var(--line-hot); }
-.play__frame { flex: 1; width: 100%; border: 0; background: #07040f; }
 
 .button {
   display: inline-block;
