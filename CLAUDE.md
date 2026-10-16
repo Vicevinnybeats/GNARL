@@ -484,9 +484,15 @@ Phase 2 candidates, with what already exists in upstream:
 
 Deployed by Vercel from `site/` (`vercel.json` → `tools/assemble_deploy.mjs`).
 `/app` is the phone version, fetched from the latest release (a tombstone
-page only when no release carries it). On the home page **PLAY IT NOW**
-opens `/app` in a frame on a desktop and follows the link on a phone
-(`site/src/play.ts`). **SOUNDS** (section 02, id still `presets` so the
+page only when no release carries it). Playing it is at the END of the page
+(the producer: GNARL will be sold, so the hero sells): **PLAY IN THE
+BROWSER** in the download section opens `/app` in a frame on a desktop and
+follows the link on a phone (`site/src/play.ts`). The cards' motion follows
+the scroll position, not a timer (`site/src/motion.ts`), and plays back on
+the way up. `#stage` and `#rain` are `100lvh` and skip same-size resizes: a
+phone's address bar used to resize the 3D canvas on every slide, which
+rebuilt the render targets (the lag scrolling down) and grew the object on
+the way back up. Phones start at pixel ratio 1.25. **SOUNDS** (section 02, id still `presets` so the
 journey's formations keep their order) plays clips GNARL rendered itself:
 `node tools/render_demos.mjs` writes `site/public/sounds/*.mp3` and
 `sounds.json`; the producer's own MP3s go in that folder and in its `OWN`

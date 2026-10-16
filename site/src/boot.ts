@@ -12,6 +12,7 @@ import { decodeOnReveal } from './decode';
 import type { Journey } from './journey';
 import { wireDeparture } from './departure';
 import { createLoader } from './loader';
+import { mountMotion, updateMotion } from './motion';
 import { mountPlay } from './play';
 import { mountSounds } from './sounds';
 
@@ -25,21 +26,17 @@ mountPlay();
 /*  The sound list arrives after a fetch and makes section 02 taller, which
     moves where every later section centres: measured again once it is in,
     or the journey's end point (journeyEnd, below) is a section early. */
-void mountSounds().then(() => ScrollTrigger.refresh());
-
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-if (!reduced) {
-  for (const slab of document.querySelectorAll('.slab')) {
-    gsap.from(slab, {
-      y: 34,
-      opacity: 0,
-      duration: 0.7,
-      ease: 'power2.out',
-      scrollTrigger: { trigger: slab, start: 'top 85%' },
-    });
-  }
-}
+/*  The cards' motion follows the scroll (motion.ts), updated in the frame
+    loop below. It replaced a timed fade-in per card: a second clock, and one
+    that did not play back when scrolling up. */
+if (!reduced) mountMotion();
+
+void mountSounds().then(() => {
+  ScrollTrigger.refresh();
+  if (!reduced) mountMotion();
+});
 
 decodeOnReveal(document.querySelectorAll<HTMLElement>('[data-decode]'));
 
@@ -247,6 +244,7 @@ const applyBuild = (progress: number) => {
 const frame = (now: number) => {
   const elapsed = (now - previous) / 1000;
   previous = now;
+  if (!reduced) updateMotion();
 
   /*  A QUARTER SECOND, not a tenth. During a stutter a tenth advances the
       scene by less time than actually passed, so it falls behind the scroll
@@ -455,7 +453,6 @@ async function start() {
     journeyRef.resize();
     rain?.resize();
     loader?.resize();
-    ScrollTrigger.refresh();
   });
 
   /*  Exposed for `tools/screenshot_site.mjs`, which waits for the scene to

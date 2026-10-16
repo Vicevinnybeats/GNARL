@@ -42,9 +42,15 @@ body {
     scroll instead would mean the zoom fighting the page. */
 #stage {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  /*  The LARGE viewport, so a phone's address bar sliding in and out never
+      resizes this canvas: it rebuilt every render target on each slide (the
+      lag scrolling down) and stretched the picture (the object growing on
+      the way back up). The bar simply covers its bottom edge. */
+  height: 100lvh;
   z-index: 0;
   display: block;
   background:
@@ -60,9 +66,15 @@ body {
     blur here is also what hides that it is upscaled. */
 #rain {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  /*  The LARGE viewport, so a phone's address bar sliding in and out never
+      resizes this canvas: it rebuilt every render target on each slide (the
+      lag scrolling down) and stretched the picture (the object growing on
+      the way back up). The bar simply covers its bottom edge. */
+  height: 100lvh;
   z-index: 1;
   display: block;
   opacity: 0.22;
@@ -784,4 +796,55 @@ body.is-departing {
   .only-pointer {
     display: none;
   }
+}
+
+/* ---- MOTION ON SCROLL (motion.ts). Every value here is a function of the
+   card's --reveal (0 below the fold, 1 well inside it), which follows the
+   scroll: no transition, no timer, and it plays back on the way up. ------ */
+.gn-motion main .slab:not(.slab--hero) {
+  transform: translate3d(0, calc((1 - var(--reveal, 1)) * 64px), 0);
+  opacity: calc(0.12 + var(--reveal, 1) * 0.88);
+}
+.gn-motion main .slab .index::after {
+  content: '';
+  display: inline-block;
+  vertical-align: middle;
+  width: 72px;
+  height: 1px;
+  margin-left: 14px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  box-shadow: 0 0 8px var(--accent);
+  transform-origin: 0 50%;
+  transform: scaleX(clamp(0, calc(var(--reveal, 1) * 1.6 - 0.3), 1));
+}
+.gn-motion main .slab .heading {
+  clip-path: inset(0 clamp(0%, calc((1.25 - var(--reveal, 1) * 1.6) * 100%), 100%) 0 0);
+}
+.gn-motion main .slab .specs li,
+.gn-motion main .slab .price__list li,
+.gn-motion main .slab .faq details,
+.gn-motion main .slab .sound {
+  --r: clamp(0, calc(var(--reveal, 1) * 2.4 - 0.75 - var(--i, 0) * 0.13), 1);
+  opacity: var(--r);
+  transform: translate3d(calc((1 - var(--r)) * -30px), 0, 0);
+}
+.gn-motion main .slab .sound {
+  transform: translate3d(calc((1 - var(--r)) * 40px), 0, 0);
+}
+/* How far down the page: a lit line along the top edge. */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  box-shadow: 0 0 12px var(--accent);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--progress, 0));
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress { display: none; }
 }

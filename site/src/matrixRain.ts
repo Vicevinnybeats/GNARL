@@ -49,8 +49,12 @@ export function createMatrixRain(canvas: HTMLCanvasElement): MatrixRain {
   const SCALE = 0.34;
 
   function resize(): void {
-    const width = Math.max(1, Math.floor(window.innerWidth * SCALE));
-    const height = Math.max(1, Math.floor(window.innerHeight * SCALE));
+    // The canvas's own size (100lvh, styles.css), not the window's: a phone's
+    // address bar changes innerHeight on every slide, and each change reset
+    // every column. Unchanged, nothing is rebuilt.
+    const width = Math.max(1, Math.floor((canvas.clientWidth || window.innerWidth) * SCALE));
+    const height = Math.max(1, Math.floor((canvas.clientHeight || window.innerHeight) * SCALE));
+    if (width === canvas.width && height === canvas.height && columns > 0) return;
 
     canvas.width = width;
     canvas.height = height;

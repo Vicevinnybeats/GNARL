@@ -685,3 +685,16 @@ the merge commit forward: `git log 7651809..`.
   site/public/sounds/, site/src/sounds.ts); the interface picture is
   today's panel; the copy describes what GNARL has now.
 - check_fork.py allows the site's SOUNDS clips, one by one as site/public/sounds/sounds.json lists them; any other committed audio still fails.
+
+## 2026-10-16 - Site: play at the end, motion on scroll, phone 3D
+
+- The hero sells (GET IT, HEAR IT); playing GNARL in the browser is at the
+  end of the page only.
+- Cards rise, their rules draw out, headings wipe in and rows slide in one
+  after another as they scroll into view, and a line along the top shows how
+  far down the page you are - all from the scroll position (site/src/
+  motion.ts), replacing a timed fade-in.
+- Phones: the 3D and rain canvases no longer resize when the address bar
+  slides (100lvh, same-size resizes skipped), which rebuilt the render
+  targets mid-scroll and made the object grow on the way back up; the pixel
+  ratio starts at 1.25 instead of 1.6.

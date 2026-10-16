@@ -451,7 +451,10 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
    *  measures the result - a device that cannot hold 1.6 drops bloom first
    *  and then the ratio, so this raises the ceiling without raising the
    *  floor. */
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.6 : 2));
+  /*  A phone starts at 1.25 (it was 1.6): measured above, 1.6 ran 17.8 fps
+      and 1.3 21.4, and the producer saw the lag while scrolling. The ladder
+      below still steps down from here on a device that cannot hold it. */
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, mobile ? 1.25 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
 
@@ -1119,11 +1122,24 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
   let framingWidth = 0;
   let framingHeight = 0;
 
+  let sizedWidth = 0;
+  let sizedHeight = 0;
+  let sizedRatio = 0;
+
   function resize(): void {
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
 
     mobile = window.innerWidth < 860;
+
+    /*  NOTHING TO DO WHEN NOTHING CHANGED. A phone fires resize for every
+        address-bar slide; the canvas is sized to the large viewport (lvh,
+        styles.css) so its size does not move, and reallocating the composer
+        and the bloom chain for the same size was a dropped frame each time. */
+    if (width === sizedWidth && height === sizedHeight && renderer.getPixelRatio() === sizedRatio) return;
+    sizedWidth = width;
+    sizedHeight = height;
+    sizedRatio = renderer.getPixelRatio();
 
     renderer.setSize(width, height, false);
     composer.setSize(width, height);
@@ -1535,7 +1551,7 @@ export async function createJourney(canvas: HTMLCanvasElement): Promise<Journey>
              *  the look of the page and bought no frames with it.
              *
              *  So both rungs are resolution now, and the bloom stays on. */
-            const step = quality === 1 ? 1.15 : 0.85;
+            const step = quality === 1 ? (mobile ? 1.0 : 1.15) : 0.85;
 
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, step));
             starUniforms.uPixelRatio.value = renderer.getPixelRatio();
