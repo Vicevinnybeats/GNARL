@@ -684,3 +684,4 @@ the merge commit forward: `git log 7651809..`.
   DRUMS loops, rendered by GNARL (tools/render_demos.mjs,
   site/public/sounds/, site/src/sounds.ts); the interface picture is
   today's panel; the copy describes what GNARL has now.
+- check_fork.py allows the site's SOUNDS clips, one by one as site/public/sounds/sounds.json lists them; any other committed audio still fails.

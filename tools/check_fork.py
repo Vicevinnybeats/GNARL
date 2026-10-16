@@ -25,7 +25,7 @@ And one rule, checked before it can be broken: no audio file is committed
 
 Exit status is the number of failures.
 """
-import pathlib, re, sys, xml.dom.minidom
+import json, pathlib, re, sys, xml.dom.minidom
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import pbxproj
@@ -152,6 +152,14 @@ for p in sorted((ROOT / 'tests').rglob('*.vital')):
 #    is an example the VST3 SDK ships, which is Steinberg's, not a reference.
 AUDIO = re.compile(r'\.(wav|mp3|flac|aiff?|ogg|m4a|opus|wma)$', re.I)
 ALLOWED_AUDIO = {'third_party/VST_SDK/VST3_SDK/public.sdk/source/vst/auv3wrapper/Shared/drumLoop.wav'}
+#    The site's SOUNDS clips are GNARL's own output (tools/render_demos.mjs),
+#    or the producer's own sounds: allowed one by one, as site/public/sounds/
+#    sounds.json lists them. An unlisted file there still fails.
+try:
+    _sounds = json.loads(text(ROOT / 'site/public/sounds/sounds.json'))['sounds']
+    ALLOWED_AUDIO |= {f'site/public/sounds/{s["file"]}' for s in _sounds if '/' not in s['file']}
+except (OSError, ValueError, KeyError):
+    pass
 try:
     import subprocess
     tracked = subprocess.run(['git', 'ls-files'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
