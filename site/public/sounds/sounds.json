@@ -1,0 +1,34 @@
+{
+ "sounds": [
+  {
+   "title": "VINNY BASS 2",
+   "file": "vinny-bass-2.mp3",
+   "note": "140 BPM · D#3"
+  },
+  {
+   "title": "WOB TRIPLET DRY",
+   "file": "wob-triplet-dry.mp3",
+   "note": "140 BPM · D#3"
+  },
+  {
+   "title": "WOB STUTTER DELAY",
+   "file": "wob-stutter-delay.mp3",
+   "note": "140 BPM · D#3"
+  },
+  {
+   "title": "YOI TALK",
+   "file": "yoi-talk.mp3",
+   "note": "140 BPM · D#3"
+  },
+  {
+   "title": "TEAR GROWL",
+   "file": "tear-growl.mp3",
+   "note": "140 BPM · D#3"
+  },
+  {
+   "title": "WOB EIGHTH SPACE",
+   "file": "wob-eighth-space.mp3",
+   "note": "140 BPM · D#3"
+  }
+ ]
+}

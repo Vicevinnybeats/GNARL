@@ -29,7 +29,7 @@ set. Scroll drives the position along the curve and nothing else.
 |---|---|
 | top | Orbits around a bright core |
 | engine | The oscillator's harmonic surface |
-| presets | A double helix |
+| presets (SOUNDS) | A double helix |
 | fx | **A dissolve** — the form burning away into its own dust |
 | download | The interface's own rectangle, resolving |
 

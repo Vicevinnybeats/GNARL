@@ -71,10 +71,25 @@ export function wobblePhase(t: number): number {
   return (t * (PREVIEW_BPM / 60) * cycles) % 1;
 }
 
-/** The wobble's current contribution to a destination, 0 when it is not routed. */
+/**
+ * The wobble's current contribution to a destination: 0 when it is not
+ * routed, and 0 while no note sounds - the wobble moves a voice, so with
+ * nothing playing the displays it feeds (OSC 1, the vowel) hold still. They
+ * used to run it on the preview clock regardless, and OSC 1 wobbled on its
+ * own in an idle plugin. With the engine there, its phase (-1 when no voice
+ * plays); without it, the preview voice (voice.ts).
+ */
 function wobbleTo(dest: string, t: number): number {
   if (!get('wobble.on') || !get(`wobble.to.${dest}`)) return 0;
-  return (wobbleShape(wobblePhase(t)) - 0.5) * get('wobble.depth');
+  let phase: number;
+  if (engine.connected) {
+    if (engine.wobblePhase < 0) return 0;
+    phase = engine.wobblePhase % 1;
+  } else {
+    if (sounding(t).amp <= 0) return 0;
+    phase = wobblePhase(t);
+  }
+  return (wobbleShape(phase) - 0.5) * get('wobble.depth');
 }
 
 /* ----------------------------------------------------------------- helpers */
@@ -317,8 +332,9 @@ export function drawWobble(d: Display, t: number): void {
     }
   }
 
-  // In the plugin the playhead is the engine's, and only while a voice plays.
-  const enginePhase = engine.connected ? engine.wobblePhase : 0;
+  // The playhead only while a note plays: the engine's phase when it is
+  // there (-1 with no voice), otherwise the preview voice's clock.
+  const enginePhase = engine.connected ? engine.wobblePhase : sounding(t).amp > 0 ? 0 : -1;
   if (on && enginePhase >= 0) {
     // The playhead, where the wobble is on the grid right now.
     const { ctx, width, height } = d;

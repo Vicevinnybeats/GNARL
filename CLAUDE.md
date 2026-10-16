@@ -482,10 +482,16 @@ Phase 2 candidates, with what already exists in upstream:
 
 ## 10. The marketing site
 
-The site is unchanged by the fork and is still deployed by Vercel from
-`site/` (`vercel.json` → `tools/assemble_deploy.mjs`). `/app` is a tombstone
-page: the React web app that lived there was the retired engine's UI and is
-on `custom-engine-archive`.
+Deployed by Vercel from `site/` (`vercel.json` → `tools/assemble_deploy.mjs`).
+`/app` is the phone version, fetched from the latest release (a tombstone
+page only when no release carries it). On the home page **PLAY IT NOW**
+opens `/app` in a frame on a desktop and follows the link on a phone
+(`site/src/play.ts`). **SOUNDS** (section 02, id still `presets` so the
+journey's formations keep their order) plays clips GNARL rendered itself:
+`node tools/render_demos.mjs` writes `site/public/sounds/*.mp3` and
+`sounds.json`; the producer's own MP3s go in that folder and in its `OWN`
+list. `site/public/ui-osc.webp` is a 1600x900 screenshot of the current panel
+(Vinny Bass 2, a note held): retake it when the panel changes.
 
 ### The marketing site
 

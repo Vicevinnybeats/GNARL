@@ -671,3 +671,16 @@ the merge commit forward: `git log 7651809..`.
   width, crack, body length, high-pass and layered kick.
 - The matched presets' comments and source names no longer name tracks; the
   drum data is numbered; tests/test_drum_prints.py checks what ships.
+
+## 2026-10-16 - Panel fixes; the site plays GNARL
+
+- Panel: OSC 1 and the vowel display no longer wobble with no note playing
+  (the wobble preview ran on its own clock); the WOBBLE playhead shows only
+  while a note plays. The window's grid column is pinned to the window: the
+  header had grown 57px past it and cut off MASTER, the matrix amounts and
+  PITCH/MOD on the right. ui/src/draw.ts, ui/src/styles.css.
+- Site: PLAY IT NOW opens the phone version (the real engine) in the page
+  (site/src/play.ts); a SOUNDS section plays six built-in presets over
+  DRUMS loops, rendered by GNARL (tools/render_demos.mjs,
+  site/public/sounds/, site/src/sounds.ts); the interface picture is
+  today's panel; the copy describes what GNARL has now.

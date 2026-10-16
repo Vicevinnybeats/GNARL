@@ -82,6 +82,11 @@ body {
   padding: 12px;
   display: grid;
   grid-template-rows: 44px 266px 228px 128px;
+  /* The column is the window's width, never its content's: an implicit
+     column grows to the header's widest line, and when DRUMS, RIDDIMIZE and
+     TIPS joined the header every row grew 57px past the window and its right
+     edge (MASTER, the matrix amounts, PITCH/MOD) was cut off. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   /* Three stops: a violet bloom top-left and a cyan one top-right falling to
      deep indigo reads as light in a room rather than a gradient. */
@@ -113,7 +118,8 @@ body {
 .top {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
   padding: 0 4px;
 }
 .top__spacer {
@@ -147,9 +153,10 @@ body {
 .preset {
   display: flex;
   align-items: center;
-  width: 330px;
+  flex: 0 1 330px;
+  min-width: 200px;
   height: 32px;
-  margin-left: 18px;
+  margin-left: 10px;
   background: rgba(10, 6, 26, 0.55);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

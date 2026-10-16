@@ -15,7 +15,7 @@ export interface Section {
 /** The sections, in the order the page passes through them. */
 export const SECTIONS: readonly Section[] = [
   { id: 'engine', label: 'ENGINE' },
-  { id: 'presets', label: 'PRESETS' },
+  { id: 'presets', label: 'SOUNDS' },
   { id: 'fx', label: 'FX' },
   { id: 'pricing', label: 'PRICING' },
   { id: 'download', label: 'DOWNLOAD' },

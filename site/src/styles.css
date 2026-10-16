@@ -396,6 +396,105 @@ main { position: relative; z-index: 2; }
 
 .row { display: flex; flex-wrap: wrap; gap: 12px; }
 
+/* ---- SOUNDS (sounds.ts): a list of clips, one playing at a time. ------- */
+.sounds { margin: 0 0 24px; padding: 0; list-style: none; display: grid; gap: 6px; }
+.sounds[hidden] { display: none; }
+.sound__play {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-rows: auto 3px;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 6px;
+  width: 100%;
+  padding: 10px 14px 9px 10px;
+  border: 1px solid var(--line);
+  background: rgba(10, 6, 30, 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.sound__play:hover, .sound__play:focus-visible { border-color: var(--line-hot); outline: none; }
+/* The play / pause glyph, drawn in CSS: a triangle, or two bars when playing. */
+.sound__play::before {
+  content: '';
+  grid-row: 1;
+  justify-self: center;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+.sound[data-playing='true'] .sound__play { border-color: var(--line-hot); background: rgba(100, 230, 255, 0.08); }
+.sound[data-playing='true'] .sound__play::before {
+  width: 10px;
+  height: 12px;
+  border: 0;
+  border-left: 3px solid var(--accent);
+  border-right: 3px solid var(--accent);
+}
+.sound__title { grid-row: 1; color: var(--text); }
+.sound__note { grid-row: 1; color: var(--text-faint); font-size: 10px; }
+.sound__bar { grid-column: 2 / 4; grid-row: 2; height: 3px; background: var(--line); overflow: hidden; }
+.sound__bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--progress, 0));
+}
+.sound:not([data-playing='true']) .sound__bar i { opacity: 0.45; }
+
+/* ---- PLAY (play.ts): the real GNARL in a frame over the page. ----------- */
+.play {
+  width: min(1440px, 96vw);
+  height: min(860px, 92vh);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line-hot);
+  background: var(--bg-deep);
+  color: var(--text);
+  box-shadow: 0 0 80px -20px var(--accent);
+  display: none;
+  flex-direction: column;
+}
+.play[open] { display: flex; }
+.play::backdrop { background: rgba(3, 2, 10, 0.78); backdrop-filter: blur(6px); }
+.play__bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 10px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+.play__title { flex: 1; color: var(--text-dim); }
+.play__full { color: var(--accent); text-decoration: none; }
+.play__full:hover { text-decoration: underline; }
+.play__close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.play__close:hover { border-color: var(--line-hot); }
+.play__frame { flex: 1; width: 100%; border: 0; background: #07040f; }
+
 .button {
   display: inline-block;
   padding: 12px 22px;

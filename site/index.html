@@ -6,7 +6,7 @@
     <title>GNARL — Wavetable Synthesizer</title>
     <meta
       name="description"
-      content="A wavetable synthesizer for riddim and dubstep. Drawable LFOs on a triplet grid, a formant filter that growls, and fourteen effects you can reorder."
+      content="A wavetable synthesizer for riddim. A wobble locked to your DAW on one knob, a vowel filter that talks, a clean sub, and a drive chain made for growls."
     />
     <meta name="color-scheme" content="dark" />
 
@@ -25,7 +25,7 @@
     <meta property="og:title" content="GNARL — Wavetable Synthesizer for Riddim" />
     <meta
       property="og:description"
-      content="A wavetable synthesizer built for one sound. Drawable LFOs on a triplet grid, a formant filter that growls, fourteen effects in any order, and 160 factory presets."
+      content="A wavetable synthesizer built for riddim. Triplet wobs on one knob, a vowel filter, a clean sub, 45 built-in patches - and you can play it in the browser."
     />
     <meta property="og:url" content="https://gnarl.vercel.app/" />
     <meta property="og:image" content="https://gnarl.vercel.app/og.png" />
@@ -41,7 +41,7 @@
     <meta name="twitter:title" content="GNARL — Wavetable Synthesizer for Riddim" />
     <meta
       name="twitter:description"
-      content="Triplet growls, formant wobbles, and fourteen effects you can put in any order. 160 factory presets. VST3, AU and standalone."
+      content="Triplet wobs, vowel growls and a clean sub, locked to your DAW. 45 built-in patches. VST3, AU and standalone, and in the browser."
     />
     <meta name="twitter:image" content="https://gnarl.vercel.app/og.png" />
 
@@ -70,18 +70,18 @@
         "name": "GNARL",
         "applicationCategory": "MultimediaApplication",
         "applicationSubCategory": "Audio Plugin",
-        "description": "A wavetable synthesizer for riddim and dubstep. Two wavetable/graintable oscillators, a twelve-type zero-delay filter bank with a drivable vowel space, four drawable LFOs on a triplet grid, fourteen reorderable effects and 160 factory presets. VST3, AU and standalone.",
+        "description": "A wavetable synthesizer for riddim. A tempo-locked wobble on one knob (1/4, 1/8, 1/8T, 1/16) wired to the wavetable, filter, FM, vowel and volume; a vowel filter; a clean mono sub; a drive chain of distortion, fold and crush; 45 built-in patches. VST3, AU and standalone.",
         "operatingSystem": "Windows 10, Windows 11, macOS",
         "url": "https://gnarl.vercel.app/",
         "image": "https://gnarl.vercel.app/og.png",
         "featureList": [
-          "Two wavetable and graintable oscillators",
-          "Sixteen-voice unison with per-voice detune",
-          "Twelve-type zero-delay filter bank with a formant vowel space",
-          "Four LFOs with drawable curves on a triplet grid",
-          "Fourteen effects in any order",
-          "160 factory presets",
-          "2x and 4x oversampling on the voice section"
+          "A wobble locked to the DAW: 1/4, 1/8, 1/8T, 1/16, on one knob",
+          "Vowel filter with morph, driven by the wobble",
+          "Two wavetable oscillators with FM and fold",
+          "A clean mono sub",
+          "Drive chain: distortion, wavefolder, bit crusher, OTT",
+          "45 built-in patches and 62 effect presets",
+          "DRUMS and RIDDIMIZE: riddim loops and one-shots as WAV"
         ],
         "softwareRequirements": "A VST3 or AU host, or none for the standalone. WebView2 on Windows."
       }
@@ -106,12 +106,16 @@
           <p class="eyebrow" data-decode>VST3 &middot; AU &middot; STANDALONE</p>
           <h1 class="display" data-decode data-decode-delay="120">GNARL</h1>
           <p class="lede" data-decode data-decode-delay="320">
-            A wavetable synthesizer built for one sound. Triplet growls,
-            formant wobbles, and fourteen effects you can put in any order.
+            A wavetable synthesizer built for one sound: riddim. Triplet
+            wobs, vowel growls and a clean sub, locked to your DAW's tempo.
           </p>
           <div class="row">
-            <a class="button" href="#download">GET IT</a>
-            <a class="button button--ghost" href="#engine">SEE THE ENGINE</a>
+            <!--  PLAY opens the real instrument over the page (play.ts) - the
+                  phone version at /app, the same engine as the plugin. A plain
+                  link underneath, so without JavaScript, or on a phone, it
+                  simply opens /app.  -->
+            <a class="button" href="/app/" data-play>PLAY IT NOW</a>
+            <a class="button button--ghost" href="#download">DOWNLOAD</a>
           </div>
         </div>
         <p class="scroll-hint">SCROLL TO ENTER</p>
@@ -119,45 +123,50 @@
       <section class="panel " id="engine">
         <div class="slab">
           <p class="index" data-decode>01</p>
-          <h2 class="heading" data-decode>THE GROWL IS THE<br />FORMANT MOVING.</h2>
+          <h2 class="heading" data-decode>THE WOB IS<br />ONE KNOB.</h2>
           <p class="body" data-decode data-decode-delay="200">
-            Not the cutoff sweeping. A twelve-type zero-delay filter bank with a vowel space you can drive at audio rate, so the movement reads as a voice rather than as a filter.
+            Pick 1/4, 1/8, 1/8T or 1/16 and turn up the depth. The wobble is locked to your DAW, so every note lands on the grid, and it is already wired to the wavetable, the filter, FM, the vowel and the volume &mdash; no routing.
           </p>
           <ul class="specs">
-            <li data-decode>TWO WAVETABLE / GRAINTABLE OSCILLATORS</li>
-            <li data-decode>SIXTEEN-VOICE UNISON, PER-VOICE DETUNE</li>
-            <li data-decode>2× AND 4× OVERSAMPLING ON THE VOICE SECTION</li>
-            <li data-decode>−65.6 dBc ALIASING, MEASURED</li>
+            <li data-decode>WOBBLE: SINE, SOFT SQUARE OR DRAWN, SMOOTH AND PHASE</li>
+            <li data-decode>VOWEL FILTER: A E I O U, MORPH, THE WOB ON THE VOWEL</li>
+            <li data-decode>TWO WAVETABLE OSCILLATORS, FM, FOLD, EIGHTEEN TABLES</li>
+            <li data-decode>A CLEAN MONO SUB UNDER THE GROWL</li>
           </ul>
         </div>
       </section>
+      <!--  SOUNDS. The id stays "presets": the journey's formations follow the
+            sections in order, and this is still the second. The clips are
+            GNARL's own output (tools/render_demos.mjs), listed by
+            sounds/sounds.json and drawn by sounds.ts.  -->
       <section class="panel " id="presets">
         <div class="slab">
           <p class="index" data-decode>02</p>
-          <h2 class="heading" data-decode>DRAW THE RHYTHM,<br />NOT THE RATE.</h2>
+          <h2 class="heading" data-decode>HEAR IT.</h2>
           <p class="body" data-decode data-decode-delay="200">
-            Four LFOs with drawable curves on a triplet grid. The rate says how long a cycle lasts; what happens inside it is the shape you draw, and that is where the genre lives &mdash; growls, croaks, wobbles and sub weight, 160 of them in the box.
+            Made in GNARL, nothing added: each preset playing a riddim phrase over a loop from GNARL's own DRUMS.
           </p>
+          <ol class="sounds" aria-label="Sounds made with GNARL"></ol>
           <ul class="specs">
-            <li data-decode>160 FACTORY PRESETS</li>
-            <li data-decode>MORPH BETWEEN ANY TWO</li>
-            <li data-decode>RANDOMISE THAT STAYS MUSICAL</li>
-            <li data-decode>MODULATION IN 32-SAMPLE CHUNKS</li>
+            <li data-decode>45 BUILT-IN PATCHES</li>
+            <li data-decode>AI: FOUR NEW WOBS FROM ANY SOUND, PICK BY EAR</li>
+            <li data-decode>MATCH A SOUND: DROP A WOB, GET THE PATCH</li>
+            <li data-decode>DRUMS AND RIDDIMIZE: LOOPS AND ONE-SHOTS AS WAV</li>
           </ul>
         </div>
       </section>
       <section class="panel " id="fx">
         <div class="slab">
           <p class="index" data-decode>03</p>
-          <h2 class="heading" data-decode>FOURTEEN EFFECTS.<br />ANY ORDER.</h2>
+          <h2 class="heading" data-decode>DRIVE, FOLD,<br />CRUSH, SPACE.</h2>
           <p class="body" data-decode data-decode-delay="200">
-            Order matters and the rack respects it. Two distortions with an EQ between them sound different from the same two with an EQ after — because the EQ changes what the second curve is given.
+            A drive chain made for growls: distortion into a wavefolder into a bit crusher, then OTT. Every effect has its own presets, so one tap gets you most of the way.
           </p>
           <ul class="specs">
-            <li data-decode>OTT, DISTORTION ×2, EQ ×2, FILTER ×2</li>
-            <li data-decode>CHORUS, FLANGER, PHASER, HYPER</li>
-            <li data-decode>DIMENSION, DELAY, REVERB, LIMITER</li>
-            <li data-decode>2× OVERSAMPLED WHEN ANYTHING NONLINEAR IS ON</li>
+            <li data-decode>DIST: SOFT, HARD, TUBE &rarr; FOLD &rarr; CRUSH</li>
+            <li data-decode>OTT, THREE BANDS OR TWO</li>
+            <li data-decode>CHORUS, FLANGER, PHASER, EQ, DELAY, REVERB</li>
+            <li data-decode>62 EFFECT PRESETS</li>
           </ul>
         </div>
       </section>
@@ -184,7 +193,7 @@
 
             <ul class="price__list">
               <li>VST3, AU and standalone &mdash; Windows and macOS</li>
-              <li>160 factory presets built for this genre</li>
+              <li>45 built-in patches made for riddim</li>
               <li>Three machines per licence</li>
               <li>30-day offline grace period &mdash; audio never stops</li>
               <li>Every future version included</li>
@@ -226,7 +235,7 @@
                   instrument itself; on a desktop "download on phone" would
                   be a lie about the machine they are on. A media query
                   rather than JavaScript, so the first paint is right.  -->
-            <a class="button button--ghost" href="/app/">
+            <a class="button button--ghost" href="/app/" data-play>
               <span class="only-touch">PLAY ON PHONE</span>
               <span class="only-pointer">PLAY IN THE BROWSER</span>
             </a>
@@ -236,7 +245,7 @@
             PUBLIC BETA &mdash; FREE WHILE IT IS IN BETA. NOT CODE-SIGNED YET:
             THE README IN EACH ZIP SAYS HOW TO OPEN IT.<br />
             <span class="only-touch">ON A PHONE: TAP TO PLAY, THEN ADD IT TO YOUR
-            HOME SCREEN. SAVE PATCHES THERE AND OPEN THEM IN THE PLUGIN.</span><span class="only-pointer">THE BROWSER VERSION RUNS THE SAME ENGINE AS
+            HOME SCREEN. SAVE PATCHES THERE AND OPEN THEM IN THE PLUGIN.</span> <span class="only-pointer">THE BROWSER VERSION RUNS THE SAME ENGINE AS
             THE PLUGIN, ON PHONE AND DESKTOP.</span><br />
             FREE SOFTWARE, GPLV3 &mdash;
             <a href="https://github.com/Vicevinnybeats/GNARL" rel="noreferrer">SOURCE CODE</a>.
