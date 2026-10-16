@@ -11,7 +11,12 @@ export default defineWorkersConfig({
         wrangler: { configPath: "./wrangler.toml" },
         // The webhook's signing secret, for the tests only: the real one is a
         // `wrangler secret`, never in a file.
-        miniflare: { bindings: { STRIPE_WEBHOOK_SECRET: "whsec_test_secret" } },
+        miniflare: {
+          bindings: { STRIPE_WEBHOOK_SECRET: "whsec_test_secret" },
+          // The private download bucket, which the deployed Worker gets once
+          // R2 is enabled (src/downloads.ts).
+          r2Buckets: ["DOWNLOADS"],
+        },
       },
     },
   },

@@ -58,27 +58,27 @@ Every download is GPLv3 software, so each one says so and points at the
 source (README, release notes, the phone page's start screen). The source
 for a release is the tag it was built from, in this public repository.
 
-## Later: downloads for buyers only
+## Downloads for buyers only (built 2026-10-16)
 
-**The design the site already describes** (checkout page, Phase 7): the
-download is free and is the whole instrument; buying gets a licence key,
-and the key turns on preset saving. Under that design the download buttons
-stay public, and paying changes what the plugin can do, not whether you can
-get it. It needs no change here: deploy the Worker (docs/backend.md), set
-`-DGNARL_LICENCE_ENDPOINT` in the release build, and connect Stripe.
+A release on a public repository is public, so the buyer's zips live in a
+**private Cloudflare R2 bucket**, `gnarl-downloads`, beside the licence
+Worker:
 
-**If downloads should be for buyers only instead**, the files cannot stay on
-GitHub Releases: a release on a public repository is public, and anyone with
-the link downloads it whether the button is shown or not. Hiding a button
-gates nothing. What it would take:
+1. `release.yml` uploads each release's two zips into the bucket (when the
+   `CLOUDFLARE_API_TOKEN` secret exists and R2 is on).
+2. The Worker's `GET /download?os=windows|macos&session_id=cs_...` (the
+   thank-you page) or `&key=GNARL-...` (the key's email) streams the zip,
+   only for an **active** licence (backend/src/downloads.ts). A refunded or
+   revoked one gets nothing.
+3. `thanks.html` swaps its buttons for those links when `/licence` says
+   `downloads: true`; the email carries them too.
 
-1. The zips go to private storage (Cloudflare R2, beside the licence Worker)
-   instead of the release.
-2. Stripe's payment link sends the buyer to a thank-you page
-   (`thanks.html`) carrying the checkout session id.
-3. The Worker checks that session with Stripe, issues the licence key, and
-   answers with short-lived signed download links. The page shows the
-   buttons only then.
+**To switch it on:** turn on R2 in the Cloudflare dashboard, run the backend
+workflow (it creates and binds the bucket), then make a release (it fills
+the bucket). **To make the zips buyers-only**, set the repository variable
+`GNARL_PUBLIC_DOWNLOADS` to `false`: the next release is created without
+them. Do that together with changing the site's WINDOWS / MACOS buttons,
+which point at the public release, to the shop.
 
 Two things stay true whichever is chosen:
 - The phone version is a web page and is public by nature. It can carry the

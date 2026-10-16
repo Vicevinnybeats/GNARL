@@ -235,7 +235,7 @@ describe("the thank-you page's lookup", () => {
         const row = await onlyLicence();
         const after = await lookup("cs_test_a1b2c3d4e5");
         expect(after.status).toBe(200);
-        expect(await after.json()).toEqual({ status: "active", key: row.key });
+        expect(await after.json()).toEqual({ status: "active", key: row.key, downloads: true });
         expect(after.headers.get("access-control-allow-origin")).toBe("https://gnarl.vercel.app");
         expect(after.headers.get("cache-control")).toBe("no-store");
     });

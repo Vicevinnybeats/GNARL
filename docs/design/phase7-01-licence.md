@@ -178,6 +178,25 @@ Not exercised end to end: the refused save itself (the classic editor's
 save dialog with the alert). The gate is one line in `saveToFile`, and
 `presetSavingAllowed` follows `featuresAllowed`, which the tests cover.
 
+## The key by email, and buyers-only downloads (2026-10-16)
+
+- **Email.** When Stripe's webhook issues a key, the Worker emails it to the
+  buyer through Resend (`emailLicence` in backend/src/stripe.ts): the key,
+  their two download links, and where to paste it. Once per licence
+  (`emailed_at`, migrations/0004_email.sql; Resend's idempotency key covers
+  a lost reply). A failed send throws, the webhook answers 503 and Stripe
+  retries; the key is already issued and is not issued again. Off until the
+  secret `RESEND_API_KEY` and the variable `GNARL_MAIL_FROM` exist (a sender
+  on a domain verified in Resend).
+- **Downloads.** backend/src/downloads.ts and docs/release.md: zips in a
+  private R2 bucket, streamed for an active licence's session or key.
+- Tested in workerd (backend/test/downloads.test.ts, 12 tests): a zip for a
+  paid session and for the key in any case; nothing for an unknown key, an
+  unpaid session or a refunded licence; 503 without the bucket or the file;
+  one email however often Stripe repeats, the key kept and the email
+  retried after a failed send, none when not configured. Each guard was
+  removed once and its test failed.
+
 ## Not done
 
 - **The Worker is not deployed** (docs/backend.md: `wrangler deploy` is run

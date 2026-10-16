@@ -153,14 +153,41 @@ jobs:
         with:
           path: files
           merge-multiple: true
+      #  Buyers-only downloads (backend/src/downloads.ts): the zips go into
+      #  the private R2 bucket the backend streams them from. Skipped, with a
+      #  note, until the Cloudflare token exists and R2 is on.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Private downloads
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "No CLOUDFLARE_API_TOKEN: the zips are on the public release only."
+            exit 0
+          fi
+          cd backend
+          npm ci --no-audit --no-fund
+          for f in GNARL-Windows.zip GNARL-macOS.zip; do
+            npx wrangler r2 object put "gnarl-downloads/$f" --file "../files/$f" --content-type application/zip \
+              || echo "::warning::$f was not uploaded to the private bucket (is R2 on, and has the backend workflow run?)"
+          done
+      #  GNARL_PUBLIC_DOWNLOADS (a repository variable): "false" once the
+      #  shop is open, so the zips are no longer attached to the public
+      #  release and only buyers' links reach them. Unset during the beta.
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
+          PUBLIC_DOWNLOADS: ${{ vars.GNARL_PUBLIC_DOWNLOADS }}
         run: |
           ls -la files
           version=$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('plugin/gnarl.jucer').getroot().get('version'))")
-          gh release create "$TAG" files/GNARL-Windows.zip files/GNARL-macOS.zip files/gnarl-web.html \
+          zips="files/GNARL-Windows.zip files/GNARL-macOS.zip"
+          if [ "$PUBLIC_DOWNLOADS" = "false" ]; then zips=""; echo "Zips kept off the public release."; fi
+          gh release create "$TAG" $zips files/gnarl-web.html \
             --target "$GITHUB_SHA" \
             --title "GNARL $version ($TAG)" \
             --notes-file docs/release/NOTES.md \

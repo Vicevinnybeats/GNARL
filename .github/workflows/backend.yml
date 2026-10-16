@@ -11,6 +11,12 @@
 #  For payments, also STRIPE_WEBHOOK_SECRET (Stripe -> Developers -> Webhooks
 #  -> the endpoint's signing secret, whsec_...): the run gives it to the
 #  Worker. Run the workflow again after adding or changing it.
+#  To email each buyer their key: the secret RESEND_API_KEY (resend.com ->
+#  API Keys) and the repository VARIABLE GNARL_MAIL_FROM, a sender on a
+#  domain verified in Resend, e.g. "GNARL <keys@yourdomain>".
+#  Buyers-only downloads need R2 turned on in the Cloudflare dashboard (and
+#  "R2 Edit" on the token): the run then creates the private bucket
+#  gnarl-downloads and binds it; release.yml fills it.
 #
 #  The tests run first, in workerd against a local D1, exactly as build.yml
 #  runs them; a red test deploys nothing. The database migrations are
@@ -60,7 +66,24 @@ jobs:
           if columns | grep -q '"key"' && ! columns | grep -q stripe_session_id; then
             npm run migrate:remote
           fi
+          # The licence email's column (migrations/0004_email.sql), likewise.
+          if columns | grep -q '"key"' && ! columns | grep -q emailed_at; then
+            npm run migrate:email
+          fi
           npx wrangler d1 execute gnarl --remote --file=./schema.sql
+      #  Buyers-only downloads (src/downloads.ts). Bound only when R2 is on:
+      #  a binding to a bucket that cannot exist would fail the deploy, and
+      #  licences must not wait on downloads. Without it the zips stay on the
+      #  public release and the Worker answers /download with 503.
+      - name: Private downloads bucket
+        run: |
+          if list=$(npx wrangler r2 bucket list 2>&1); then
+            echo "$list" | grep -q 'gnarl-downloads' || npx wrangler r2 bucket create gnarl-downloads
+            printf '\n[[r2_buckets]]\nbinding = "DOWNLOADS"\nbucket_name = "gnarl-downloads"\n' >> wrangler.toml
+            echo "Private downloads: on (bucket gnarl-downloads)."
+          else
+            echo "::warning::R2 is not enabled on the Cloudflare account, so downloads stay public. Turn on R2 in the Cloudflare dashboard, then run this workflow again."
+          fi
       - name: Deploy
         run: |
           set -o pipefail
@@ -77,6 +100,17 @@ jobs:
             echo "No STRIPE_WEBHOOK_SECRET in the repository: payments stay off."
           else
             printf '%s' "$STRIPE_WEBHOOK_SECRET" | npx wrangler secret put STRIPE_WEBHOOK_SECRET
+          fi
+      - name: Licence email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_FROM: ${{ vars.GNARL_MAIL_FROM }}
+        run: |
+          if [ -z "$RESEND_API_KEY" ] || [ -z "$MAIL_FROM" ]; then
+            echo "No RESEND_API_KEY secret or GNARL_MAIL_FROM variable: keys are shown on the thank-you page only."
+          else
+            printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
+            printf '%s' "$MAIL_FROM" | npx wrangler secret put MAIL_FROM
           fi
       - name: Check it answers
         run: |

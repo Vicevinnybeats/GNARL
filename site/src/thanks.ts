@@ -46,9 +46,10 @@ async function fetchKey(): Promise<void> {
     try {
       const response = await fetch(`${api.replace(/\/$/, '')}/licence?session_id=${encodeURIComponent(session)}`, { cache: 'no-store' });
       if (response.ok) {
-        const body = (await response.json()) as { key?: string; status?: string };
+        const body = (await response.json()) as { key?: string; status?: string; downloads?: boolean };
         if (body.key) {
           show(body.key, true);
+          if (body.downloads) privateDownloads();
           return;
         }
       } else if (response.status !== 404 && response.status !== 503) {
@@ -61,6 +62,14 @@ async function fetchKey(): Promise<void> {
   }
   show('Your key is on its way.');
   if (note) note.textContent = 'It is taking longer than usual. Reload this page in a minute, or reply to your Stripe receipt.';
+}
+
+/** The buttons become this buyer's own links (backend/src/downloads.ts). */
+function privateDownloads(): void {
+  const base = `${api.replace(/\/$/, '')}/download?session_id=${encodeURIComponent(session)}&os=`;
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-download]')) {
+    link.href = base + (link.dataset.download ?? '');
+  }
 }
 
 copy?.addEventListener('click', () => {

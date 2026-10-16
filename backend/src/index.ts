@@ -16,6 +16,7 @@
     optional on the webhook, which DOES need to be trusted.
 */
 
+import { download } from "./downloads";
 import { licenceForSession, stripeWebhook } from "./stripe";
 import { sync } from "./sync";
 
@@ -25,6 +26,15 @@ export interface Env {
     STRIPE_WEBHOOK_SECRET?: string;
     /** The site allowed to read /licence from a browser (wrangler.toml [vars]). */
     SITE_ORIGIN?: string;
+    /**
+     * The private bucket of release zips (src/downloads.ts). Bound by the
+     * backend workflow once R2 is enabled on the account; absent until then.
+     */
+    DOWNLOADS?: R2Bucket;
+    /** Resend's API key (`wrangler secret put RESEND_API_KEY`): the licence email. */
+    RESEND_API_KEY?: string;
+    /** The email's sender, on a domain verified in Resend, e.g. "GNARL <keys@gnarl.audio>". */
+    MAIL_FROM?: string;
 }
 
 /*
@@ -196,6 +206,16 @@ export default {
             }
 
             return licenceForSession(request, env);
+        }
+
+        // Buyers-only downloads (src/downloads.ts): a paid session or an
+        // active key streams the zip from the private bucket.
+        if (url.pathname === "/download") {
+            if (request.method !== "GET") {
+                return json({ error: "GET only" }, 405);
+            }
+
+            return download(request, env);
         }
 
         // Preset sync (src/sync.ts): one list of patches for the plugin and

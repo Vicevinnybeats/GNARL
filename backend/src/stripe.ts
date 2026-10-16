@@ -17,6 +17,7 @@
     database hiccup delays a key instead of losing it.
 */
 
+import { downloadUrl } from "./downloads";
 import type { Env } from "./index";
 
 /** Five minutes, Stripe's own default tolerance: older is a replay. */
@@ -127,6 +128,10 @@ export async function stripeWebhook(request: Request, env: Env): Promise<Respons
             case "checkout.session.async_payment_succeeded": {
                 if (object.payment_status !== "paid") return json({ ignored: "not paid yet" });
                 await issueLicence(env, object);
+                // After the key exists, so a mail failure never costs the key;
+                // it throws, the 503 below makes Stripe retry, and the retry
+                // finds the key issued and only the email still to send.
+                await emailLicence(env, object, new URL(request.url).origin);
                 return json({ ok: true });
             }
             // A full refund ends the licence. A partial one (a discount
@@ -168,6 +173,83 @@ async function issueLicence(env: Env, session: Record<string, unknown>): Promise
         .run();
 }
 
+/*
+    THE KEY BY EMAIL, ONCE.
+
+    Through Resend's HTTP API (RESEND_API_KEY, a wrangler secret; MAIL_FROM,
+    an address on a domain verified there). Without them nothing is sent:
+    the key is still on the thank-you page, as it always was.
+
+    `emailed_at` is what makes it once: Stripe delivers the same event many
+    times, and every delivery after the first finds it set. A send that
+    fails throws, so the webhook answers 503 and Stripe tries again later -
+    Stripe's retry schedule is the outbox.
+*/
+async function emailLicence(env: Env, session: Record<string, unknown>, origin: string): Promise<void> {
+    if (!env.RESEND_API_KEY || !env.MAIL_FROM) return;
+    const sessionId = typeof session.id === "string" ? session.id : "";
+    const row = await env.DB.prepare("select key, email, status, emailed_at from licenses where stripe_session_id = ?")
+        .bind(sessionId)
+        .first<{ key: string; email: string | null; status: string; emailed_at: string | null }>();
+    if (row === null || !row.email || row.emailed_at || row.status !== "active") return;
+
+    const { subject, text, html } = licenceEmail(row.key, origin, Boolean(env.DOWNLOADS));
+    const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+            authorization: `Bearer ${env.RESEND_API_KEY}`,
+            "content-type": "application/json",
+            // Should Resend receive a send whose answer was lost, the retry
+            // with the same idempotency key is not a second email.
+            "idempotency-key": `gnarl-licence-${row.key}`,
+        },
+        body: JSON.stringify({ from: env.MAIL_FROM, to: [row.email], subject, text, html }),
+    });
+    if (!response.ok) {
+        throw new Error(`licence email failed: ${response.status} ${(await response.text()).slice(0, 200)}`);
+    }
+    await env.DB.prepare("update licenses set emailed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') where stripe_session_id = ?")
+        .bind(sessionId)
+        .run();
+}
+
+const PUBLIC_DOWNLOADS = "https://github.com/Vicevinnybeats/GNARL/releases/latest/download";
+
+/** The email's words: the key, where to get the plugin, where to put the key. */
+export function licenceEmail(key: string, origin: string, privateDownloads: boolean): { subject: string; text: string; html: string } {
+    const windows = privateDownloads ? downloadUrl(origin, "windows", key) : `${PUBLIC_DOWNLOADS}/GNARL-Windows.zip`;
+    const macos = privateDownloads ? downloadUrl(origin, "macos", key) : `${PUBLIC_DOWNLOADS}/GNARL-macOS.zip`;
+    const subject = "Your GNARL licence key";
+    const text = [
+        "Thank you for buying GNARL.",
+        "",
+        `Your licence key: ${key}`,
+        "",
+        "Download:",
+        `  Windows: ${windows}`,
+        `  macOS:   ${macos}`,
+        "",
+        "Then open GNARL in your DAW, tap NOT SAVING at the top of the panel, and",
+        "paste the key. It works on three of your computers.",
+        "",
+        "Keep this email: the key and these links are yours for every update.",
+        "",
+        "GNARL",
+    ].join("\n");
+    const esc = (v: string): string => v.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+    const html = `<!doctype html><html><body style="margin:0;background:#07040f;color:#efeaff;font-family:ui-monospace,Menlo,monospace">
+<div style="max-width:520px;margin:0 auto;padding:32px 24px">
+<p style="letter-spacing:.3em;color:#64e6ff;font-weight:700">GNARL</p>
+<p>Thank you for buying GNARL.</p>
+<p style="color:#b9aede;margin-bottom:6px">Your licence key</p>
+<p style="font-size:20px;letter-spacing:.08em;padding:14px 16px;border:1px solid #64e6ff;border-radius:4px">${esc(key)}</p>
+<p><a href="${esc(windows)}" style="color:#64e6ff">Download for Windows</a> &nbsp;&middot;&nbsp; <a href="${esc(macos)}" style="color:#64e6ff">Download for macOS</a></p>
+<p style="color:#b9aede">Then open GNARL in your DAW, tap <b>NOT SAVING</b> at the top of the panel, and paste the key. It works on three of your computers.</p>
+<p style="color:#8878b4">Keep this email: the key and these links are yours for every update.</p>
+</div></body></html>`;
+    return { subject, text, html };
+}
+
 /**
     GET /licence?session_id=cs_...
 
@@ -197,7 +279,9 @@ export async function licenceForSession(request: Request, env: Env): Promise<Res
         if (row === null) {
             return new Response(JSON.stringify({ status: "pending" }), { status: 404, headers });
         }
-        return new Response(JSON.stringify({ status: row.status, key: row.key }), { status: 200, headers });
+        // `downloads`: whether this buyer's private download links work yet
+        // (src/downloads.ts); the page keeps the public ones until they do.
+        return new Response(JSON.stringify({ status: row.status, key: row.key, downloads: Boolean(env.DOWNLOADS) }), { status: 200, headers });
     } catch (error) {
         console.error("licence lookup failed", error);
         return new Response(JSON.stringify({ error: "temporarily unavailable" }), { status: 503, headers });

@@ -38,7 +38,12 @@ create table if not exists licenses (
                            check (max_activations > 0),
 
     created_at             text not null default (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    notes                  text
+    notes                  text,
+
+    -- When the key was emailed to the buyer (src/stripe.ts emailLicence):
+    -- set once, so Stripe's repeated webhooks send one email. Added by
+    -- migrations/0004_email.sql on an existing database.
+    emailed_at             text
 );
 
 create table if not exists activations (

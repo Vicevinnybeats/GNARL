@@ -33,23 +33,24 @@
           <p class="thanks__key" id="key" aria-live="polite">Fetching your key&hellip;</p>
           <button class="button thanks__copy" id="copy" type="button" hidden>COPY KEY</button>
           <p class="checkout__fine" id="key-note">
-            Keep it somewhere safe. Stripe has also emailed you a receipt.
+            Keep it somewhere safe. We have emailed it to you too, with your download links.
           </p>
         </section>
         <section class="checkout__pay">
           <p class="checkout__eyebrow">DOWNLOAD</p>
-          <!--  The same files as the landing page's buttons: the latest
-                release (docs/release.md).  -->
+          <!--  The latest release's files. Once private downloads are on, the
+                page swaps these for this buyer's own links (thanks.ts,
+                backend/src/downloads.ts).  -->
           <div class="thanks__downloads">
-            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-Windows.zip" rel="noreferrer">WINDOWS</a>
-            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-macOS.zip" rel="noreferrer">MACOS</a>
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-Windows.zip" rel="noreferrer" data-download="windows">WINDOWS</a>
+            <a class="button" href="https://github.com/Vicevinnybeats/GNARL/releases/latest/download/GNARL-macOS.zip" rel="noreferrer" data-download="macos">MACOS</a>
             <a class="button button--ghost" href="/app/">PHONE</a>
           </div>
           <div class="checkout__trust">
             <p><strong>Activate</strong></p>
             <ol>
               <li>Install GNARL from the zip (its README says where).</li>
-              <li>Open it in your DAW and tap <strong>LICENCE</strong> in the panel's header.</li>
+              <li>Open it in your DAW and tap <strong>NOT SAVING</strong> in the panel's header.</li>
               <li>Paste the key. It works on three of your own machines.</li>
             </ol>
           </div>

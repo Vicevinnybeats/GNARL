@@ -701,3 +701,20 @@ the merge commit forward: `git log 7651809..`.
 - No play button on the site, and no mention of playing in the browser
   (site/src/play.ts removed): GNARL is to be sold, and the SOUNDS clips are
   the showcase.
+
+## 2026-10-16 - Site security headers; the key by email; buyers-only downloads
+
+- vercel.json: HSTS, a Content-Security-Policy per part of the site (the
+  marketing pages strict; /app, which compiles WebAssembly and builds
+  MATCH's core at run time, looser), X-Frame-Options, nosniff,
+  Referrer-Policy, Permissions-Policy, COOP. Every page was loaded in
+  Chromium under them with no violation; a policy with the analytics or
+  WebAssembly removed showed the violations.
+- The licence server emails each buyer their key and download links, once
+  (backend/src/stripe.ts emailLicence, migrations/0004_email.sql); off until
+  Resend is configured.
+- GET /download streams the release zips from a private R2 bucket for an
+  active licence only (backend/src/downloads.ts); release.yml uploads them,
+  the backend workflow binds the bucket once R2 is on, and
+  GNARL_PUBLIC_DOWNLOADS=false keeps them off the public release. The
+  thank-you page uses the buyer's own links when they work.

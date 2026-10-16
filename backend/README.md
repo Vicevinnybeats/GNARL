@@ -143,10 +143,18 @@ and interpreting the response — are **pure**, so `LicenseClientTests` covers
 the cases a test against a live server never could: a captive portal's login
 page, a 200 with an unrecognised status, a proxy's 401.
 
+## The key by email, and buyers-only downloads
+
+- `src/stripe.ts emailLicence`: the key and download links, once, through
+  Resend. Needs the secret `RESEND_API_KEY` and the repository variable
+  `GNARL_MAIL_FROM`; the backend workflow passes both to the Worker.
+- `src/downloads.ts`: `GET /download?os=windows|macos&session_id=|key=`
+  streams the zip from the private R2 bucket `gnarl-downloads` for an active
+  licence. The workflow binds the bucket once R2 is on in the dashboard.
+- On an existing database: `npm run migrate:email` (the workflow does it).
+
 ## Not built yet
 
-- The Stripe webhook that creates a licence row on purchase.
-- Licence key generation: format, entropy, checksum.
 - A way for a customer to deactivate a machine they no longer own.
 - **Rate limiting.** The endpoint is public and unauthenticated by design, so
   key entropy is currently doing work a rate limiter should share. Cloudflare
