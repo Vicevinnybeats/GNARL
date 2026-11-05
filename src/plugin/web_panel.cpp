@@ -219,7 +219,10 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kParameterMenu, [this](const var& event) {
         // Async: a host's menu runs its own loop, which must not run inside
         // the page's call into this one.
-        MessageManager::callAsync([safe = SafePointer<WebPanel>(this), event] {
+        // Made here, then captured: MSVC rejects `this` in the inner
+        // lambda's init-capture (C2440), though GCC and Clang accept it.
+        SafePointer<WebPanel> safe(this);
+        MessageManager::callAsync([safe, event] {
           if (safe != nullptr)
             safe->parameterMenu(event);
         });
