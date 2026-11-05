@@ -76,6 +76,15 @@ class WebPanel : public Component, private Timer {
     void exportWav(const var& event);
     void revealExports();
     void hostKey(const var& event);
+    // Right-click on the panel: the HOST's menu (FL Studio's automation and
+    // controller links) for the parameter under the mouse, or its plugin
+    // menu off a control - as Vital's own knobs do.
+    void parameterMenu(const var& event);
+    // The browser, made (again). JUCE builds the WebView2 only when its
+    // window is ready; a first open that missed that left a blank panel
+    // until the window was closed and opened again. timerCallback retries.
+    void createBrowser();
+    void recoverUnconnectedPage();
     // OSC 1 / 2's table (ui/src/wavetables.ts), as wavetable JSON text.
     void loadWavetable(const var& event);
     String wavetableNames();
@@ -94,6 +103,10 @@ class WebPanel : public Component, private Timer {
     String last_tables_;
     bool curve_changed_ = true;
     bool connected_ = false;
+    // Since the browser was made, counted only while the window shows, and
+    // how often the page has been nudged or the browser remade since.
+    int unconnected_ticks_ = 0;
+    int recoveries_ = 0;
 
     // Last, so it is destroyed first: the page must not call back into a
     // half-destroyed panel.

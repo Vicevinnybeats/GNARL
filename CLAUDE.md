@@ -345,7 +345,19 @@ codebase:
 - **The web panel is message-thread code.** It sets values through
   `valueChangedInternal` like a Vital knob, which does NOT redraw Vital's
   editor: call `updateFullGui()` before showing it. The panel's page must be
-  ASCII (`inline.mjs` enforces it) and must fetch nothing - bundle fonts.
+  ASCII (`inline.mjs` enforces it) and must fetch nothing from the network -
+  bundle fonts. In the PLUGIN its large data (the built-in patches, MATCH's
+  engine) is two files the plugin serves beside the page
+  (`web_panel.cpp getResource`), fetched once the panel is up (`ui/src/data.ts
+  loadData`): inside the page it doubled the window's opening time. Code that
+  reads them awaits `loadData()`. The phone page still carries them inline.
+- **A first open could leave the panel dead** until the window was reopened:
+  JUCE makes the WebView2 only when shown in a ready window and retries only
+  on a hide/show. The page asks `gnarlConnect` again until answered, and
+  `WebPanel::recoverUnconnectedPage` hides and shows the browser every 3 s
+  while unconnected (then remakes it once). **Right-click** in the plugin is
+  the HOST's menu (`gnarlParamMenu` -> `getContextMenuForParameter`), never
+  the web view's; a control with its own right-click calls `preventDefault`.
 - **Vital's `sub_*` parameters are not free.** They are the retired sub
   oscillator's: still host parameters, dead in the engine, migrated into osc
   3 by `LoadSave` for old presets (a preset holding `sub_octave` triggers it).

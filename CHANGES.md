@@ -718,3 +718,20 @@ the merge commit forward: `git log 7651809..`.
   the backend workflow binds the bucket once R2 is on, and
   GNARL_PUBLIC_DOWNLOADS=false keeps them off the public release. The
   thank-you page uses the buyer's own links when they work.
+
+## 2026-11-05 - The plugin's window: opens faster, never dead, FL's right-click menu
+
+- The panel's page no longer carries its 5.8 MB of built-in patches (and
+  MATCH's engine): the plugin serves them beside it and the page fetches them
+  once it is up (ui/src/data.ts, web_panel.cpp getResource,
+  ui/scripts/inline.mjs, CMakeLists.txt). Measured in Chromium, the panel is
+  built in 185-230 ms instead of 340-610 ms. The phone page is unchanged.
+- A first open in FL Studio could leave the panel unconnected until the
+  window was closed and opened again: the page now asks the plugin again
+  until it answers (ui/src/bridge.ts), and the plugin hides and shows the
+  browser - what reopening did - while the page has not connected, then
+  remakes it once (WebPanel::recoverUnconnectedPage).
+- Right-click is the host's menu: on a knob, FL Studio's menu for that
+  parameter (automation clip, link to controller), elsewhere its plugin
+  menu; never the web view's Back / Refresh / Print menu. Text fields keep
+  theirs; a matrix row's right-click still removes its route.

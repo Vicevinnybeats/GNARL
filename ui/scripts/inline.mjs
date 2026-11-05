@@ -46,8 +46,15 @@ for (const file of readdirSync(presetDir).filter((f) => f.endsWith('.vital')).so
   }
   patches[file.replace(/\.vital$/, '')] = packed;
 }
-const presetBlock = inert('gnarl-presets', JSON.stringify({ strings, patches }));
-html = html.replace('</body>', () => `${presetBlock}</body>`);
+const presetJson = JSON.stringify({ strings, patches });
+// The PLUGIN's page names its data instead of carrying it: an empty block
+// with a data-src the plugin serves (web_panel.cpp getResource), fetched once
+// the panel is up (src/data.ts loadData). Inside the page it cost the window
+// half its opening time. The phone page (below) carries it: it is one file.
+const named = (id, src) => `<script type="text/plain" id="${id}" data-src="${src}"></script>`;
+const plugin = html.replace('</body>', () => `${named('gnarl-presets', 'gnarl-presets.json')}</body>`);
+html = html.replace('</body>', () => `${inert('gnarl-presets', presetJson)}</body>`);
+writeFileSync(new URL('gnarl-presets.json', dist), presetJson);
 
 const wasm = new URL('../../wasm/build/gnarl.wasm', import.meta.url);
 // The plugin's page carries the engine too, for MATCH A SOUND (src/match/
@@ -56,8 +63,14 @@ const wasm = new URL('../../wasm/build/gnarl.wasm', import.meta.url);
 // window.__JUCE__ exists).
 const engine = existsSync(wasm) ? readFileSync(wasm).toString('base64') : null;
 const withEngine = (page) => (engine ? page.replace('</body>', () => `${inert('gnarl-wasm', engine)}</body>`) : page);
-writeFileSync(new URL('gnarl-ui.html', dist), withEngine(html));
-console.log(`dist/gnarl-ui.html ${(withEngine(html).length / 1024).toFixed(1)} kB${engine ? ' (with the engine, for MATCH)' : ''}; ` +
+const pluginPage = engine ? plugin.replace('</body>', () => `${named('gnarl-wasm', 'gnarl-engine.b64')}</body>`) : plugin;
+writeFileSync(new URL('gnarl-ui.html', dist), pluginPage);
+// Always written - a lone newline without an engine, as an empty file is no
+// C++ array - since CMake embeds it either way. Only a page with the engine
+// names it.
+writeFileSync(new URL('gnarl-engine.b64', dist), engine ?? '\n');
+console.log(`dist/gnarl-ui.html ${(pluginPage.length / 1024).toFixed(1)} kB, its data beside it: ` +
+  `gnarl-presets.json ${(presetJson.length / 1024).toFixed(1)} kB${engine ? `, gnarl-engine.b64 ${(engine.length / 1024).toFixed(1)} kB (for MATCH)` : ''}; ` +
   `${Object.keys(patches).length} patches, ${strings.length} distinct tables`);
 
 if (engine) {

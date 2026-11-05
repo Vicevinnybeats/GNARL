@@ -13,7 +13,7 @@ import workerSource from './match-worker.js?raw';
 import { TABLE_NAMES, tableJson } from '../wavetables';
 import { LEVEL_NOTES, LEVEL_SECONDS, levelVolume } from '../generate';
 import { searchRecipe } from './recipe-search';
-import { engineWasm } from '../data';
+import { engineWasm, loadData } from '../data';
 
 type Features = Float64Array[];
 interface Scored {
@@ -244,6 +244,7 @@ export interface MatchJob {
 
 /** The four closest patches, distinct in table or filter, ready to load. */
 export async function matchSound(job: MatchJob): Promise<Matched[]> {
+  await loadData();
   const wasm = engineWasm();
   if (!wasm) throw new Error('this build carries no engine to match with');
   const length = Math.min(job.audio.length, Math.round(1.25 * core.SR));
@@ -302,12 +303,14 @@ function enginePool(wasm: string): ReturnType<typeof workerPool> {
  * the page's engine (RIDDIMIZE's USE MY SOUND); null without an engine.
  */
 export async function renderPatch(patch: string, midi: number, seconds: number): Promise<Float32Array | null> {
+  await loadData();
   const wasm = engineWasm();
   if (!wasm || typeof Worker === 'undefined') return null;
   return enginePool(wasm).render(patch, midi, seconds);
 }
 
 export async function levelPatches(patches: string[]): Promise<string[]> {
+  await loadData();
   const wasm = engineWasm();
   if (!wasm || typeof Worker === 'undefined') return patches;
   try {

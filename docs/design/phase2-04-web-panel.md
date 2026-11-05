@@ -167,6 +167,50 @@ window's parent exactly as JUCE does. Windows only for now: macOS and Linux
 hosts are untested with the panel. `bridge.test.mjs` checks the keys sent;
 that FL acts on them needs FL.
 
+## A dead first open, the page's weight, and right-click (2026-11-05)
+
+The producer: in FL Studio GNARL "doesn't work" on opening until it is
+closed and opened again; it lags while opening; and right-click shows the
+Windows (web view) menu instead of FL Studio's.
+
+- **Dead first open.** JUCE 8 (juce_WebBrowserComponent_windows.cpp) makes
+  the WebView2 only while the browser shows in a window with a peer, and if
+  that fails - the controller comes back null, as it can while a host is
+  still setting its window up - it tries again only on the next hide/show
+  (`checkWindowAssociation`). That is exactly what reopening did. Two
+  answers, both cheap when nothing is wrong: the page asks `gnarlConnect`
+  again every 1.5 s until answered (a lost answer no longer leaves every
+  knob dead), and `WebPanel::recoverUnconnectedPage` hides and shows the
+  browser every 3 s while the window shows and the page has not connected -
+  JUCE then makes the WebView2 it lacks and asks for the page again - and
+  after four of those makes the browser again from nothing, once. A WebView2
+  still being made is left alone by a hide/show.
+- **Weight.** The plugin's page carried 5.8 MB of built-in patches (and the
+  engine, for MATCH) as inert text. Measured in Chromium, the same page
+  without them builds the panel in 185-230 ms against 340-610 ms. They are
+  now two files the plugin serves beside the page (`/gnarl-presets.json`,
+  `/gnarl-engine.b64`, embedded by CMake), fetched in the background once the
+  panel is drawn; whatever reads them awaits `loadData()`. The page is 358 kB.
+- **Right-click.** In the plugin a right-click never shows the web view's
+  menu. On a control bound to an engine parameter the page sends
+  `gnarlParamMenu {name}` and the plugin shows the host's own menu for that
+  parameter (`getHostContext()->getContextMenuForParameter`, VST3's context
+  menu: FL Studio's automation clip and controller link), elsewhere the
+  host's menu for the plugin. Text fields keep theirs (paste); a control
+  with its own right-click (a matrix row removes its route) has prevented
+  it and gets no host menu.
+- Tested (ui/tests/bridge.test.mjs, the page over http as the plugin serves
+  it): the fake plugin drops the first `gnarlConnect` and the page connects
+  anyway (without the retry it never does: the test times out); the page is
+  358 kB and fetches its 5.5 MB of presets after; a right-click asks the
+  host's menu for `osc_1_wave_frame` on WT POS and for the plugin off a
+  control, the browser's default prevented; no host menu where a control
+  took the right-click (with that guard removed, the test fails).
+- **Not yet measured in FL Studio.** The WebView2 itself still starts each
+  time FL opens the window (FL destroys the editor on close). Keeping one
+  alive between opens would need JUCE patched to move a WebView2 to a new
+  window, which only a Windows test can prove.
+
 ## Next
 
 1. The producer opens the `GNARL-windows-vst3-juce8` artifact in FL Studio

@@ -12,7 +12,7 @@
 
 import './fonts.css';
 import './styles.css';
-import { connect, isPlugin, sendLicenceKey, sendRoute, sendWavetable, setVolumeWob, showClassic, volumeWobOn } from './bridge';
+import { connect, engineParameter, isPlugin, sendLicenceKey, sendRoute, sendWavetable, setVolumeWob, showClassic, volumeWobOn } from './bridge';
 import { hasWebEngine, startWebEngine, webEngineProblem } from './web/host';
 import { builtInPatch, currentPatch, deletePreset, exportPatch, FACTORY_SOUNDS, initPatch, listPresets, loadFactory, loadPatch, loadPatchText, loadProblem, presetFiles, savePatch } from './web/presets';
 import { deleteCloud, listCloud, newCode, readCloud, storeCode, storedCode, syncAvailable, useCode, writeCloud } from './sync';
@@ -36,7 +36,7 @@ import type { Display } from './widgets';
 import { drumsSheet } from './drums/sheet';
 import { riddimizeSheet } from './riddimize/sheet';
 import { tour } from './tour';
-import { hasEngineData } from './data';
+import { hasEngineData, loadData } from './data';
 import { currentNote, noteName, noteOff, noteOn } from './voice';
 import { TABLE_NAMES, TABLES } from './wavetables';
 import { FX_PRESETS } from './fxpresets';
@@ -577,7 +577,8 @@ function evolveSheet(): { open(): void } {
       render();
     });
   };
-  const start = (): void => {
+  const start = async (): Promise<void> => {
+    await loadData();
     const found = bases();
     if (Object.keys(found).length === 0) {
       toast('The AI needs its base patches, which this build does not have.');
@@ -657,6 +658,7 @@ function evolveSheet(): { open(): void } {
         const audio = trimToWob(await decodeAudio(await chosen.arrayBuffer()));
         if (audio.length < 0.15 * 44100) throw new Error('that file is too short: one wob of 1-2 s works best');
         const midi = detectMidi(audio) ?? 29;
+        await loadData();
         const base = builtInPatch(MATCH_BASE);
         if (!base) throw new Error('this build lacks the matcher\'s base patch');
         const found = await matchSound({
@@ -694,7 +696,7 @@ function evolveSheet(): { open(): void } {
     heading = '';
     render();
   });
-  fresh.addEventListener('click', start);
+  fresh.addEventListener('click', () => void start());
   const close = (): void => {
     window.clearTimeout(stopTimer);
     noteOff(PICK_NOTE, clock());
@@ -709,7 +711,7 @@ function evolveSheet(): { open(): void } {
   closeButton.addEventListener('click', close);
   evolveSheetSingleton = {
     open(): void {
-      if (candidates.length === 0) start();
+      if (candidates.length === 0) void start();
       root.hidden = false;
     },
   };
@@ -1870,6 +1872,8 @@ function start(): void {
   void connect().then(() => {
     for (const v of presetViews) v();
   });
+  // The plugin's data files, in the background once the panel is drawn.
+  requestAnimationFrame(() => void loadData());
   if (hasWebEngine()) document.body.append(webStart());
 
   // Double-click the wordmark to reset the whole panel.
@@ -1894,6 +1898,24 @@ function start(): void {
   // channel rack, F7 piano roll, F9 mixer, Space to play - go to the host,
   // as they do from Vital's editor: the web view would keep them (and F5
   // would reload the panel). web_panel.cpp posts them to the host's window.
+  // Right-click in the plugin: the HOST's menu, never the web view's (Back,
+  // Refresh, Print...). On a control it is that parameter's - FL Studio's
+  // "Create automation clip", "Link to controller" - as on Vital's own
+  // knobs; elsewhere the host's menu for the plugin (web_panel.cpp). A text
+  // field keeps its own menu, for paste.
+  if (isPlugin()) {
+    window.addEventListener('contextmenu', (e) => {
+      // A control with its own right-click (a matrix row removes its route)
+      // has used it.
+      if (e.defaultPrevented) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (target?.closest('input, textarea')) return;
+      e.preventDefault();
+      const id = target?.closest<HTMLElement>('[data-param]')?.dataset.param;
+      window.__JUCE__?.backend.emitEvent('gnarlParamMenu', { name: (id && engineParameter(id)) ?? '' });
+    });
+  }
+
   if (isPlugin()) {
     for (const type of ['keydown', 'keyup'] as const) {
       window.addEventListener(type, (e) => {

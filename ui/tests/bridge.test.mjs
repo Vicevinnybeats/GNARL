@@ -29,7 +29,25 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const page_url = 'file://' + path.join(here, '..', 'dist', 'gnarl-ui.html');
+// Over http, as the plugin serves it: the page fetches its data files
+// (gnarl-presets.json, gnarl-engine.b64) once it is up (src/data.ts), which
+// a file:// page may not.
+const { createServer } = await import('node:http');
+const { readFileSync } = await import('node:fs');
+const distDir = path.join(here, '..', 'dist');
+const server = createServer((req, res) => {
+  const file = path.join(distDir, req.url === '/' ? 'gnarl-ui.html' : path.basename(req.url));
+  try {
+    const body = readFileSync(file);
+    res.writeHead(200, { 'Content-Type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain' });
+    res.end(body);
+  } catch {
+    res.writeHead(404);
+    res.end();
+  }
+});
+await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+const page_url = `http://127.0.0.1:${server.address().port}/`;
 const vowels = JSON.parse((await import('node:fs')).readFileSync(path.join(here, '..', 'src', 'vowels.json'), 'utf8'));
 
 // The fake engine: host values (0..1) and step counts, as web_panel.cpp
@@ -78,7 +96,14 @@ function fakeJuce(init) {
       emitEvent(id, payload) {
         setTimeout(() => {
           log.push([id, payload]);
-          if (id === '__juce__invoke' && payload.name === 'gnarlConnect') {
+          // The plugin's first answer is lost, as it could be on a first
+          // open in FL Studio: the page must ask again (bridge.ts).
+          if (id === '__juce__invoke' && payload.name === 'gnarlConnect' && !window.__fake.droppedConnect) {
+            window.__fake.droppedConnect = true;
+          } else if (id === '__juce__invoke' && payload.name === 'gnarlData') {
+            // As web_panel.cpp: a data file the page could not fetch.
+            emitToPage('__juce__complete', { promiseId: payload.resultId, result: (init.data ?? {})[payload.params[0]] ?? null });
+          } else if (id === '__juce__invoke' && payload.name === 'gnarlConnect') {
             const names = payload.params[0];
             const result = { version: '1.0.6', values: {}, steps: {}, routes: routes.map((r) => ({ ...r })),
               licence: { status: 'expired', message: 'Audio still works. Connect to the internet to restore preset saving.', saving: false, hasKey: true } };
@@ -545,6 +570,68 @@ check((await presetLog('gnarlPresetInit')).length === 1, 'INIT asks the plugin f
   check(await page.locator('.app').isVisible(), 'F5 did not reload the panel');
 }
 
+// The first gnarlConnect went unanswered (the fake drops it), and the page
+// asked again - else nothing above would have run.
+{
+  const asks = await page.evaluate(() => window.__fake.log.filter(([id, p]) => id === '__juce__invoke' && p.name === 'gnarlConnect').length);
+  check(asks >= 2, `an unanswered connect is asked again: ${asks} asks`);
+}
+
+// The page is small and its data arrives after it (src/data.ts): the presets
+// file is fetched once the panel is up.
+{
+  const page_bytes = (await (await fetch(page_url)).text()).length;
+  await page.waitForFunction(() => (document.getElementById('gnarl-presets')?.textContent?.length ?? 0) > 1e6, null, { timeout: 10000 }).catch(() => {});
+  const preset_bytes = await page.evaluate(() => document.getElementById('gnarl-presets')?.textContent?.length ?? 0);
+  check(page_bytes < 1e6 && preset_bytes > 1e6,
+    `the page is ${(page_bytes / 1024).toFixed(0)} kB and fetched its ${(preset_bytes / 1024 / 1024).toFixed(1)} MB of presets after`);
+}
+
+// A web view that will not fetch from the plugin: the presets come through
+// the plugin's channel instead (data.ts askPlugin, web_panel.cpp gnarlData).
+{
+  const other = await browser.newPage({ viewport: { width: 1400, height: 820 } });
+  await other.route('**/gnarl-presets.json', (route) => route.abort());
+  const presets = readFileSync(path.join(distDir, 'gnarl-presets.json'), 'utf8');
+  await other.addInitScript(fakeJuce, { ...engineInit, data: { 'gnarl-presets.json': presets } });
+  await other.goto(page_url);
+  await other.waitForFunction(() => (document.getElementById('gnarl-presets')?.textContent?.length ?? 0) > 1e6, null, { timeout: 15000 }).catch(() => {});
+  const got = await other.evaluate(() => document.getElementById('gnarl-presets')?.textContent?.length ?? 0);
+  const asked = await other.evaluate(() => window.__fake.log.filter(([id, p]) => id === '__juce__invoke' && p.name === 'gnarlData').map(([, p]) => p.params[0]));
+  check(got === presets.length && asked.includes('gnarl-presets.json'),
+    `with fetch refused, the presets come through the plugin: ${(got / 1024 / 1024).toFixed(1)} MB, asked ${JSON.stringify(asked)}`);
+  await other.close();
+}
+
+// Right-click: the host's menu (web_panel.cpp), never the web view's. On a
+// knob, for its parameter; off a control, for the plugin.
+{
+  const menus = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlParamMenu').map(([, p]) => p.name));
+  const before = (await menus()).length;
+  const prevented = await page.evaluate(() => {
+    const knob = document.querySelector('.app [data-param="osc1.wtpos"]');
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
+    knob.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  await page.locator('.app .brand').first().click({ button: 'right', force: true });
+  await page.waitForTimeout(100);
+  // A control with its own right-click (a matrix row removes its route,
+  // tested above) has used it: no host menu on top.
+  await page.evaluate(() => {
+    const own = document.createElement('button');
+    own.dataset.param = 'osc1.wtpos';
+    own.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.querySelector('.app').append(own);
+    own.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    own.remove();
+  });
+  await page.waitForTimeout(100);
+  const asked = (await menus()).slice(before);
+  check(prevented && asked.length === 2 && asked[0] === 'osc_1_wave_frame' && asked[1] === '',
+    `right-click asks the host's menu - a knob for its parameter, elsewhere the plugin's - and not the browser's: ${JSON.stringify(asked)}, default prevented ${prevented}`);
+}
+
 // Left alone, the page sends nothing: an echo must never be sent back.
 const sets = () => page.evaluate(() => window.__fake.log.filter(([id]) => id === 'gnarlSet').length);
 const before = await sets();
@@ -649,5 +736,6 @@ check(after === before, `idle for 0.5 s, the page sent ${after - before} values 
 
 check(errors.length === 0, `no page errors ${JSON.stringify(errors)}`);
 await browser.close();
+server.close();
 console.log(`\n${failures.length} failure(s)`);
 process.exit(failures.length);

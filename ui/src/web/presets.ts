@@ -11,7 +11,7 @@
  */
 
 import factory from './factory.json';
-import { builtInPatches } from '../data';
+import { builtInPatches, loadData } from '../data';
 
 // Every built-in patch (presets/*.vital) is in the page as data, by name
 // (data.ts). factory.json says which are starting sounds, and in what order.
@@ -174,8 +174,11 @@ export function builtInPatch(name: string): string | undefined {
 }
 
 export function loadFactory(sound: FactorySound): void {
-  const patch = sound.patch === undefined ? undefined : builtInPatches()[sound.patch];
-  window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });
+  // The patches may still be arriving in the plugin (data.ts loadData).
+  void loadData().then(() => {
+    const patch = sound.patch === undefined ? undefined : builtInPatches()[sound.patch];
+    window.__JUCE__?.backend.emitEvent('gnarlPresetFactory', patch === undefined ? sound : { name: sound.name, patch });
+  });
 }
 
 /** Any patch's .vital text, as a starting sound loads (the plugin's way). */

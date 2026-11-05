@@ -538,6 +538,12 @@ function unbound(node: HTMLElement): void {
 
 /** Inside the plugin - not the web build's engine (web/host.ts), which
  * speaks the same protocol but has no host and no classic editor. */
+/** The engine parameter a panel control drives, for the host's right-click menu; null if none. */
+export function engineParameter(id: string): string | null {
+  const b = activeBinding(id);
+  return b && boundNames.has(b.name) ? b.name : null;
+}
+
 export function isPlugin(): boolean {
   return window.__JUCE__?.backend !== undefined && window.__JUCE__.initialisationData.gnarlWeb !== true;
 }
@@ -604,6 +610,25 @@ export function showClassic(): void {
   send('gnarlClassic', {});
 }
 
+/*
+ * gnarlConnect, asked again until it is answered. On a first open in FL
+ * Studio the answer could be lost while the web view was still being set up,
+ * and the panel then stayed unconnected - every knob dead - until the window
+ * was closed and opened again (the producer: "I always have to open it
+ * again"). connect() on the plugin's side starts over each time it is asked,
+ * so asking twice is harmless. A late answer to an earlier ask is dropped.
+ */
+async function connectWithRetry(names: string[]): Promise<ConnectResult> {
+  for (let attempt = 0; ; attempt += 1) {
+    const id = nextCall;
+    const answered = call('gnarlConnect', names) as Promise<ConnectResult>;
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), attempt < 4 ? 1500 : 4000));
+    const result = await Promise.race([answered, timeout]);
+    if (result) return result;
+    pending.delete(id);
+  }
+}
+
 export async function connect(): Promise<void> {
   const juce = window.__JUCE__;
   if (!juce) return;
@@ -616,7 +641,7 @@ export async function connect(): Promise<void> {
 
   buildBindings();
   const names = [...new Set([...byName.keys(), ...WOBBLE_NAMES, ...FILTER_NAMES, ...FLAG_NAMES, ...DELAY_NAMES, ...LFO_NAMES, ...VOLUME_DESTS, 'osc_2_on'])];
-  const result = (await call('gnarlConnect', names)) as ConnectResult;
+  const result = await connectWithRetry(names);
   steps = result.steps;
   if (result.preset !== undefined) lastPreset = engine.preset = result.preset;
   engine.connected = true;

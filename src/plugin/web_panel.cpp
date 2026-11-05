@@ -98,6 +98,7 @@ namespace {
   const Identifier kExported("gnarlExported");
   const Identifier kRevealExports("gnarlRevealExports");
   const Identifier kHostKey("gnarlHostKey");
+  const Identifier kParameterMenu("gnarlParamMenu");
   const Identifier kValues("gnarlValues");
   const Identifier kFrame("gnarlFrame");
 
@@ -108,10 +109,52 @@ namespace {
 
 WebPanel::WebPanel(SynthPlugin& synth, std::function<void()> show_classic_editor) :
     synth_(synth), show_classic_editor_(std::move(show_classic_editor)) {
+  createBrowser();
+  startTimerHz(kFrameRateHz);
+}
+
+void WebPanel::createBrowser() {
+  browser_ = nullptr;
+  connected_ = false;
+  unconnected_ticks_ = 0;
   browser_ = std::make_unique<WebBrowserComponent>(makeOptions());
   addAndMakeVisible(browser_.get());
+  browser_->setBounds(getLocalBounds());
   browser_->goToURL(WebBrowserComponent::getResourceProviderRoot());
-  startTimerHz(kFrameRateHz);
+}
+
+/*
+  A PAGE THAT NEVER CONNECTED, set right without the producer's help.
+
+  JUCE makes the WebView2 when the browser is showing in a window; if
+  Windows fails to make it then (FL Studio's window still being set up),
+  JUCE tries again only when the browser is hidden and shown - which is what
+  closing and reopening GNARL did, and why that "fixed" it. So, while the
+  window shows and the page has not called gnarlConnect: every 3 s, hide and
+  show the browser (JUCE then makes the WebView2 if it has none, and asks
+  for the page again; a WebView2 still being made is left alone), and after
+  four of those, make the browser again from nothing, once. A cold WebView2
+  on a slow disk takes seconds to start, so the first nudge waits 3 s.
+*/
+void WebPanel::recoverUnconnectedPage() {
+  static constexpr int kNudgeTicks = 3 * kFrameRateHz;
+  static constexpr int kMaxNudges = 4;
+  static constexpr int kMaxRecoveries = kMaxNudges + 1;
+
+  if (connected_ || !isShowing() || recoveries_ >= kMaxRecoveries)
+    return;
+  if (++unconnected_ticks_ < kNudgeTicks)
+    return;
+
+  unconnected_ticks_ = 0;
+  ++recoveries_;
+  if (recoveries_ <= kMaxNudges) {
+    browser_->setVisible(false);
+    browser_->setVisible(true);
+  }
+  else {
+    createBrowser();
+  }
 }
 
 WebPanel::~WebPanel() {
@@ -141,6 +184,19 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
                                                  WebBrowserComponent::NativeFunctionCompletion done) {
         done(connect(args));
       })
+      // The page's data files, for a web view that will not fetch them from
+      // the resource provider (ui/src/data.ts askPlugin).
+      .withNativeFunction("gnarlData", [this](const Array<var>& args,
+                                              WebBrowserComponent::NativeFunctionCompletion done) {
+        String file = args.isEmpty() ? String() : args[0].toString();
+        auto resource = file.containsAnyOf("/\\") ? std::nullopt : getResource("/" + file);
+        if (!resource || file.endsWith(".html")) {
+          done(var());
+          return;
+        }
+        done(String::fromUTF8(reinterpret_cast<const char*>(resource->data.data()),
+                              static_cast<int>(resource->data.size())));
+      })
       .withEventListener(kSet, [this](const var& event) { setValue(event); })
       .withEventListener(kGesture, [this](const var& event) { gesture(event); })
       .withEventListener(kNote, [this](const var& event) { note(event); })
@@ -158,6 +214,14 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withEventListener(kExportWav, [this](const var& event) { exportWav(event); })
       .withEventListener(kRevealExports, [this](const var&) { revealExports(); })
       .withEventListener(kHostKey, [this](const var& event) { hostKey(event); })
+      .withEventListener(kParameterMenu, [this](const var& event) {
+        // Async: a host's menu runs its own loop, which must not run inside
+        // the page's call into this one.
+        MessageManager::callAsync([safe = SafePointer<WebPanel>(this), event] {
+          if (safe != nullptr)
+            safe->parameterMenu(event);
+        });
+      })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
         // editors hides the browser that is making it.
@@ -166,17 +230,38 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
 }
 
 std::optional<WebBrowserComponent::Resource> WebPanel::getResource(const String& url) {
-  // The whole panel is one file (ui/scripts/inline.mjs), embedded at build
-  // time. Anything else asked for does not exist.
-  if (url != "/" && url != "/index.html")
+  // The panel is one page (ui/scripts/inline.mjs) and its large data in two
+  // files beside it - the built-in patches and, for MATCH, the browser
+  // build of the engine - all embedded at build time. The page fetches the
+  // data once it is up (ui/src/data.ts). Anything else does not exist.
+  const char* data = nullptr;
+  int size = 0;
+  String mime_type;
+  if (url == "/" || url == "/index.html") {
+    data = GnarlUi::gnarlui_html;
+    size = GnarlUi::gnarlui_htmlSize;
+    // Without the charset WebKit reads the UTF-8 page as Latin-1: "—"
+    // arrives as three Latin-1 characters.
+    mime_type = "text/html; charset=utf-8";
+  }
+  else if (url == "/gnarl-presets.json") {
+    data = GnarlUi::gnarlpresets_json;
+    size = GnarlUi::gnarlpresets_jsonSize;
+    mime_type = "application/json";
+  }
+  else if (url == "/gnarl-engine.b64") {
+    data = GnarlUi::gnarlengine_b64;
+    size = GnarlUi::gnarlengine_b64Size;
+    mime_type = "text/plain";
+  }
+  else {
     return std::nullopt;
+  }
 
-  const auto* data = reinterpret_cast<const std::byte*>(GnarlUi::gnarlui_html);
+  const auto* bytes = reinterpret_cast<const std::byte*>(data);
   WebBrowserComponent::Resource resource;
-  resource.data.assign(data, data + GnarlUi::gnarlui_htmlSize);
-  // Without the charset WebKit reads the UTF-8 page as Latin-1: "—" arrives
-  // as three Latin-1 characters.
-  resource.mimeType = "text/html; charset=utf-8";
+  resource.data.assign(bytes, bytes + size);
+  resource.mimeType = mime_type;
   return resource;
 }
 
@@ -511,6 +596,26 @@ void WebPanel::exportWav(const var& event) {
   browser_->emitEventIfBrowserIsVisible(kExported, var(reply.get()));
 }
 
+void WebPanel::parameterMenu(const var& event) {
+  auto* editor = findParentComponentOfClass<AudioProcessorEditor>();
+  if (editor == nullptr)
+    return;
+  // Null outside a host that offers one (the standalone, a host without
+  // VST3's context menus): then a right-click simply does nothing.
+  const auto* context = editor->getHostContext();
+  if (context == nullptr)
+    return;
+
+  // Off a control the name is empty: the host's menu for the plugin itself.
+  const AudioProcessorParameter* parameter = nullptr;
+  String name = event["name"].toString();
+  if (name.isNotEmpty())
+    parameter = synth_.getBridge(name.toStdString());
+
+  if (auto menu = context->getContextMenuForParameter(parameter))
+    menu->showNativeMenu(editor->getMouseXYRelative());
+}
+
 void WebPanel::hostKey(const var& event) {
   // host_keys.cpp: FL Studio's window keys reach FL, as from Vital's editor.
   if (auto* peer = getPeer())
@@ -599,6 +704,7 @@ Array<var> WebPanel::wobbleCurve() {
 }
 
 void WebPanel::timerCallback() {
+  recoverUnconnectedPage();
   if (!connected_ || !isShowing())
     return;
 

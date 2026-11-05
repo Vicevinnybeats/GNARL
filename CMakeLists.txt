@@ -287,6 +287,10 @@ else()
 endif()
 set(GNARL_UI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 set(GNARL_UI_HTML ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-ui.html)
+# The page's large data, served by the plugin beside it rather than inside it
+# (ui/src/data.ts, web_panel.cpp getResource): the window opens faster.
+set(GNARL_UI_PRESETS ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-presets.json)
+set(GNARL_UI_ENGINE ${CMAKE_CURRENT_BINARY_DIR}/ui/gnarl-engine.b64)
 file(GLOB GNARL_UI_SOURCES CONFIGURE_DEPENDS ${GNARL_UI_DIR}/src/*.ts ${GNARL_UI_DIR}/src/*.css
      ${GNARL_UI_DIR}/src/web/*.ts ${GNARL_UI_DIR}/src/web/*.js
      ${GNARL_UI_DIR}/src/match/*.ts ${GNARL_UI_DIR}/src/match/*.js)
@@ -300,9 +304,11 @@ add_custom_command(
   COMMENT "Installing the web panel's build tools (npm ci)")
 
 add_custom_command(
-  OUTPUT ${GNARL_UI_HTML}
+  OUTPUT ${GNARL_UI_HTML} ${GNARL_UI_PRESETS} ${GNARL_UI_ENGINE}
   COMMAND ${GNARL_NPM_RUN} run build
   COMMAND ${CMAKE_COMMAND} -E copy ${GNARL_UI_DIR}/dist/gnarl-ui.html ${GNARL_UI_HTML}
+  COMMAND ${CMAKE_COMMAND} -E copy ${GNARL_UI_DIR}/dist/gnarl-presets.json ${GNARL_UI_PRESETS}
+  COMMAND ${CMAKE_COMMAND} -E copy ${GNARL_UI_DIR}/dist/gnarl-engine.b64 ${GNARL_UI_ENGINE}
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ui/npm-installed.stamp ${GNARL_UI_SOURCES}
           ${GNARL_UI_DIR}/index.html ${GNARL_UI_DIR}/vite.config.ts ${GNARL_UI_DIR}/scripts/inline.mjs
   WORKING_DIRECTORY ${GNARL_UI_DIR}
@@ -311,7 +317,7 @@ add_custom_command(
 juce_add_binary_data(gnarl_ui_data
   NAMESPACE GnarlUi
   HEADER_NAME GnarlUiData.h
-  SOURCES ${GNARL_UI_HTML})
+  SOURCES ${GNARL_UI_HTML} ${GNARL_UI_PRESETS} ${GNARL_UI_ENGINE})
 
 target_sources(gnarl_plugin PRIVATE
   src/plugin/web_panel.cpp
