@@ -79,7 +79,7 @@ jobs:
 
   macos:
     needs: web
-    runs-on: macos-14
+    runs-on: macos-15   # macos-14 jobs were dropped unstarted from 2026-11-05 (image retired)
     steps:
       - uses: actions/checkout@v4
       - name: Fetch the engine for MATCH (built by the web job)

@@ -247,7 +247,7 @@ jobs:
 
   macos-juce8:
     needs: guard
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       #  The JUCE 8 plugin embeds the web panel (ui/), built with npm by
@@ -322,7 +322,7 @@ jobs:
 
   macos:
     needs: guard
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
