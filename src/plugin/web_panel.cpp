@@ -189,8 +189,10 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       .withNativeFunction("gnarlData", [this](const Array<var>& args,
                                               WebBrowserComponent::NativeFunctionCompletion done) {
         String file = args.isEmpty() ? String() : args[0].toString();
-        auto resource = file.containsAnyOf("/\\") ? std::nullopt : getResource("/" + file);
-        if (!resource || file.endsWith(".html")) {
+        std::optional<WebBrowserComponent::Resource> resource;
+        if (!file.containsAnyOf("/\\") && !file.endsWith(".html"))
+          resource = getResource(String("/") + file);
+        if (!resource.has_value()) {
           done(var());
           return;
         }

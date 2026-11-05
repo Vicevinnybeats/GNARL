@@ -55,7 +55,7 @@ jobs:
         run: |
           cmake -B build-cmake -G "Visual Studio 17 2022" -A x64 "-DJUCE_WEBVIEW2_PACKAGE_LOCATION=$env:RUNNER_TEMP\nuget"
           if ($LASTEXITCODE -ne 0) { throw "configure failed" }
-          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 gnarl_plugin_Standalone -- /m /nologo /verbosity:minimal
+          cmake --build build-cmake --config Release --target gnarl_plugin_VST3 gnarl_plugin_Standalone -- /m /nologo /verbosity:minimal /clp:ErrorsOnly
           if ($LASTEXITCODE -ne 0) { throw "build failed" }
       #  One folder: the VST3 next to the standalone, as the site's install
       #  notes describe, plus the notes themselves.
