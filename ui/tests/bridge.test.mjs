@@ -734,6 +734,26 @@ check(after === before, `idle for 0.5 s, the page sent ${after - before} values 
   await sheet.locator('.evolve__close').click();
 }
 
+// The plugin's bridge arriving after the page's script has run (a web view
+// that adds it late): right-click and FL Studio's keys still reach the host.
+// Registered only when the bridge was there at start, they did nothing.
+{
+  const late = await browser.newPage({ viewport: { width: 1400, height: 820 } });
+  await late.goto(page_url);
+  await late.waitForSelector('.app [data-param]');
+  await late.evaluate(() => {
+    const log = [];
+    window.__lateLog = log;
+    window.__JUCE__ = { initialisationData: {}, backend: { addEventListener() {}, emitEvent(id, p) { log.push([id, p]); } } };
+  });
+  await late.locator('.app [data-param]').first().click({ button: 'right', force: true });
+  await late.keyboard.press('F6');
+  const sent = await late.evaluate(() => window.__lateLog.map(([id]) => id));
+  check(sent.includes('gnarlParamMenu') && sent.includes('gnarlHostKey'),
+    `a bridge added after start still gets right-click and F6: ${JSON.stringify(sent)}`);
+  await late.close();
+}
+
 check(errors.length === 0, `no page errors ${JSON.stringify(errors)}`);
 await browser.close();
 server.close();

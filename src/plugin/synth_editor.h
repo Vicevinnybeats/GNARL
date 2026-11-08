@@ -31,6 +31,9 @@
 class SynthEditor : public AudioProcessorEditor, public SynthGuiInterface {
   public:
     SynthEditor(SynthPlugin&);
+  #if GNARL_WEB_UI
+    ~SynthEditor() override;
+  #endif
 
     void paint(Graphics&) override { }
     void resized() override;
@@ -49,7 +52,8 @@ class SynthEditor : public AudioProcessorEditor, public SynthGuiInterface {
     void setUpVitalEditor();
 
   #if GNARL_WEB_UI
-    std::unique_ptr<WebPanel> web_panel_;
+    // Owned by the plugin, which keeps it across editors (claimWebPanel).
+    WebPanel* web_panel_ = nullptr;
   #endif
     SynthPlugin& synth_;
     bool was_animating_;

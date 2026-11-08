@@ -211,6 +211,55 @@ Windows (web view) menu instead of FL Studio's.
   alive between opens would need JUCE patched to move a WebView2 to a new
   window, which only a Windows test can prove.
 
+## Reopening without a reload, and no browser menu at all (2026-11-08)
+
+The producer, on beta.33 in FL Studio: opening is still slow next to Vital,
+reopening a GNARL takes as long as the first open, and right-click still
+shows the web view's menu (Back, Refresh, Save as, Print) on a knob.
+
+Measured first: the plugin itself is not the cost (the JUCE 8 VST3
+instantiates in about 0.1 s warm, 0.9 s cold, on Linux), nor the page (in
+Chromium it has asked `gnarlConnect` 140 ms after navigation). The cost is
+the WebView2: FL destroys the editor on close, the browser and its process
+went with it, and every open started a browser and loaded the page again.
+
+- **The panel outlives the editor.** `SynthPlugin` owns the `WebPanel`
+  (`claimWebPanel` / `parkWebPanel`). Closing the window moves it, still
+  loaded and connected, into a hidden window (`PanelParking`); the next
+  editor takes it back. Reopening is a window move: no browser start, no
+  page load, and the page keeps its state (an open sheet, DRUMS). Made on
+  the first open only, so loading a project with many GNARLs starts no
+  browser. While parked the timer sends nothing (`isShowing` is false) and
+  the page's animation stops (the WebView2 is hidden); what changed while
+  closed - automation, a preset from the host - is sent as a difference on
+  the next tick after reopening. Held notes are released on close.
+  Linux's web view (another process's window, embedded) does not move, so
+  there the panel still goes with the editor.
+- That needed JUCE patched twice (third_party/juce-patches/README.md): the
+  WebView2 follows its component into another window (`put_ParentWindow`;
+  if Windows refuses - windows of different DPI awareness - a new WebView2
+  is made there and the page loads again, so the worst case is the old
+  speed, never a blank window), and the VST3 wrapper deletes the editor
+  before its window rather than after (Windows destroys a window's
+  children with it; the panel must leave first). The parking window is made
+  with the editor window's DPI awareness for the same reason.
+- **The WebView2 profile** moved from the temp folder, which Windows
+  empties, to `%LOCALAPPDATA%\GNARL\WebView2`: it holds the compiled page,
+  and a fresh profile is a cold start. The browser's background is the
+  panel's colour while the page loads, not white.
+- **Right-click.** The page's own guard (`preventDefault` on `contextmenu`)
+  was registered only if the plugin's bridge existed when the page's script
+  ran; it now asks at the event (ui/src/main.ts; `bridge.test.mjs` adds the
+  bridge after load and right-clicks: the old code sent nothing, the new
+  sends `gnarlParamMenu`, and F6 still reaches the host). Belt and braces,
+  the web view's default menu is switched off in JUCE
+  (`AreDefaultContextMenusEnabled`), so it cannot appear whatever the page
+  does; the `contextmenu` event still reaches the page. Text fields lose
+  their menu with it: paste is Ctrl+V.
+- **Not provable here**: every part of the move is Windows (or macOS) code
+  this Linux container compiles for neither. The Linux build compiles the
+  ownership change and the tests cover the page; FL Studio is the test.
+
 ## Next
 
 1. The producer opens the `GNARL-windows-vst3-juce8` artifact in FL Studio

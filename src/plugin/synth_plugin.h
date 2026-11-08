@@ -32,6 +32,9 @@
 #endif
 
 class ValueBridge;
+#if GNARL_WEB_UI
+class WebPanel;
+#endif
 
 class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge::Listener {
   public:
@@ -87,6 +90,16 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
       return found == bridge_lookup_.end() ? nullptr : found->second;
     }
 
+#if GNARL_WEB_UI
+    // MESSAGE THREAD. The web panel outlives the editor: closing GNARL's
+    // window parks it in a hidden window, still loaded, and the next editor
+    // takes it back - so reopening is instant instead of starting a browser
+    // and loading the page again. Made on the first open, never before: a
+    // project with twenty GNARLs starts no browser until one is opened.
+    WebPanel& claimWebPanel(std::function<void()> show_classic_editor);
+    void parkWebPanel();
+#endif
+
 #if GNARL_LICENSING
     // MESSAGE THREAD. The panel reads the state for its banner and hands a
     // typed key here; nothing on the audio thread touches any of it.
@@ -103,6 +116,11 @@ class SynthPlugin : public SynthBase, public AudioProcessor, public ValueBridge:
     AudioPlayHead::CurrentPositionInfo position_info_;
 
     std::map<std::string, ValueBridge*> bridge_lookup_;
+
+#if GNARL_WEB_UI
+    std::unique_ptr<Component> panel_parking_;
+    std::unique_ptr<WebPanel> web_panel_;
+#endif
 
 #if GNARL_LICENSING
     void startLicensing();

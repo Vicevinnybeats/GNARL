@@ -14,7 +14,8 @@
  * along with pylon.  If not, see <http://www.gnu.org/licenses/>.
  *
  * Modified by Gnarl Audio, 2026: hosts GNARL's web panel (JUCE 8 builds), and
- * builds Vital's editor only when it is first shown.
+ * builds Vital's editor only when it is first shown, and hands the panel back
+ * to the plugin when it closes.
  */
 
 #include "synth_editor.h"
@@ -52,8 +53,8 @@ SynthEditor::SynthEditor(SynthPlugin& synth) :
   total_bounds.removeFromBottom(kHeightBuffer);
 
 #if GNARL_WEB_UI
-  web_panel_ = std::make_unique<WebPanel>(synth, [this] { showClassicEditor(); });
-  addAndMakeVisible(web_panel_.get());
+  web_panel_ = &synth.claimWebPanel([this] { showClassicEditor(); });
+  addAndMakeVisible(web_panel_);
 #else
   setUpVitalEditor();
   addAndMakeVisible(gui_.get());
@@ -67,6 +68,13 @@ SynthEditor::SynthEditor(SynthPlugin& synth) :
   setResizable(true, true);
   setSize(width, height);
 }
+
+#if GNARL_WEB_UI
+SynthEditor::~SynthEditor() {
+  // The panel stays loaded for the next open (SynthPlugin::claimWebPanel).
+  synth_.parkWebPanel();
+}
+#endif
 
 void SynthEditor::setUpVitalEditor() {
   createGui();

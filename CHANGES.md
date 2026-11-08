@@ -735,3 +735,19 @@ the merge commit forward: `git log 7651809..`.
   parameter (automation clip, link to controller), elsewhere its plugin
   menu; never the web view's Back / Refresh / Print menu. Text fields keep
   theirs; a matrix row's right-click still removes its route.
+
+## 2026-11-08 - Reopening the plugin's window is instant; no browser menu
+
+- The web panel belongs to the plugin, not the editor: closing GNARL's
+  window parks it, still loaded, in a hidden window and the next open takes
+  it back (SynthPlugin::claimWebPanel / parkWebPanel), so reopening starts
+  no browser and loads no page. Windows and macOS; Linux as before.
+- JUCE patch: a WebView2 follows its component into another window (and is
+  remade there if Windows refuses), the VST3 wrapper deletes the editor
+  before its window on Windows, and the web view's own right-click menu is
+  off.
+- The WebView2 profile is kept in %LOCALAPPDATA%\GNARL\WebView2 instead of
+  the temp folder; the web view's background is the panel's colour while it
+  loads.
+- Right-click and FL Studio's keys work even when the plugin's bridge
+  arrives after the page has started (ui/src/main.ts).

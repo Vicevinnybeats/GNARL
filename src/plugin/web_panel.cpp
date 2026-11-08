@@ -159,8 +159,13 @@ void WebPanel::recoverUnconnectedPage() {
 
 WebPanel::~WebPanel() {
   stopTimer();
+  releaseHeldNotes();
+}
+
+void WebPanel::releaseHeldNotes() {
   for (int note : held_notes_)
     synth_.getKeyboardState()->noteOff(1, note, 0.0f);
+  held_notes_.clear();
 }
 
 void WebPanel::resized() {
@@ -170,12 +175,21 @@ void WebPanel::resized() {
 WebBrowserComponent::Options WebPanel::makeOptions() {
   // WebView2 keeps its profile in a folder it must be able to write. The
   // default is beside the host's executable, which a plugin cannot assume.
+  // Not the temp folder, which Windows empties: the profile holds the
+  // compiled page, and a fresh one costs a cold start every time.
+#if JUCE_WINDOWS
+  File user_data = File::getSpecialLocation(File::windowsLocalAppData).getChildFile("GNARL").getChildFile("WebView2");
+#else
   File user_data = File::getSpecialLocation(File::tempDirectory).getChildFile("GNARL-webview");
+#endif
 
   return WebBrowserComponent::Options{}
       .withBackend(WebBrowserComponent::Options::Backend::webview2)
       .withWinWebView2Options(WebBrowserComponent::Options::WinWebView2{}
                                   .withUserDataFolder(user_data)
+                                  // The panel's own background while the
+                                  // page loads, not a white flash.
+                                  .withBackgroundColour(Colour(0xff07040f))
                                   .withStatusBarDisabled())
       .withNativeIntegrationEnabled()
       .withKeepPageLoadedWhenBrowserIsHidden()
@@ -229,8 +243,13 @@ WebBrowserComponent::Options WebPanel::makeOptions() {
       })
       .withEventListener(kClassic, [this](const var&) {
         // Async: the listener runs inside the page's call, and switching
-        // editors hides the browser that is making it.
-        MessageManager::callAsync([callback = show_classic_editor_] { callback(); });
+        // editors hides the browser that is making it. The editor of the
+        // moment, if the window is still open by then.
+        SafePointer<WebPanel> safe(this);
+        MessageManager::callAsync([safe] {
+          if (safe != nullptr && safe->show_classic_editor_)
+            safe->show_classic_editor_();
+        });
       });
 }
 

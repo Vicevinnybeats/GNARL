@@ -64,6 +64,23 @@ index c4d34f0..15ba681 100644
  
          writeChunkHeader (chunkName ("data"), isRF64 ? -1 : (int) (lengthInSamples * bytesPerFrame));
      }
+diff --git a/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp b/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp
+index efb9c15..6d34c28 100644
+--- a/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp
++++ b/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.cpp
+@@ -2019,7 +2019,11 @@ private:
+             if (component != nullptr)
+             {
+                #if JUCE_WINDOWS
+-                component->removeFromDesktop();
++                // GNARL: the editor is deleted while its window still exists
++                // (below, ~Component removes the window after its children),
++                // so a plug-in can move a child window it keeps - GNARL's web
++                // panel - out of it first. Removed first, Windows destroyed
++                // the panel's WebView2 along with the window.
+                #elif JUCE_MAC
+                 if (macHostWindow != nullptr)
+                 {
 diff --git a/modules/juce_gui_basics/buttons/juce_Button.cpp b/modules/juce_gui_basics/buttons/juce_Button.cpp
 index d06fd22..c88b448 100644
 --- a/modules/juce_gui_basics/buttons/juce_Button.cpp
@@ -371,6 +388,70 @@ index f2e8a95..65b3c62 100644
          auto len        = sizeof (size_t) + jsonLength;
  
          HeapBlock<char> buffer (len);
+diff --git a/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp b/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
+index ddd7343..bddab8b 100644
+--- a/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
++++ b/modules/juce_gui_extra/native/juce_WebBrowserComponent_windows.cpp
+@@ -606,9 +606,47 @@ public:
+ 
+     void componentPeerChanged() override
+     {
++        // GNARL: follow the component into another window. A plug-in keeps
++        // its panel alive while its editor is closed (parked in a hidden
++        // window) and moves it back when it reopens; without this the
++        // WebView2 stays a child of the window it was made in.
++        if (webViewController != nullptr)
++        {
++            if (auto* peer = owner.getTopLevelComponent()->getPeer())
++            {
++                const auto hwnd = (HWND) peer->getNativeHandle();
++                HWND current = nullptr;
++                webViewController->get_ParentWindow (&current);
++
++                // Windows can refuse (two windows of different DPI
++                // awareness): then make a new WebView2 in this window and
++                // load the page again - slower, never blank.
++                if (current != hwnd && FAILED (webViewController->put_ParentWindow (hwnd)))
++                    remakeWebViewInCurrentWindow();
++            }
++        }
++
+         componentMovedOrResized (true, true);
+     }
+ 
++    // GNARL: closeWebView() without dropping the environment, which only the
++    // constructor can make.
++    void remakeWebViewInCurrentWindow()
++    {
++        removeEventHandlers();
++
++        if (auto* webViewNativeWindow = AccessibilityHandler::getNativeChildForComponent (*this))
++            webView2ConstructionHelper.associatedWebViewNativeWindows.erase (webViewNativeWindow);
++
++        AccessibilityHandler::setNativeChildForComponent (*this, nullptr);
++        webViewController->Close();
++        webViewController = nullptr;
++        webView = nullptr;
++
++        createBrowser();
++        owner.reloadLastURL();
++    }
++
+     void componentVisibilityChanged() override
+     {
+         setControlVisible (owner.isShowing());
+@@ -1021,6 +1059,11 @@ private:
+            #endif
+ 
+             settings->put_IsStatusBarEnabled (! preferences.getWinWebView2BackendOptions().getIsStatusBarDisabled());
++
++            // GNARL: no browser menu (Back, Refresh, Save as, Print) on a
++            // right-click. The page still receives the contextmenu event and
++            // asks the host for its parameter menu instead.
++            settings->put_AreDefaultContextMenusEnabled (FALSE);
+             settings->put_IsBuiltInErrorPageEnabled (! preferences.getWinWebView2BackendOptions().getIsBuiltInErrorPageDisabled());
+ 
+             if (userAgent.isNotEmpty())
 diff --git a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp b/modules/juce_opengl/opengl/juce_OpenGLContext.cpp
 index 27f8ace..bac39bb 100644
 --- a/modules/juce_opengl/opengl/juce_OpenGLContext.cpp

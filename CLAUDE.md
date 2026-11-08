@@ -357,7 +357,15 @@ codebase:
   `WebPanel::recoverUnconnectedPage` hides and shows the browser every 3 s
   while unconnected (then remakes it once). **Right-click** in the plugin is
   the HOST's menu (`gnarlParamMenu` -> `getContextMenuForParameter`), never
-  the web view's; a control with its own right-click calls `preventDefault`.
+  the web view's (switched off in the JUCE patch); a control with its own
+  right-click calls `preventDefault`. Page code that asks "am I in the
+  plugin?" asks at the event: the bridge can arrive after the script runs.
+- **The web panel belongs to `SynthPlugin`, not the editor.** Closing the
+  window parks it, loaded, in a hidden window (`claimWebPanel` /
+  `parkWebPanel`); reopening moves it back, which is why reopening is
+  instant. That rests on two JUCE patches (the WebView2 follows its window;
+  the VST3 wrapper deletes the editor before its window). Anything in the
+  panel tied to one editor must be rebound in `claimWebPanel`.
 - **Vital's `sub_*` parameters are not free.** They are the retired sub
   oscillator's: still host parameters, dead in the engine, migrated into osc
   3 by `LoadSave` for old presets (a preset holding `sub_octave` triggers it).

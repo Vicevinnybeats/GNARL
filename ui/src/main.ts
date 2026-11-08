@@ -1901,10 +1901,14 @@ function start(): void {
   // Right-click in the plugin: the HOST's menu, never the web view's (Back,
   // Refresh, Print...). On a control it is that parameter's - FL Studio's
   // "Create automation clip", "Link to controller" - as on Vital's own
-  // knobs; elsewhere the host's menu for the plugin (web_panel.cpp). A text
-  // field keeps its own menu, for paste.
-  if (isPlugin()) {
+  // knobs; elsewhere the host's menu for the plugin (web_panel.cpp). The web
+  // view's own menu is switched off in the plugin (juce-patches), so a text
+  // field has none either: paste is Ctrl+V.
+  // Both asked at the event, not once at start: the web view can add the
+  // plugin's bridge after this page's script has run.
+  {
     window.addEventListener('contextmenu', (e) => {
+      if (!isPlugin()) return;
       // A control with its own right-click (a matrix row removes its route)
       // has used it.
       if (e.defaultPrevented) return;
@@ -1916,10 +1920,10 @@ function start(): void {
     });
   }
 
-  if (isPlugin()) {
+  {
     for (const type of ['keydown', 'keyup'] as const) {
       window.addEventListener(type, (e) => {
-        if (!isHostKey(e)) return;
+        if (!isPlugin() || !isHostKey(e)) return;
         e.preventDefault();
         window.__JUCE__?.backend.emitEvent('gnarlHostKey', { keyCode: e.keyCode, down: type === 'keydown', alt: e.altKey });
       });

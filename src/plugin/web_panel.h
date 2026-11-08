@@ -40,6 +40,14 @@ class WebPanel : public Component, private Timer {
 
     void resized() override;
 
+    // The editor that shows the panel changes (SynthPlugin::claimWebPanel);
+    // ADVANCED opens Vital's editor in the current one. Null while parked.
+    void setShowClassicEditor(std::function<void()> show_classic_editor) {
+      show_classic_editor_ = std::move(show_classic_editor);
+    }
+    // Notes the panel's keyboard holds, released (the window is closing).
+    void releaseHeldNotes();
+
   private:
     struct Bound {
       ValueBridge* bridge = nullptr;

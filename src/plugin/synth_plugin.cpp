@@ -20,6 +20,9 @@
 #include "synth_editor.h"
 #include "sound_engine.h"
 #include "load_save.h"
+#if GNARL_WEB_UI
+#include "web_panel.h"
+#endif
 
 #if GNARL_LICENSING
 #include "licence/licence_client.h"
@@ -107,6 +110,11 @@ bool SynthPlugin::presetSavingAllowed() {
 #endif
 
 SynthPlugin::~SynthPlugin() {
+#if GNARL_WEB_UI
+  // First: the panel releases its held notes through the keyboard state.
+  web_panel_ = nullptr;
+  panel_parking_ = nullptr;
+#endif
   midi_manager_ = nullptr;
   keyboard_state_ = nullptr;
 }
@@ -253,6 +261,69 @@ void SynthPlugin::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midi_messa
 bool SynthPlugin::hasEditor() const {
   return true;
 }
+
+#if GNARL_WEB_UI
+namespace {
+  // Where the web panel waits while GNARL's window is closed: a window that
+  // is never shown. Made with the DPI awareness of the editor's window, so
+  // Windows lets the WebView2 move between the two (it refuses a move
+  // between windows of different awareness; JUCE's patched WebView2 then
+  // makes a new one - juce-patches/README.md).
+  class PanelParking : public Component {
+    public:
+      PanelParking(void* like_window, Rectangle<int> bounds) {
+        setBounds(bounds);
+        setOpaque(true);
+#if JUCE_WINDOWS
+        std::optional<ScopedThreadDPIAwarenessSetter> dpi;
+        if (like_window != nullptr)
+          dpi.emplace(like_window);
+#else
+        ignoreUnused(like_window);
+#endif
+        addToDesktop(ComponentPeer::windowIsTemporary);
+      }
+
+      void paint(Graphics& g) override { g.fillAll(Colours::black); }
+  };
+}
+
+WebPanel& SynthPlugin::claimWebPanel(std::function<void()> show_classic_editor) {
+  if (web_panel_ == nullptr)
+    web_panel_ = std::make_unique<WebPanel>(*this, std::move(show_classic_editor));
+  else
+    web_panel_->setShowClassicEditor(std::move(show_classic_editor));
+
+  if (Component* parent = web_panel_->getParentComponent())
+    parent->removeChildComponent(web_panel_.get());
+  web_panel_->setVisible(true);
+  return *web_panel_;
+}
+
+void SynthPlugin::parkWebPanel() {
+  if (web_panel_ == nullptr)
+    return;
+
+  web_panel_->releaseHeldNotes();
+  web_panel_->setShowClassicEditor(nullptr);
+
+  // Linux's web view is another process's window embedded in this one, and
+  // does not move: there the panel goes with the editor, as it always did.
+#if JUCE_WINDOWS || JUCE_MAC
+  if (panel_parking_ == nullptr) {
+    ComponentPeer* peer = web_panel_->getPeer();
+    panel_parking_ = std::make_unique<PanelParking>(peer != nullptr ? peer->getNativeHandle() : nullptr,
+                                                    web_panel_->getBounds());
+  }
+  // Called from the editor's destructor, while its window still exists
+  // (juce-patches: the VST3 wrapper deletes the editor before the window).
+  panel_parking_->setSize(web_panel_->getWidth(), web_panel_->getHeight());
+  panel_parking_->addAndMakeVisible(web_panel_.get());
+#else
+  web_panel_ = nullptr;
+#endif
+}
+#endif
 
 AudioProcessorEditor* SynthPlugin::createEditor() {
   return new SynthEditor(*this);

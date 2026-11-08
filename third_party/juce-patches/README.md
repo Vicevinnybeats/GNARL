@@ -57,6 +57,22 @@ the pipe's buffer (the panel's page is ~170 KB):
   partially received message. It now reads the rest of a message it has
   started in blocking mode.
 
+**New for keeping the web panel alive between opens** (docs/design/
+phase2-04-web-panel.md, 2026-11-08):
+
+- `WebBrowserComponent` (Windows): `componentPeerChanged` moves the WebView2
+  into the component's new window (`put_ParentWindow`). JUCE left it a child
+  of the window it was made in, so a browser moved to another window stayed
+  behind. If Windows refuses the move, a new WebView2 is made in the new
+  window and the page loads again (`remakeWebViewInCurrentWindow`).
+- `WebBrowserComponent` (Windows): `AreDefaultContextMenusEnabled` off - no
+  Back / Refresh / Save as / Print menu on a right-click. The page still
+  gets the `contextmenu` event and shows the host's parameter menu.
+- VST3 wrapper (Windows), `removed()`: the editor is deleted before its
+  window is taken off the desktop, not after. Windows destroys a window's
+  child windows with it, so the panel's WebView2 died with the window
+  before the editor's destructor could move it out.
+
 **Not ported**, because JUCE 8 already does it or GNARL doesn't need it:
 
 - the VST3 controller null check (JUCE 8 checks where it dereferences);
