@@ -22,6 +22,11 @@
 #include "load_save.h"
 #if GNARL_WEB_UI
 #include "web_panel.h"
+// JUCE declares this only for its own plug-in wrappers (the header has no
+// include guard, so only where juce_gui_basics.h has not included it).
+#if JUCE_WINDOWS && !JUCE_GUI_BASICS_INCLUDE_SCOPED_THREAD_DPI_AWARENESS_SETTER
+#include <juce_gui_basics/native/juce_ScopedThreadDPIAwarenessSetter_windows.h>
+#endif
 #endif
 
 #if GNARL_LICENSING
